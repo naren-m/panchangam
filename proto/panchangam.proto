@@ -7,7 +7,13 @@ syntax = "proto3";
 
 package panchangam;
 
-option go_package = "github.com/naren-m/panchangam/proto/panchangam";
+option go_package = "./panchangam";
+
+// Panchangam service definition
+service Panchangam {
+    // RPC method to retrieve Panchangam data for a specific date
+    rpc Get(GetPanchangamRequest) returns (GetPanchangamResponse);
+}
 
 // Panchangam data for a specific date
 message PanchangamData {
