@@ -10,9 +10,11 @@ import (
 	"google.golang.org/grpc"
 )
 
-type PanchangamServer struct{}
+type PanchangamServer struct{
+	ppb.UnimplementedPanchangamServer
+}
 
-func (s *PanchangamServer) GetPanchangam(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
+func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
 	// Get the date from the request
 	requestedDate := req.Date
 
