@@ -1,65 +1,84 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net"
 
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
+	ps "github.com/naren-m/panchangam/services/panchangam"
+
 
 	"google.golang.org/grpc"
-	log "github.com/naren-m/panchangam/logging"
+	logging "github.com/naren-m/panchangam/logging"
+
+	"go.opentelemetry.io/otel"
+	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+    "go.opentelemetry.io/otel/sdk/resource"
+    "go.opentelemetry.io/otel/sdk/trace"
+
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+
 )
 
-type PanchangamServer struct{
-	ppb.UnimplementedPanchangamServer
+
+
+
+
+// initTracing sets up the OpenTelemetry tracing.
+func initTracing() {
+    // Create a new exporter to logging to stdout
+    exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+    if err != nil {
+        logging.Logger.Fatalf("failed to initialize stdouttrace export pipeline: %v", err)
+    }
+
+    // Create a new tracer provider with a batch span processor and the stdout exporter
+    tp := trace.NewTracerProvider(
+        trace.WithBatcher(exporter),
+        trace.WithResource(resource.NewWithAttributes(
+            semconv.SchemaURL,
+            semconv.ServiceNameKey.String("panchangam service"),
+        )),
+    )
+
+    // Set the global TracerProvider
+    otel.SetTracerProvider(tp)
 }
 
-func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
-	// Get the date from the request
-	requestedDate := req.Date
-
-	// Here you would implement your logic to fetch Panchangam data for the requested date
-	// For this example, we'll just return some dummy data
-	panchangamData := &ppb.PanchangamData{
-		Date:        requestedDate,
-		Tithi:       "Some Tithi",
-		Nakshatra:   "Some Nakshatra",
-		Yoga:        "Some Yoga",
-		Karana:      "Some Karana",
-		SunriseTime: "06:00:00", // Example sunrise time
-		SunsetTime:  "18:00:00", // Example sunset time
-		Events: []*ppb.PanchangamEvent{
-			{Name: "Some Event 1", Time: "08:00:00"},
-			{Name: "Some Event 2", Time: "12:00:00"},
-		},
-	}
-
-	// Create and return the response
-	response := &ppb.GetPanchangamResponse{
-		PanchangamData: panchangamData,
-	}
-	return response, nil
-}
 
 func main() {
-		// Initialize the logger
-		log.Logger.Info("Starting server...")
-		log.Logger.Debug("Starting server...")
+
+	// Step 1: Initialize OpenTelemetry
+	initTracing()
+
+	// Step 2: Use the logging package to create spans and log messages
+	_, span := logging.CreateSpan("main")
+	defer span.End()
+
+	// Perform some operation here...
+
+	// Log a message without trace context
+	logging.Logger.Info("This is a regular log message.")
+
+	// Log a message with trace context
+	logging.LogWithTrace(span, logging.Logger.Level, "This is a log message with trace context.", nil)
+	// Initialize the logger
+	logging.Logger.Info("Starting server...")
+	logging.Logger.Debug("Starting server...")
 	// Create a listener on TCP port 50051
 	listener, err := net.Listen("tcp", ":50051")
 	if err != nil {
-		log.Logger.Fatalf("Failed to listen: %v", err)
+		logging.Logger.Fatalf("Failed to listen: %v", err)
 		return
 	}
+	grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
 
 	// Create a new gRPC server
-	grpcServer := grpc.NewServer()
-
 	// Register the Panchangam service with the server
-	ppb.RegisterPanchangamServer(grpcServer, &PanchangamServer{})
+	ppb.RegisterPanchangamServer(grpcServer, &ps.PanchangamServer{})
 
-	log.Logger.Info("Server started on port :50051")
+	logging.Logger.Info("Server started on port :50051")
 
 	// Start serving requests
 	err = grpcServer.Serve(listener)
