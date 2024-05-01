@@ -7,6 +7,8 @@ syntax = "proto3";
 
 package panchangam;
 
+option go_package = "github.com/naren-m/panchangam/proto/panchangam";
+
 // Panchangam data for a specific date
 message PanchangamData {
     // Date for which Panchangam data is provided (in ISO 8601 format: YYYY-MM-DD)
