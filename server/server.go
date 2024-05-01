@@ -8,6 +8,7 @@ import (
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
 
 	"google.golang.org/grpc"
+	log "github.com/naren-m/panchangam/logging"
 )
 
 type PanchangamServer struct{
@@ -42,10 +43,13 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
 }
 
 func main() {
+		// Initialize the logger
+		log.Logger.Info("Starting server...")
+		log.Logger.Debug("Starting server...")
 	// Create a listener on TCP port 50051
 	listener, err := net.Listen("tcp", ":50051")
 	if err != nil {
-		fmt.Println("Failed to listen:", err)
+		log.Logger.Fatalf("Failed to listen: %v", err)
 		return
 	}
 
@@ -55,7 +59,8 @@ func main() {
 	// Register the Panchangam service with the server
 	ppb.RegisterPanchangamServer(grpcServer, &PanchangamServer{})
 
-	fmt.Println("Starting server on port :50051")
+	log.Logger.Info("Server started on port :50051")
+
 	// Start serving requests
 	err = grpcServer.Serve(listener)
 	if err != nil {
