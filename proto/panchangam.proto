@@ -1,0 +1,56 @@
+// PanchangamData represents the Panchangam data for a specific date, including Tithi, Nakshatra, Yoga, Karana, sunrise time, sunset time, and any additional events.
+// PanchangamEvent represents an event or special occurrence in the Panchangam, such as Rahu Kalam or Yamagandam.
+// GetPanchangamRequest is the request message sent to the server to retrieve Panchangam data for a specific date.
+//GetPanchangamResponse is the response message containing the requested Panchangam data.
+
+syntax = "proto3";
+
+package panchangam;
+
+// Panchangam data for a specific date
+message PanchangamData {
+    // Date for which Panchangam data is provided (in ISO 8601 format: YYYY-MM-DD)
+    string date = 1;
+
+    // Tithi (lunar day) for the given date
+    string tithi = 2;
+
+    // Nakshatra (lunar mansion) for the given date
+    string nakshatra = 3;
+
+    // Yoga for the given date
+    string yoga = 4;
+
+    // Karana for the given date
+    string karana = 5;
+
+    // Sunrise time for the given date (in ISO 8601 format: HH:MM:SS)
+    string sunrise_time = 6;
+
+    // Sunset time for the given date (in ISO 8601 format: HH:MM:SS)
+    string sunset_time = 7;
+
+    // Additional Panchangam details or events for the given date
+    repeated PanchangamEvent events = 8;
+}
+
+// Represents an event or special occurrence in the Panchangam
+message PanchangamEvent {
+    // Name or description of the event
+    string name = 1;
+
+    // Time of the event (in ISO 8601 format: HH:MM:SS)
+    string time = 2;
+}
+
+// Request message to retrieve Panchangam data for a specific date
+message GetPanchangamRequest {
+    // Date for which Panchangam data is requested (in ISO 8601 format: YYYY-MM-DD)
+    string date = 1;
+}
+
+// Response message containing Panchangam data for the requested date
+message GetPanchangamResponse {
+    // Panchangam data for the requested date
+    PanchangamData panchangam_data = 1;
+}
