@@ -1,0 +1,95 @@
+{
+        "Name": "fetchPanchangamData",
+        "SpanContext": {
+                "TraceID": "e94bb2f3448e2f3fc57b4b168ca01804",
+                "SpanID": "bd948b029993f8eb",
+                "TraceFlags": "01",
+                "TraceState": "",
+                "Remote": false
+        },
+        "Parent": {
+                "TraceID": "e94bb2f3448e2f3fc57b4b168ca01804",
+                "SpanID": "54ecf27442bf46d4",
+                "TraceFlags": "01",
+                "TraceState": "",
+                "Remote": false
+        },
+        "SpanKind": 1,
+        "StartTime": "2024-05-02T01:26:52.809655-07:00",
+        "EndTime": "2024-05-02T01:26:54.810906125-07:00",
+        "Attributes": [
+                {
+                        "Key": "hello",
+                        "Value": {
+                                "Type": "STRING",
+                                "Value": "world"
+                        }
+                },
+                {
+                        "Key": "isTrue",
+                        "Value": {
+                                "Type": "BOOL",
+                                "Value": true
+                        }
+                },
+                {
+                        "Key": "stringAttr",
+                        "Value": {
+                                "Type": "STRING",
+                                "Value": "hi!"
+                        }
+                }
+        ],
+        "Events": null,
+        "Links": null,
+        "Status": {
+                "Code": "Unset",
+                "Description": ""
+        },
+        "DroppedAttributes": 0,
+        "DroppedEvents": 0,
+        "DroppedLinks": 0,
+        "ChildSpanCount": 0,
+        "Resource": [
+                {
+                        "Key": "service.name",
+                        "Value": {
+                                "Type": "STRING",
+                                "Value": "panchangam"
+                        }
+                },
+                {
+                        "Key": "service.version",
+                        "Value": {
+                                "Type": "STRING",
+                                "Value": "0.1.0"
+                        }
+                },
+                {
+                        "Key": "telemetry.sdk.language",
+                        "Value": {
+                                "Type": "STRING",
+                                "Value": "go"
+                        }
+                },
+                {
+                        "Key": "telemetry.sdk.name",
+                        "Value": {
+                                "Type": "STRING",
+                                "Value": "opentelemetry"
+                        }
+                },
+                {
+                        "Key": "telemetry.sdk.version",
+                        "Value": {
+                                "Type": "STRING",
+                                "Value": "1.26.0"
+                        }
+                }
+        ],
+        "InstrumentationLibrary": {
+                "Name": "go.opentelemetry.io/otel/sdk/tracer",
+                "Version": "",
+                "SchemaURL": ""
+        }
+}

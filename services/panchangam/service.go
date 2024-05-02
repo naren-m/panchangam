@@ -7,50 +7,48 @@ import (
 
 	"github.com/naren-m/panchangam/logging"
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
-	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type PanchangamServer struct {
 	span *logging.Span
+	tracer trace.Tracer
     ppb.UnimplementedPanchangamServer
 }
 
-func NewPanchangamServer(span *logging.Span) *PanchangamServer {
+func NewPanchangamServer(span *logging.Span, tracer trace.Tracer) *PanchangamServer {
 	return &PanchangamServer{
 		span: span,
+		tracer: tracer,
 	}
 }
 
 func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
     // Create a child span for the service-level operation.
-    span := logging.NewSpan(ctx, "PanchangamServer.Get", logrus.DebugLevel)
-    defer span.End()
+	span := trace.SpanFromContext(ctx)
 
-	var myKey = attribute.Key("PanchangamServer")
-	span.Span.SetAttributes(myKey.String("Get"))
+	span.SetAttributes(
+		attribute.String("app.date", req.GetDate()),
+	)
 
-	span.Trace("Fetching panchangam data", logrus.Fields{"date": req.Date, })
 
-    d, _ := s.fetchPanchangamData(span.Ctx, req.Date)
+    d, _ := s.fetchPanchangamData(ctx, req.Date)
     response := &ppb.GetPanchangamResponse{
         PanchangamData: d,
     }
-
-    span1 := logging.NewSpan(s.span.Ctx, "Second PanchangamServer.Get", logrus.DebugLevel)
-    defer span1.End()
+	span.AddEvent("prepared")
 
     return response, nil
 }
 
 func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, date string) (*ppb.PanchangamData, error) {
-    span := logging.NewSpan(ctx, "fetchPanchangamData", logrus.DebugLevel)
-    defer span.End()
+	ctx, span := s.tracer.Start(ctx, "prepareOrderItemsAndShippingQuoteFromCart")
+	defer span.End()
 
-	span.Trace("in the database", logrus.Fields{"date": date, })
 	time.Sleep(2 * time.Second)
 
-	span.Trace("in the database, after sleep", logrus.Fields{"date": date, })
+	span.AddEvent("fetching panchangam data")
     return &ppb.PanchangamData{
         Date:        date,
         Tithi:       "Some Tithi",

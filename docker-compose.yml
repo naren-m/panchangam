@@ -1,0 +1,20 @@
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
+
+version: '3.9'
+services:
+  # ********************
+  # Telemetry Components
+  # ********************
+  # Jaeger
+  jaeger:
+    image: jaegertracing/opentelemetry-all-in-one
+    container_name: jaeger
+    command:
+      - "--memory.max-traces=5000"
+      - "--query.base-path=/jaeger/ui"
+    restart: unless-stopped
+    ports:
+      - "16686:16686"         # Jaeger UI
+      - "4317:4317"           # Jaeger Collector
+
