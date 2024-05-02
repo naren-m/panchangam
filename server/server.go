@@ -11,46 +11,14 @@ import (
 	"google.golang.org/grpc"
 	logging "github.com/naren-m/panchangam/logging"
 
-	"go.opentelemetry.io/otel"
-	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-    "go.opentelemetry.io/otel/sdk/resource"
-    "go.opentelemetry.io/otel/sdk/trace"
-
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
 )
 
 
-
-
-
-// initTracing sets up the OpenTelemetry tracing.
-func initTracing() {
-    // Create a new exporter to logging to stdout
-    exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
-    if err != nil {
-        logging.Logger.Fatalf("failed to initialize stdouttrace export pipeline: %v", err)
-    }
-
-    // Create a new tracer provider with a batch span processor and the stdout exporter
-    tp := trace.NewTracerProvider(
-        trace.WithBatcher(exporter),
-        trace.WithResource(resource.NewWithAttributes(
-            semconv.SchemaURL,
-            semconv.ServiceNameKey.String("panchangam service"),
-        )),
-    )
-
-    // Set the global TracerProvider
-    otel.SetTracerProvider(tp)
-}
-
-
 func main() {
 
 	// Step 1: Initialize OpenTelemetry
-	initTracing()
 
 	// Step 2: Use the logging package to create spans and log messages
 	_, span := logging.CreateSpan("main")
