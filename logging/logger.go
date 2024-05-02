@@ -22,11 +22,11 @@ func init() {
     Logger.SetOutput(os.Stdout)
 
     // Set log level to Info by default
-    Logger.SetLevel(logrus.InfoLevel)
+    Logger.SetLevel(logrus.DebugLevel)
 
     // Ensure logrus behaves like TTY is disabled
     Logger.SetFormatter(&logrus.TextFormatter{
-        DisableColors: true,
+        // DisableColors: true,
         FullTimestamp: true,
     })
 }
@@ -43,10 +43,9 @@ func LogrusFields(span trace.Span) logrus.Fields {
 // CreateSpan creates a new span with the given name and returns the span and the
 // context containing the span. This function should be called at the beginning of
 // the operations you want to trace.
-func CreateSpan(spanName string) (context.Context, trace.Span) {
+func CreateSpan(ctx context.Context, spanName string) (context.Context, trace.Span) {
     tracer := otel.GetTracerProvider().Tracer("")
 
-	ctx := context.Background()
     // Start a span and return it along with the newly derived context containing the span.
     ctx, span := tracer.Start(ctx, spanName)
 
@@ -56,15 +55,40 @@ func CreateSpan(spanName string) (context.Context, trace.Span) {
     return ctx, span
 }
 
+type Span struct {
+    Span trace.Span
+    Ctx context.Context
+    level logrus.Level
+}
+
+// NewTraceLogger creates a new TraceLogger instance with the given span and context.
+func NewSpan(ctx context.Context, spanName string, level logrus.Level) *Span {
+    ctx, span := otel.GetTracerProvider().Tracer("").Start(ctx, spanName, trace.WithAttributes(attribute.String("hello", "world")))
+    // setting attributes at creation...
+    span.SetAttributes(attribute.Bool("isTrue", true), attribute.String("stringAttr", "hi!"))
+
+    return &Span{
+        Span: span,
+        Ctx:  ctx,
+        level: level,
+    }
+}
+
+func (t * Span) End() {
+    if t.Span != nil {
+        t.Span.End()
+    }
+}
+
 // You can also add a function to log messages with trace context.
-// LogWithTrace logs a message with trace context using the provided log level, message and fields.
-func LogWithTrace(span trace.Span, level logrus.Level, msg string, fields logrus.Fields) {
-    if span != nil {
-        fields = mergeFields(LogrusFields(span), fields)
+// Span logs a message with trace context using the provided log level, message and fields.
+func (t * Span) Trace(msg string, fields logrus.Fields) {
+    if t.Span != nil {
+        fields = mergeFields(LogrusFields(t.Span), fields)
     }
 
     entry := Logger.WithFields(fields)
-    switch level {
+    switch t.level {
     case logrus.DebugLevel:
         entry.Debug(msg)
     case logrus.InfoLevel:
