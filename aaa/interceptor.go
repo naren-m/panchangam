@@ -5,16 +5,13 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/naren-m/panchangam/observability"
-	"github.com/naren-m/panchangam/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"go.opentelemetry.io/otel"
 )
 
 type Interceptor struct {
@@ -29,24 +26,42 @@ func NewInterceptor(t observability.Tracer) *Interceptor {
 	return i
 }
 
-// Tracing middleware
-func (i *Interceptor) TraceInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+// statusCodeAttr assumes to return an appropriate OpenTelemetry attribute based on the gRPC status code.
+func statusCodeAttr(code codes.Code) trace.Attribute {
+    return trace.StringAttribute("grpc.status_code", code.String())
+}
 
-	// Start a new span
-	ctx, span := i.tracer.Start(ctx, info.FullMethod)
-	defer span.End()
+// TraceInterceptor traces a gRPC request by starting a span and recording the status.
+func (i *Interceptor) TraceInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+    // Start a new span
+    ctx, span := i.tracer.Start(ctx, info.FullMethod)
+    defer span.End()
+
+	var err error
+	defer func() {
+		if err != nil {
+			span.AddEvent("error", trace.WithAttributes(semconv.ExceptionMessageKey.String(err.Error())))
+		}
+	}()
+
+    // Call the handler
+    resp, err := handler(ctx, req)
 
     if err != nil {
-		s, _ := status.FromError(err)
-		span.SetStatus(codes.Error, s.Message())
-		span.SetAttributes(statusCodeAttr(s.Code()))
-	  } else {
-		span.SetAttributes(statusCodeAttr(grpc_codes.OK))
-	  }
-	  i, err := handler(ctx, req)
-	// Call the next interceptor or handler
-	return i, errd
+        // Convert the error to a gRPC status, then set the span status and attributes accordingly
+        s, _ := status.FromError(err)
+        span.SetStatus(codes.Error, s.Message())
+        span.SetAttributes(statusCodeAttr(s.Code()))
+    } else {
+        // Set the span status to OK
+        span.SetStatus(codes.Ok, "")
+        span.SetAttributes(statusCodeAttr(codes.Ok))
+    }
+
+    // Return the response from the handler
+    return resp, err
 }
+
 
 // Authentication middleware
 func (i *Interceptor) AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -62,13 +77,12 @@ func (i *Interceptor) AuthInterceptor(ctx context.Context, req interface{}, info
 		return nil, status.Error(codes.Unauthenticated, "authorization token missing")
 	}
 
-
 	return ctx, nil
 }
 
 // Authorization middleware
-func (i *Interceptor) AuthorizeInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error){
-	
+func (i *Interceptor) AuthorizeInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+
 	if rand.Intn(3-1+1) == 2 {
 		return nil, status.Error(codes.PermissionDenied, "Authorization failed")
 	}

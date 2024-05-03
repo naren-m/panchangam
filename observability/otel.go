@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 
@@ -16,8 +17,12 @@ import (
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc/credentials/insecure"
+	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 )
 
+// https://github.com/wavefrontHQ/opentelemetry-examples/blob/master/go-example/manual-instrumentation/main.go
+// https://github.com/wavefrontHQ/opentelemetry-examples/blob/master/go-example/manual-instrumentation/README.md
+// https://opentelemetry.io/docs/demo/services/checkout/
 type Tracer struct {
 	trace.Tracer
 }
@@ -44,7 +49,13 @@ func initResource() *sdkresource.Resource {
 			sdkresource.WithOS(),
 			sdkresource.WithProcess(),
 			sdkresource.WithHost(),
-			sdkresource.WithAttributes(),
+			sdkresource.WithAttributes(
+				semconv.ServiceNameKey.String("panchangam"),
+				attribute.String("application", "panchangam"),
+				attribute.String("service.name", "panchangam"),
+				attribute.String("service.namespace", "observability"),
+				attribute.String("application.version", "0.0.1"),
+			),
 		)
 		resource, _ = sdkresource.Merge(
 			sdkresource.Default(),
