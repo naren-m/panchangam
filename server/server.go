@@ -28,7 +28,6 @@ func main() {
 	mp := observability.InitMeterProvider()
 	defer mp.Shutdown(context.Background())
 
-
 	tracer := tp.Tracer("panchangam")
 	// Step 2: Use the logging package to create spans and log messages
 	mainContext := context.Background()

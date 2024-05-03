@@ -7,15 +7,17 @@ import (
 
 	"google.golang.org/grpc"
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
+	"google.golang.org/grpc/credentials/insecure"
 
 )
 
 func main() {
 	// Set up a connection to the server
-	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("Failed to dial server: %v", err)
-	}
+	conn, err := grpc.NewClient("localhost:50051",
+		// Note the use of insecure transport here. TLS is recommended in production.
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+
 	defer conn.Close()
 
 	// Create a client instance
