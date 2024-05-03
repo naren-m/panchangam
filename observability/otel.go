@@ -3,11 +3,11 @@ package observability
 import (
 	"context"
 	"sync"
+	"fmt"
 
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 
-	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -15,14 +15,26 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	// "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"google.golang.org/grpc/credentials/insecure"
 
 )
 
+type Tracer struct {
+	trace.Tracer
+}
 
-var log *logrus.Logger
-var tracer trace.Tracer
+// NewTracer creates a new Tracer instance
+func NewTracer(name string) *Tracer {
+	// Get the OpenTelemetry tracer
+	otelTracer := otel.GetTracerProvider().Tracer(name)
+
+	// Create a new Tracer instance wrapping the OpenTelemetry tracer
+	return &Tracer{
+		Tracer: otelTracer,
+	}
+}
+
+var tracer Tracer
 var resource *sdkresource.Resource
 var initResourcesOnce sync.Once
 
@@ -32,8 +44,8 @@ func initResource() *sdkresource.Resource {
 			context.Background(),
 			sdkresource.WithOS(),
 			sdkresource.WithProcess(),
-			sdkresource.WithContainer(),
 			sdkresource.WithHost(),
+			sdkresource.WithAttributes(),
 		)
 		resource, _ = sdkresource.Merge(
 			sdkresource.Default(),
@@ -74,7 +86,7 @@ func InitMeterProvider() *sdkmetric.MeterProvider {
 
 	exporter, err := otlpmetricgrpc.New(ctx)
 	if err != nil {
-		log.Fatalf("new otlp metric grpc exporter failed: %v", err)
+		panic(fmt.Sprintf("new otlp metric grpc exporter failed: %v", err))
 	}
 
 	mp := sdkmetric.NewMeterProvider(

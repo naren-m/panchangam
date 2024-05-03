@@ -12,9 +12,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	logging "github.com/naren-m/panchangam/logging"
-	"go.opentelemetry.io/otel/trace"
 )
-var tracer trace.Tracer
+
+var tracer observability.Tracer
 
 func main() {
 	// Handle SIGINT (CTRL+C) gracefully.

@@ -37,13 +37,14 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
     response := &ppb.GetPanchangamResponse{
         PanchangamData: d,
     }
+	time.Sleep(1 * time.Second)
 	span.AddEvent("prepared")
 
     return response, nil
 }
 
 func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, date string) (*ppb.PanchangamData, error) {
-	ctx, span := s.tracer.Start(ctx, "prepareOrderItemsAndShippingQuoteFromCart")
+	ctx, span := s.tracer.Start(ctx, "fetchPanchangamData")
 	defer span.End()
 
 	time.Sleep(2 * time.Second)

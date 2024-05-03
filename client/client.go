@@ -41,5 +41,4 @@ func main() {
 	fmt.Printf("Date: %s\n", panchangamData.GetTithi())
 	fmt.Printf("Date: %s\n", panchangamData.GetYoga())
 	fmt.Printf("Date: %s\n", panchangamData.GetNakshatra())
-	// Print other fields as needed
 }
