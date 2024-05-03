@@ -16,13 +16,14 @@ gen: $(PROTO_FILES)
 clean:
 	rm -rf $(OUT_DIR)
 
+run_client:
+	go run client/client.go
+
 .PHONY: start
 start:
 	docker compose up --force-recreate --remove-orphans --detach
 	@echo ""
 	@echo "OpenTelemetry Demo is running."
-	@echo "Go to http://localhost:8080 for the demo UI."
-	@echo "Go to http://localhost:8080/jaeger/ui for the Jaeger UI."
+	@echo "Go to http://192.168.68.73:16686/ for the demo UI."
+	@echo "Go to http://localhost:16686/jaeger/ui for the Jaeger UI."
 	@echo "Go to http://localhost:8080/grafana/ for the Grafana UI."
-	@echo "Go to http://localhost:8080/loadgen/ for the Load Generator UI."
-	@echo "Go to https://opentelemetry.io/docs/demo/feature-flags/ to learn how to change feature flags."

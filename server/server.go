@@ -27,7 +27,6 @@ func main() {
 	mp := observability.InitMeterProvider()
 	defer mp.Shutdown(context.Background())
 
-
 	tracer := tp.Tracer("panchangam")
 
 	// Create a listener on TCP port 50051
