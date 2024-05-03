@@ -17,9 +17,8 @@ type PanchangamServer struct {
     ppb.UnimplementedPanchangamServer
 }
 
-func NewPanchangamServer(span *logging.Span, tracer trace.Tracer) *PanchangamServer {
+func NewPanchangamServer(tracer trace.Tracer) *PanchangamServer {
 	return &PanchangamServer{
-		span: span,
 		tracer: tracer,
 	}
 }
@@ -27,9 +26,8 @@ func NewPanchangamServer(span *logging.Span, tracer trace.Tracer) *PanchangamSer
 func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
     // Create a child span for the service-level operation.
 	span := trace.SpanFromContext(ctx)
-
 	span.SetAttributes(
-		attribute.String("app.date", req.GetDate()),
+		attribute.String("date", req.GetDate()),
 	)
 
 
@@ -37,13 +35,14 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
     response := &ppb.GetPanchangamResponse{
         PanchangamData: d,
     }
+	time.Sleep(1 * time.Second)
 	span.AddEvent("prepared")
 
     return response, nil
 }
 
 func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, date string) (*ppb.PanchangamData, error) {
-	ctx, span := s.tracer.Start(ctx, "prepareOrderItemsAndShippingQuoteFromCart")
+	ctx, span := s.tracer.Start(ctx, "fetchPanchangamData")
 	defer span.End()
 
 	time.Sleep(2 * time.Second)

@@ -9,7 +9,6 @@ import (
 	ps "github.com/naren-m/panchangam/services/panchangam"
 	"github.com/naren-m/panchangam/observability"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	logging "github.com/naren-m/panchangam/logging"
 	"go.opentelemetry.io/otel/trace"
@@ -30,12 +29,6 @@ func main() {
 
 
 	tracer := tp.Tracer("panchangam")
-	// Step 2: Use the logging package to create spans and log messages
-	mainContext := context.Background()
-	mainSpan := logging.NewSpan(mainContext, "main", logrus.DebugLevel)
-    defer mainSpan.End()
-
-	mainSpan.Trace("Starting server...", nil)
 
 	// Create a listener on TCP port 50051
 	listener, err := net.Listen("tcp", ":50051")
@@ -46,7 +39,7 @@ func main() {
 
 	grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
 
-	pService := ps.NewPanchangamServer(mainSpan, tracer)
+	pService := ps.NewPanchangamServer(tracer)
 	ppb.RegisterPanchangamServer(grpcServer, pService)
 
 	logging.Logger.Info("Server started on port :50051", nil)
