@@ -2,8 +2,8 @@ package observability
 
 import (
 	"context"
-	"sync"
 	"fmt"
+	"sync"
 
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
@@ -16,7 +16,6 @@ import (
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc/credentials/insecure"
-
 )
 
 type Tracer struct {
@@ -94,5 +93,6 @@ func InitMeterProvider() *sdkmetric.MeterProvider {
 		sdkmetric.WithResource(initResource()),
 	)
 	otel.SetMeterProvider(mp)
+
 	return mp
 }
