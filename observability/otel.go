@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -14,7 +15,6 @@ import (
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -34,6 +34,7 @@ var NewServerHandler = otelgrpc.NewServerHandler
 type Tracer struct {
 	trace.Tracer
 }
+
 // NewTracer creates a new Tracer instance
 func NewTracer(name string) *Tracer {
 	// Create a new Tracer instance wrapping the OpenTelemetry tracer
@@ -44,10 +45,28 @@ func NewTracer(name string) *Tracer {
 }
 
 type Observer struct {
-	tp trace.TracerProvider
-	tracer Tracer
+	tp *sdktrace.TracerProvider
 }
 
+// NewObserver creates a new Observer instance.
+func NewObserver(address string) *Observer {
+	// Initialize the TracerProvider and Tracer.
+	tp, _ := initTracerProvider("")
+
+	return &Observer{
+		tp: tp,
+	}
+}
+
+// Shutdown stops the observer.
+func (o *Observer) Shutdown(ctx context.Context) {
+	o.tp.Shutdown(ctx)
+}
+
+// Tracer returns the tracer.
+func (o *Observer) Tracer(name string) trace.Tracer {
+	return o.tp.Tracer(name)
+}
 
 // Now you can use observability.TracerProvider the same way as sdktrace.TracerProvider.
 func initResource() *sdkresource.Resource {
@@ -72,8 +91,11 @@ func initResource() *sdkresource.Resource {
 	return resource
 }
 
-func InitTracerProvider() (*sdktrace.TracerProvider, error) {
-	conn, err := grpc.NewClient("localhost:4317",
+func initTracerProvider(address string) (*sdktrace.TracerProvider, error) {
+	if address == "" {
+		address = "localhost:4317"
+	}
+	conn, err := grpc.NewClient(address,
 		// Note the use of insecure transport here. TLS is recommended in production.
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
