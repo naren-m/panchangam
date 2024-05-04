@@ -6,19 +6,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/naren-m/panchangam/logging"
 	"github.com/naren-m/panchangam/observability"
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
 	"go.opentelemetry.io/otel/attribute"
 )
 
 type PanchangamServer struct {
-	span *logging.Span
+	observer *observability.Observer
 	ppb.UnimplementedPanchangamServer
 }
 
-func NewPanchangamServer() *PanchangamServer {
-	return &PanchangamServer{}
+func NewPanchangamServer(o *observability.Observer) *PanchangamServer {
+	return &PanchangamServer{
+		observer: o,
+	}
 }
 
 func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
@@ -40,7 +41,6 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
 
 func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, date string) (*ppb.PanchangamData, error) {
 	span := observability.SpanFromContext(ctx)
-	defer span.End()
 
 	time.Sleep(2 * time.Second)
 

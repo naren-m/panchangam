@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var tracer Tracer
 var resource *sdkresource.Resource
 var initResourcesOnce sync.Once
 
@@ -31,31 +30,23 @@ var NewServerHandler = otelgrpc.NewServerHandler
 // https://github.com/wavefrontHQ/opentelemetry-examples/blob/master/go-example/manual-instrumentation/main.go
 // https://github.com/wavefrontHQ/opentelemetry-examples/blob/master/go-example/manual-instrumentation/README.md
 // https://opentelemetry.io/docs/demo/services/checkout/
-type Tracer struct {
-	trace.Tracer
-}
-
-// NewTracer creates a new Tracer instance
-func NewTracer(name string) *Tracer {
-	// Create a new Tracer instance wrapping the OpenTelemetry tracer
-	return &Tracer{
-		// Get the OpenTelemetry tracer
-		Tracer: otel.GetTracerProvider().Tracer(name),
-	}
-}
 
 type Observer struct {
 	tp *sdktrace.TracerProvider
 }
+var observer *Observer
 
 // NewObserver creates a new Observer instance.
 func NewObserver(address string) *Observer {
 	// Initialize the TracerProvider and Tracer.
-	tp, _ := initTracerProvider("")
+    initResourcesOnce.Do(func() {
+        tp, _ := initTracerProvider("")
+		observer = &Observer{
+			tp: tp,
+		}
+    })
 
-	return &Observer{
-		tp: tp,
-	}
+	return observer
 }
 
 // Shutdown stops the observer.

@@ -10,12 +10,12 @@ import (
 	"net"
 )
 
-var tracer observability.Tracer
 
 func main() {
 	// Step 1: Initialize OpenTelemetry
 	// Set up OpenTelemetry.
 	o := observability.NewObserver("")
+	o = observability.NewObserver("")
 	defer o.Shutdown(context.Background())
 
 	// Create a listener on TCP port 50051
@@ -27,7 +27,7 @@ func main() {
 
 	grpcServer := grpc.NewServer(grpc.StatsHandler(observability.NewServerHandler()))
 
-	pService := ps.NewPanchangamServer()
+	pService := ps.NewPanchangamServer(o)
 	ppb.RegisterPanchangamServer(grpcServer, pService)
 
 	logging.Logger.Info("Server started on port :50051", nil)
