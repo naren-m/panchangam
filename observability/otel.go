@@ -56,6 +56,12 @@ func NewTracerProvider() *TracerProvider {
     }
 }
 
+type Observer struct {
+	tp trace.TracerProvider
+	tracer Tracer
+}
+
+
 // Now you can use observability.TracerProvider the same way as sdktrace.TracerProvider.
 func initResource() *sdkresource.Resource {
 	initResourcesOnce.Do(func() {
