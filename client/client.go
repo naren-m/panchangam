@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	"google.golang.org/grpc"
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-
 )
 
 func main() {

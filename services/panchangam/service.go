@@ -12,9 +12,9 @@ import (
 )
 
 type PanchangamServer struct {
-	span *logging.Span
+	span   *logging.Span
 	tracer trace.Tracer
-    ppb.UnimplementedPanchangamServer
+	ppb.UnimplementedPanchangamServer
 }
 
 func NewPanchangamServer(tracer trace.Tracer) *PanchangamServer {
@@ -24,21 +24,20 @@ func NewPanchangamServer(tracer trace.Tracer) *PanchangamServer {
 }
 
 func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
-    // Create a child span for the service-level operation.
+	// Create a child span for the service-level operation.
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(
 		attribute.String("date", req.GetDate()),
 	)
 
-
-    d, _ := s.fetchPanchangamData(ctx, req.Date)
-    response := &ppb.GetPanchangamResponse{
-        PanchangamData: d,
-    }
+	d, _ := s.fetchPanchangamData(ctx, req.Date)
+	response := &ppb.GetPanchangamResponse{
+		PanchangamData: d,
+	}
 	time.Sleep(1 * time.Second)
 	span.AddEvent("prepared")
 
-    return response, nil
+	return response, nil
 }
 
 func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, date string) (*ppb.PanchangamData, error) {
@@ -48,17 +47,17 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, date string)
 	time.Sleep(2 * time.Second)
 
 	span.AddEvent("fetching panchangam data")
-    return &ppb.PanchangamData{
-        Date:        date,
-        Tithi:       "Some Tithi",
-        Nakshatra:   "Some Nakshatra",
-        Yoga:        "Some Yoga",
-        Karana:      "Some Karana",
-        SunriseTime: "06:00:00",
-        SunsetTime:  "18:00:00",
-        Events: []*ppb.PanchangamEvent{
-            {Name: "Some Event 1", Time: "08:00:00"},
-            {Name: "Some Event 2", Time: "12:00:00"},
-        },
-    }, nil
+	return &ppb.PanchangamData{
+		Date:        date,
+		Tithi:       "Some Tithi",
+		Nakshatra:   "Some Nakshatra",
+		Yoga:        "Some Yoga",
+		Karana:      "Some Karana",
+		SunriseTime: "06:00:00",
+		SunsetTime:  "18:00:00",
+		Events: []*ppb.PanchangamEvent{
+			{Name: "Some Event 1", Time: "08:00:00"},
+			{Name: "Some Event 2", Time: "12:00:00"},
+		},
+	}, nil
 }

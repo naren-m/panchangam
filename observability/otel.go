@@ -16,8 +16,8 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"google.golang.org/grpc/credentials/insecure"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // https://github.com/wavefrontHQ/opentelemetry-examples/blob/master/go-example/manual-instrumentation/main.go
@@ -26,7 +26,6 @@ import (
 type Tracer struct {
 	trace.Tracer
 }
-
 
 // NewTracer creates a new Tracer instance
 func NewTracer(name string) *Tracer {

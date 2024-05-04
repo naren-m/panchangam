@@ -1,16 +1,16 @@
 package main
 
 import (
-	"net"
 	"context"
-	"os"
-	"os/signal"
+	logging "github.com/naren-m/panchangam/logging"
+	"github.com/naren-m/panchangam/observability"
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
 	ps "github.com/naren-m/panchangam/services/panchangam"
-	"github.com/naren-m/panchangam/observability"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
-	logging "github.com/naren-m/panchangam/logging"
+	"net"
+	"os"
+	"os/signal"
 )
 
 var tracer observability.Tracer
