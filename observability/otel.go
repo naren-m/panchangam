@@ -72,19 +72,19 @@ func initResource() *sdkresource.Resource {
 	return resource
 }
 
-func InitTracerProvider() *sdktrace.TracerProvider {
+func InitTracerProvider() (*sdktrace.TracerProvider, error) {
 	conn, err := grpc.NewClient("localhost:4317",
 		// Note the use of insecure transport here. TLS is recommended in production.
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	// Set up a trace exporter
 	exporter, err := otlptracegrpc.New(context.Background(), otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	tp := sdktrace.NewTracerProvider(
@@ -95,7 +95,7 @@ func InitTracerProvider() *sdktrace.TracerProvider {
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
-	return tp
+	return tp, nil
 }
 
 func InitMeterProvider() *sdkmetric.MeterProvider {
