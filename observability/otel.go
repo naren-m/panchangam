@@ -43,19 +43,6 @@ func NewTracer(name string) *Tracer {
 	}
 }
 
-
-// TracerProvider is your custom wrapper around sdktrace.TracerProvider.
-type TracerProvider struct {
-    trace.TracerProvider // Embedding the sdktrace.TracerProvider
-}
-
-// NewTracerProvider creates a new instance of your custom TracerProvider.
-func NewTracerProvider() *TracerProvider {
-    return &TracerProvider{
-        TracerProvider: sdktrace.NewTracerProvider(),
-    }
-}
-
 type Observer struct {
 	tp trace.TracerProvider
 	tracer Tracer
