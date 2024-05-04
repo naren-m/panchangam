@@ -26,10 +26,12 @@ func NewAuth() *Auth {
 
 func (a *Auth) AuthInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		ctx, span := a.observer.Tracer("Auth.Interceptor").Start(ctx, "aaa.AuthInterceptor")
-		defer span.End()
+		ctx, span := a.observer.Tracer(info.FullMethod).Start(ctx, "aaa.AuthInterceptor")
 		logger.Info("Successfully authenticated.", "rpc", info.FullMethod)
+		span.AddEvent("authenticated")
 		// Continue the handler chain.
+		time.Sleep(100 * time.Millisecond)
+		span.End()
 		return handler(ctx, req)
 	}
 }
