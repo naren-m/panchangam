@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"log/slog"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -17,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var resource *sdkresource.Resource
@@ -43,7 +45,7 @@ type observer struct {
 var oi *observer
 
 // NewObserver creates a new Observer instance.
-func Observer(address string) ObserverInterface {
+func NewObserver(address string) ObserverInterface {
 	// Initialize the TracerProvider and Tracer.
 	initObserverOnce.Do(func() {
 		tp, _ := initTracerProvider("")
@@ -51,6 +53,16 @@ func Observer(address string) ObserverInterface {
 			tp: tp,
 		}
 	})
+
+	return oi
+}
+
+// Observer returns the observer instance.
+func Observer() ObserverInterface {
+	if oi == nil {
+		// TODO: Cleanup later.
+		NewObserver("")
+	}
 
 	return oi
 }
@@ -63,6 +75,26 @@ func (o *observer) Shutdown(ctx context.Context) {
 // Tracer returns the tracer.
 func (o *observer) Tracer(name string) trace.Tracer {
 	return o.tp.Tracer(name)
+}
+
+
+func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	slog.Info("Intercepted for observabilit")
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		tracer := Observer().Tracer(info.FullMethod)
+		ctx, span := tracer.Start(ctx, info.FullMethod)
+		defer span.End()
+
+		resp, err := handler(ctx, req)
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		} else {
+			span.SetStatus(codes.Ok, "OK")
+		}
+
+		return resp, err
+	}
 }
 
 // Now you can use observability.TracerProvider the same way as sdktrace.TracerProvider.

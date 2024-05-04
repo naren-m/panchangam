@@ -18,7 +18,7 @@ type PanchangamServer struct {
 
 func NewPanchangamServer() *PanchangamServer {
 	return &PanchangamServer{
-		observer: observability.Observer(""),
+		observer: observability.Observer(),
 	}
 }
 
