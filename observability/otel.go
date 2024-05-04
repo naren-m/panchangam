@@ -34,17 +34,18 @@ var NewServerHandler = otelgrpc.NewServerHandler
 type Observer struct {
 	tp *sdktrace.TracerProvider
 }
+
 var observer *Observer
 
 // NewObserver creates a new Observer instance.
 func NewObserver(address string) *Observer {
 	// Initialize the TracerProvider and Tracer.
-    initResourcesOnce.Do(func() {
-        tp, _ := initTracerProvider("")
+	initResourcesOnce.Do(func() {
+		tp, _ := initTracerProvider("")
 		observer = &Observer{
 			tp: tp,
 		}
-    })
+	})
 
 	return observer
 }

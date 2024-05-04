@@ -10,7 +10,6 @@ import (
 	"net"
 )
 
-
 func main() {
 	// Step 1: Initialize OpenTelemetry
 	// Set up OpenTelemetry.
