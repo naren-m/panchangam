@@ -19,6 +19,12 @@ clean:
 run_client:
 	go run client/client.go
 
+run_server:
+	go run server/server.go
+
+format:
+	go fmt ./...
+
 .PHONY: start
 start:
 	docker compose up --force-recreate --remove-orphans --detach

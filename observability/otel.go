@@ -5,20 +5,28 @@ import (
 	"fmt"
 	"sync"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
-
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
+
+var tracer Tracer
+var resource *sdkresource.Resource
+var initResourcesOnce sync.Once
+
+// Wrappers for OpenTelemetry trace package
+var WithAttributes = trace.WithAttributes
+var SpanFromContext = trace.SpanFromContext
+var NewServerHandler = otelgrpc.NewServerHandler
 
 // https://github.com/wavefrontHQ/opentelemetry-examples/blob/master/go-example/manual-instrumentation/main.go
 // https://github.com/wavefrontHQ/opentelemetry-examples/blob/master/go-example/manual-instrumentation/README.md
@@ -26,22 +34,29 @@ import (
 type Tracer struct {
 	trace.Tracer
 }
-
 // NewTracer creates a new Tracer instance
 func NewTracer(name string) *Tracer {
-	// Get the OpenTelemetry tracer
-	otelTracer := otel.GetTracerProvider().Tracer(name)
-	trace.WithAttributes()
 	// Create a new Tracer instance wrapping the OpenTelemetry tracer
 	return &Tracer{
-		Tracer: otelTracer,
+		// Get the OpenTelemetry tracer
+		Tracer: otel.GetTracerProvider().Tracer(name),
 	}
 }
 
-var tracer Tracer
-var resource *sdkresource.Resource
-var initResourcesOnce sync.Once
 
+// TracerProvider is your custom wrapper around sdktrace.TracerProvider.
+type TracerProvider struct {
+    trace.TracerProvider // Embedding the sdktrace.TracerProvider
+}
+
+// NewTracerProvider creates a new instance of your custom TracerProvider.
+func NewTracerProvider() *TracerProvider {
+    return &TracerProvider{
+        TracerProvider: sdktrace.NewTracerProvider(),
+    }
+}
+
+// Now you can use observability.TracerProvider the same way as sdktrace.TracerProvider.
 func initResource() *sdkresource.Resource {
 	initResourcesOnce.Do(func() {
 		extraResources, _ := sdkresource.New(
@@ -50,7 +65,6 @@ func initResource() *sdkresource.Resource {
 			sdkresource.WithProcess(),
 			sdkresource.WithHost(),
 			sdkresource.WithAttributes(
-				semconv.ServiceNameKey.String("panchangam"),
 				attribute.String("application", "panchangam"),
 				attribute.String("service.name", "panchangam"),
 				attribute.String("service.namespace", "observability"),

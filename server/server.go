@@ -6,7 +6,6 @@ import (
 	"github.com/naren-m/panchangam/observability"
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
 	ps "github.com/naren-m/panchangam/services/panchangam"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"net"
 	"os"
@@ -36,9 +35,9 @@ func main() {
 		return
 	}
 
-	grpcServer := grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
+	grpcServer := grpc.NewServer(grpc.StatsHandler(observability.NewServerHandler()))
 
-	pService := ps.NewPanchangamServer(tracer)
+	pService := ps.NewPanchangamServer()
 	ppb.RegisterPanchangamServer(grpcServer, pService)
 
 	logging.Logger.Info("Server started on port :50051", nil)
