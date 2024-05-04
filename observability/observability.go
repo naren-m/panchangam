@@ -21,6 +21,7 @@ import (
 
 var resource *sdkresource.Resource
 var initResourcesOnce sync.Once
+var initObserverOnce sync.Once
 
 // Wrappers for OpenTelemetry trace package
 var WithAttributes = trace.WithAttributes
@@ -31,32 +32,36 @@ var NewServerHandler = otelgrpc.NewServerHandler
 // https://github.com/wavefrontHQ/opentelemetry-examples/blob/master/go-example/manual-instrumentation/README.md
 // https://opentelemetry.io/docs/demo/services/checkout/
 
-type Observer struct {
+type ObserverInterface interface {
+	Shutdown(ctx context.Context)
+	Tracer(name string) trace.Tracer
+}
+type observer struct {
 	tp *sdktrace.TracerProvider
 }
 
-var observer *Observer
+var oi *observer
 
 // NewObserver creates a new Observer instance.
-func NewObserver(address string) *Observer {
+func Observer(address string) ObserverInterface {
 	// Initialize the TracerProvider and Tracer.
-	initResourcesOnce.Do(func() {
+	initObserverOnce.Do(func() {
 		tp, _ := initTracerProvider("")
-		observer = &Observer{
+		oi = &observer{
 			tp: tp,
 		}
 	})
 
-	return observer
+	return oi
 }
 
 // Shutdown stops the observer.
-func (o *Observer) Shutdown(ctx context.Context) {
+func (o *observer) Shutdown(ctx context.Context) {
 	o.tp.Shutdown(ctx)
 }
 
 // Tracer returns the tracer.
-func (o *Observer) Tracer(name string) trace.Tracer {
+func (o *observer) Tracer(name string) trace.Tracer {
 	return o.tp.Tracer(name)
 }
 

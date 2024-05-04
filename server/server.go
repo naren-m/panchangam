@@ -13,8 +13,8 @@ import (
 func main() {
 	// Step 1: Initialize OpenTelemetry
 	// Set up OpenTelemetry.
-	o := observability.NewObserver("")
-	o = observability.NewObserver("")
+	o := observability.Observer("")
+	o = observability.Observer("")
 	defer o.Shutdown(context.Background())
 
 	// Create a listener on TCP port 50051
@@ -26,7 +26,7 @@ func main() {
 
 	grpcServer := grpc.NewServer(grpc.StatsHandler(observability.NewServerHandler()))
 
-	pService := ps.NewPanchangamServer(o)
+	pService := ps.NewPanchangamServer()
 	ppb.RegisterPanchangamServer(grpcServer, pService)
 
 	logging.Logger.Info("Server started on port :50051", nil)

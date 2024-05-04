@@ -12,13 +12,13 @@ import (
 )
 
 type PanchangamServer struct {
-	observer *observability.Observer
+	observer observability.ObserverInterface
 	ppb.UnimplementedPanchangamServer
 }
 
-func NewPanchangamServer(o *observability.Observer) *PanchangamServer {
+func NewPanchangamServer() *PanchangamServer {
 	return &PanchangamServer{
-		observer: o,
+		observer: observability.Observer(""),
 	}
 }
 
@@ -41,6 +41,8 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
 
 func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, date string) (*ppb.PanchangamData, error) {
 	span := observability.SpanFromContext(ctx)
+	// ctx, span := tracer.Start(ctx, "prepareOrderItemsAndShippingQuoteFromCart")
+	// defer span.End()
 
 	time.Sleep(2 * time.Second)
 
