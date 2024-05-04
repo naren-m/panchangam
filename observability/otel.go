@@ -27,11 +27,12 @@ type Tracer struct {
 	trace.Tracer
 }
 
+
 // NewTracer creates a new Tracer instance
 func NewTracer(name string) *Tracer {
 	// Get the OpenTelemetry tracer
 	otelTracer := otel.GetTracerProvider().Tracer(name)
-
+	trace.WithAttributes()
 	// Create a new Tracer instance wrapping the OpenTelemetry tracer
 	return &Tracer{
 		Tracer: otelTracer,
