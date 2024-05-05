@@ -40,10 +40,8 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
 }
 
 func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, date string) (*ppb.PanchangamData, error) {
-	// span := observability.SpanFromContext(ctx)
-	// // ctx, span := tracer.Start(ctx, "prepareOrderItemsAndShippingQuoteFromCart")
-	// // defer span.End()
-	// span := observability.SpanFromContext(ctx)
+    ctx, span := s.observer.CreateSpan(ctx, "fetchPanchangamData")
+    defer span.End()
 
 	logger.InfoContext(ctx, "fetching panchangam data")
 	// Simulate a delay in fetching data.

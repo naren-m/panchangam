@@ -37,6 +37,7 @@ var NewServerHandler = otelgrpc.NewServerHandler
 type ObserverInterface interface {
 	Shutdown(ctx context.Context)
 	Tracer(name string) trace.Tracer
+	CreateSpan(ctx context.Context, name string) (context.Context, trace.Span)
 }
 type observer struct {
 	tp *sdktrace.TracerProvider
@@ -77,29 +78,41 @@ func (o *observer) Tracer(name string) trace.Tracer {
 	return o.tp.Tracer(name)
 }
 
+
+// CreateSpan starts a new span. Getting the RPC method name from the context.
+func  (o *observer) CreateSpan(ctx context.Context, name string) (context.Context, trace.Span) {
+	fullMethod, ok := grpc.Method(ctx)
+	if !ok {
+		fullMethod = "unknown"
+	}
+	tracer := otel.GetTracerProvider().Tracer(fullMethod)
+	return tracer.Start(ctx, name)
+}
+
 func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		slog.Info("Entering observability interceptor")
 		tracer := Observer().Tracer(fmt.Sprintf("ParentSpan %s", info.FullMethod))
-		ctx, span := tracer.Start(ctx, info.FullMethod)
-		defer span.End()
-
+		ctx, oSpan := tracer.Start(ctx, info.FullMethod)
+		defer oSpan.End()
 		resp, err := handler(ctx, req)
 		if err != nil {
 			slog.ErrorContext(ctx, "Request failed.", "error", err)
 		}
-		if span.IsRecording() {
-			// If span is recoding, record the span.
-			slog.Info("Recording span.")
+		if oSpan.IsRecording() {
+			// If oSpan is recoding, record the oSpan.
+			slog.Info("Recording oSpan.")
 			if err != nil {
-				span.AddEvent("Request failed.", trace.WithAttributes(attribute.String("error", err.Error())))
-				span.RecordError(err)
-				span.SetStatus(codes.Error, err.Error())
+				oSpan.AddEvent("Request failed.", trace.WithAttributes(attribute.String("error", err.Error())))
+				oSpan.RecordError(err)
+				oSpan.SetStatus(codes.Error, err.Error())
 			} else {
-				span.AddEvent("Request completed successfully.")
-				span.SetStatus(codes.Ok, "OK")
+				oSpan.AddEvent("Request completed successfully.")
+				oSpan.SetStatus(codes.Ok, "OK")
 			}
 		}
 
+		slog.Info("Leaving observability interceptor")
 		return resp, err
 	}
 }
