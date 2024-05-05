@@ -2,18 +2,19 @@ package log
 
 import (
 	"context"
+	"fmt"
+	"github.com/naren-m/panchangam/observability"
+	"go.opentelemetry.io/otel/attribute"
 	"log/slog"
 	"os"
 	"sync"
 	"time"
-	"fmt"
-	"go.opentelemetry.io/otel/attribute"
-	"github.com/naren-m/panchangam/observability"
 )
 
 var logger *slog.Logger
 var initOnce sync.Once
 var spanEnabled = true
+
 func init() {
 	initOnce.Do(func() {
 		logger = slog.New(NewHandler(slog.LevelDebug,
@@ -28,8 +29,8 @@ func Logger() *slog.Logger {
 // A Handler wraps a Handler with an Enabled method
 // that returns false for levels below a minimum.
 type Handler struct {
-	level       slog.Leveler
-	handler     slog.Handler
+	level   slog.Leveler
+	handler slog.Handler
 }
 
 // NewHandler returns a LevelHandler with the given level.
@@ -50,7 +51,7 @@ func (h *Handler) Enabled(_ context.Context, level slog.Level) bool {
 
 // Handle implements Handler.Handle.
 func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
-	if ctx != nil && spanEnabled{
+	if ctx != nil && spanEnabled {
 		span := observability.SpanFromContext(ctx)
 		if !span.IsRecording() {
 			return h.handler.Handle(ctx, r)
@@ -61,8 +62,6 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 
 	return h.handler.Handle(ctx, r)
 }
-
-
 
 func ConvertSlogAttrToSpanAttr(key string, attr slog.Value) (attribute.KeyValue, error) {
 	var kv attribute.KeyValue
@@ -93,6 +92,7 @@ func ConvertSlogAttrToSpanAttr(key string, attr slog.Value) (attribute.KeyValue,
 
 	return kv, nil
 }
+
 // Handler returns the Handler wrapped by h.
 func (h *Handler) Handler() slog.Handler {
 	return h.handler
