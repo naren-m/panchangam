@@ -54,8 +54,10 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 	if ctx != nil && spanEnabled {
 		span := observability.SpanFromContext(ctx)
 		if !span.IsRecording() {
+			slog.Info("Span is not recording")
 			return h.handler.Handle(ctx, r)
 		}
+
 		span.AddEvent(r.Message)
 
 	}
@@ -63,7 +65,7 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 	return h.handler.Handle(ctx, r)
 }
 
-func ConvertSlogAttrToSpanAttr(key string, attr slog.Value) (attribute.KeyValue, error) {
+func convertSlogAttrToSpanAttr(key string, attr slog.Value) (attribute.KeyValue, error) {
 	var kv attribute.KeyValue
 	switch attr.Kind() {
 	case slog.KindString:

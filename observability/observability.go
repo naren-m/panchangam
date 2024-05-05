@@ -78,18 +78,26 @@ func (o *observer) Tracer(name string) trace.Tracer {
 }
 
 func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
-	slog.Info("Intercepted for observabilit")
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		tracer := Observer().Tracer(info.FullMethod)
+		tracer := Observer().Tracer(fmt.Sprintf("ParentSpan %s", info.FullMethod))
 		ctx, span := tracer.Start(ctx, info.FullMethod)
 		defer span.End()
 
 		resp, err := handler(ctx, req)
 		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-		} else {
-			span.SetStatus(codes.Ok, "OK")
+			slog.ErrorContext(ctx, "Request failed.", "error", err)
+		}
+		if span.IsRecording() {
+			// If span is recoding, record the span.
+			slog.Info("Recording span.")
+			if err != nil {
+				span.AddEvent("Request failed.", trace.WithAttributes(attribute.String("error", err.Error())))
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+			} else {
+				span.AddEvent("Request completed successfully.")
+				span.SetStatus(codes.Ok, "OK")
+			}
 		}
 
 		return resp, err

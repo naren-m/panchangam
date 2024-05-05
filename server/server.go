@@ -32,6 +32,7 @@ func main() {
 		grpc.ChainUnaryInterceptor(
 			observability.UnaryServerInterceptor(),
 			a.AuthInterceptor(),
+			a.AccountingInterceptor(),
 		),
 	)
 

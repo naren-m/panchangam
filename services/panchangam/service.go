@@ -8,6 +8,9 @@ import (
 	"github.com/naren-m/panchangam/log"
 	"github.com/naren-m/panchangam/observability"
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
+	"golang.org/x/exp/rand"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var logger = log.Logger()
@@ -25,27 +28,33 @@ func NewPanchangamServer() *PanchangamServer {
 
 func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
 	// Create a child span for the service-level operation.
-	span := observability.SpanFromContext(ctx)
 	logger.Info("Received request", "date", req.Date)
 	d, _ := s.fetchPanchangamData(ctx, req.Date)
 	response := &ppb.GetPanchangamResponse{
 		PanchangamData: d,
 	}
-	time.Sleep(1 * time.Second)
-	span.AddEvent("prepared")
+	time.Sleep(100 * time.Millisecond)
 	logger.InfoContext(ctx, "Prepared response")
 
 	return response, nil
 }
 
 func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, date string) (*ppb.PanchangamData, error) {
-	span := observability.SpanFromContext(ctx)
-	// ctx, span := tracer.Start(ctx, "prepareOrderItemsAndShippingQuoteFromCart")
-	// defer span.End()
+	// span := observability.SpanFromContext(ctx)
+	// // ctx, span := tracer.Start(ctx, "prepareOrderItemsAndShippingQuoteFromCart")
+	// // defer span.End()
+	// span := observability.SpanFromContext(ctx)
 
-	time.Sleep(2 * time.Second)
+	logger.InfoContext(ctx, "fetching panchangam data")
+	// Simulate a delay in fetching data.
+	time.Sleep(29 * time.Millisecond)
 
-	span.AddEvent("fetching panchangam data")
+	// Randomly return some error. This is just for testing.
+	if rand.Intn(10)%2 == 0 {
+		err := status.Error(codes.Internal, "failed to fetch panchangam data")
+		logger.ErrorContext(ctx, "failed to fetch panchangam data", "error", err)
+		return nil, err
+	}
 	return &ppb.PanchangamData{
 		Date:        date,
 		Tithi:       "Some Tithi",

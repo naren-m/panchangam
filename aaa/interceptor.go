@@ -26,26 +26,26 @@ func NewAuth() *Auth {
 
 func (a *Auth) AuthInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		ctx, span := a.observer.Tracer(info.FullMethod).Start(ctx, "aaa.AuthInterceptor")
-		logger.Info("Successfully authenticated.", "rpc", info.FullMethod)
-		span.AddEvent("authenticated")
-		// Continue the handler chain.
+
+		c, span := a.observer.Tracer(info.FullMethod).Start(ctx, "aaa.AuthInterceptor")
+		logger.InfoContext(c, "Successfully authenticated.", "rpc", info.FullMethod)
 		time.Sleep(100 * time.Millisecond)
 		span.End()
+
 		return handler(ctx, req)
 	}
 }
 
-func AccountingInterceptor() grpc.UnaryServerInterceptor {
+func (a *Auth) AccountingInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+
+		c, span := a.observer.Tracer(info.FullMethod).Start(ctx, "aaa.AccountingInterceptor")
 		startTime := time.Now()
+		time.Sleep(30 * time.Millisecond)
+		logger.InfoContext(c, "Accounting successful", "Method", info.FullMethod, "timetook", time.Since(startTime))
+		span.End()
 
 		// Continue the handler chain.
-		resp, err := handler(ctx, req)
-
-		// Log the call details.
-		logger.Info("Method: %s, Duration: %s\n", info.FullMethod, time.Since(startTime))
-
-		return resp, err
+		return handler(ctx, req)
 	}
 }
