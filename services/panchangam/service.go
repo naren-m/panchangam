@@ -3,13 +3,14 @@ package panchangam
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"github.com/naren-m/panchangam/log"
 	"github.com/naren-m/panchangam/observability"
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
-	"go.opentelemetry.io/otel/attribute"
 )
+
+var logger = log.Logger()
 
 type PanchangamServer struct {
 	observer observability.ObserverInterface
@@ -25,16 +26,14 @@ func NewPanchangamServer() *PanchangamServer {
 func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
 	// Create a child span for the service-level operation.
 	span := observability.SpanFromContext(ctx)
-	span.SetAttributes(
-		attribute.String("request", fmt.Sprintf("%v", req)),
-	)
-
+	logger.Info("Received request", "date", req.Date)
 	d, _ := s.fetchPanchangamData(ctx, req.Date)
 	response := &ppb.GetPanchangamResponse{
 		PanchangamData: d,
 	}
 	time.Sleep(1 * time.Second)
 	span.AddEvent("prepared")
+	logger.InfoContext(ctx, "Prepared response")
 
 	return response, nil
 }

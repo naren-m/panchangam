@@ -11,7 +11,7 @@ import (
 	// "google.golang.org/grpc/status"
 )
 
-var logger = log.Logger
+var logger = log.Logger()
 
 type Auth struct {
 	observer observability.ObserverInterface
@@ -35,8 +35,6 @@ func (a *Auth) AuthInterceptor() grpc.UnaryServerInterceptor {
 		return handler(ctx, req)
 	}
 }
-
-
 
 func AccountingInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {

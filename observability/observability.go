@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 
-	"log/slog"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"go.opentelemetry.io/otel/codes"
+	"log/slog"
 )
 
 var resource *sdkresource.Resource
@@ -76,7 +76,6 @@ func (o *observer) Shutdown(ctx context.Context) {
 func (o *observer) Tracer(name string) trace.Tracer {
 	return o.tp.Tracer(name)
 }
-
 
 func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	slog.Info("Intercepted for observabilit")
