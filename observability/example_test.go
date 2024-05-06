@@ -26,9 +26,9 @@ func ExampleObserver_CreateSpan() {
 	_, span := observer.CreateSpan(context.Background(), "test")
 	span.End()
 	span.AddEvent("test event")
-	if span.IsRecording(){
+	if span.IsRecording() {
 		fmt.Println("Span is recording")
-	} else{
+	} else {
 		fmt.Println("Span is not recording")
 	}
 	// Output: Successfully created span using observer

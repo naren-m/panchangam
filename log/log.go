@@ -54,7 +54,7 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 	if ctx != nil && spanEnabled {
 		span := observability.SpanFromContext(ctx)
 		if !span.IsRecording() {
-			slog.Info("Span is not recording")
+			h.handler.Handle(ctx, slog.NewRecord(r.Time, r.Level, "Span is not recording", r.PC))
 			return h.handler.Handle(ctx, r)
 		}
 

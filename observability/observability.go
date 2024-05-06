@@ -69,7 +69,7 @@ func Observer() ObserverInterface {
 }
 
 // Shutdown stops the observer.
-func (o *observer) Shutdown(ctx context.Context) error{
+func (o *observer) Shutdown(ctx context.Context) error {
 	return o.tp.Shutdown(ctx)
 }
 
@@ -78,9 +78,8 @@ func (o *observer) Tracer(name string) trace.Tracer {
 	return o.tp.Tracer(name)
 }
 
-
 // CreateSpan starts a new span. Getting the RPC method name from the context.
-func  (o *observer) CreateSpan(ctx context.Context, name string) (context.Context, trace.Span) {
+func (o *observer) CreateSpan(ctx context.Context, name string) (context.Context, trace.Span) {
 	fullMethod, ok := grpc.Method(ctx)
 	if !ok {
 		fullMethod = "unknown"
@@ -101,7 +100,7 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 		}
 		if oSpan.IsRecording() {
 			// If oSpan is recoding, record the oSpan.
-			slog.Info("Recording oSpan.")
+			slog.Info("Recording Span.")
 			if err != nil {
 				oSpan.AddEvent("Request failed.", trace.WithAttributes(attribute.String("error", err.Error())))
 				oSpan.RecordError(err)

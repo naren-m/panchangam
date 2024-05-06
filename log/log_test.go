@@ -1,12 +1,30 @@
 package log
 
 import (
-	"go.opentelemetry.io/otel/attribute"
+	"context"
 	"log/slog"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/naren-m/panchangam/observability"
+	"go.opentelemetry.io/otel/attribute"
 )
+
+type wrappingHandler struct {
+	h slog.Handler
+	l []slog.Record
+}
+
+func (h wrappingHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.h.Enabled(ctx, level)
+}
+func (h wrappingHandler) WithGroup(name string) slog.Handler    { return h.h.WithGroup(name) }
+func (h wrappingHandler) WithAttrs(as []slog.Attr) slog.Handler { return h.h.WithAttrs(as) }
+func (h wrappingHandler) Handle(ctx context.Context, r slog.Record) error {
+	h.l = append(h.l, r)
+	return h.h.Handle(ctx, r)
+}
 
 func TestHandler(t *testing.T) {
 	h := NewHandler(slog.LevelDebug, slog.NewTextHandler(os.Stdout, nil))
@@ -36,6 +54,47 @@ func TestWithGroup(t *testing.T) {
 	if _, ok := newHandler.(*Handler); !ok {
 		t.Errorf("WithGroup() should return a Handler")
 	}
+}
+
+// Test logging with and wihout span. If the context does not have span,
+// the log should be written to the handler. But should not fail.
+func TestHandleWithoutSpan(t *testing.T) {
+	lh := wrappingHandler{
+		h: NewHandler(slog.LevelDebug, slog.NewTextHandler(os.Stdout, nil)),
+		l: []slog.Record{}}
+
+	log := slog.New(lh)
+
+	ctxWithSpanAndRecording, span := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	defer span.End()
+
+	ctxWithSpanAndNotRecording, spanNotRecording := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	spanNotRecording.End()
+
+	tests := []struct {
+		name string
+		ctx  context.Context
+	}{
+		{"no span", context.Background()},
+		{"span", ctxWithSpanAndRecording},
+		{"span not recording", ctxWithSpanAndNotRecording},
+		{"span recording", ctxWithSpanAndRecording},
+		{"nil", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log.InfoContext(tt.ctx, tt.name)
+			log.ErrorContext(tt.ctx, tt.name)
+			log.DebugContext(tt.ctx, tt.name)
+			log.WarnContext(tt.ctx, tt.name)
+
+			if len(lh.l) != 4 {
+				t.Errorf("Handle() should have been called 4 times, got %d", len(lh.l))
+			}
+		})
+	}
+
 }
 
 func TestConvertSlogAttrToSpanAttr(t *testing.T) {

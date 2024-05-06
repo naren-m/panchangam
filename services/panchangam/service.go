@@ -28,7 +28,7 @@ func NewPanchangamServer() *PanchangamServer {
 
 func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
 	ctx, span := s.observer.CreateSpan(ctx, "Get")
-    defer span.End()
+	defer span.End()
 	// Create a child span for the service-level operation.
 	logger.InfoContext(ctx, "Received request", "date", req.Date)
 	d, _ := s.fetchPanchangamData(ctx, req.Date)
@@ -42,8 +42,8 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
 }
 
 func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, date string) (*ppb.PanchangamData, error) {
-    ctx, span := s.observer.CreateSpan(ctx, "fetchPanchangamData")
-    defer span.End()
+	ctx, span := s.observer.CreateSpan(ctx, "fetchPanchangamData")
+	defer span.End()
 
 	logger.InfoContext(ctx, "fetching panchangam data")
 	// Simulate a delay in fetching data.
