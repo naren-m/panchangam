@@ -35,7 +35,7 @@ var NewServerHandler = otelgrpc.NewServerHandler
 // https://opentelemetry.io/docs/demo/services/checkout/
 
 type ObserverInterface interface {
-	Shutdown(ctx context.Context)
+	Shutdown(ctx context.Context) error
 	Tracer(name string) trace.Tracer
 	CreateSpan(ctx context.Context, name string) (context.Context, trace.Span)
 }
@@ -69,8 +69,8 @@ func Observer() ObserverInterface {
 }
 
 // Shutdown stops the observer.
-func (o *observer) Shutdown(ctx context.Context) {
-	o.tp.Shutdown(ctx)
+func (o *observer) Shutdown(ctx context.Context) error{
+	return o.tp.Shutdown(ctx)
 }
 
 // Tracer returns the tracer.
