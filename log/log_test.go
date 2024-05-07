@@ -30,7 +30,7 @@ func (h wrappingHandler) Handle(ctx context.Context, r slog.Record) error {
 }
 
 var opts = &slog.HandlerOptions{
-	Level: slog.LevelDebug,
+	Level:     slog.LevelDebug,
 	AddSource: true,
 }
 
@@ -207,7 +207,7 @@ func BenchmarkLogging(b *testing.B) {
 	}
 	var buf bytes.Buffer
 	h := NewHandler(slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+		Level:     slog.LevelDebug,
 		AddSource: true,
 	}))
 

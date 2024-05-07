@@ -83,7 +83,6 @@ func TestConcurrency(t *testing.T) {
 	// Add assertions to check that all observations were made correctly
 }
 
-
 func BenchmarkObserver(b *testing.B) {
 	observer := NewLocalObserver()
 

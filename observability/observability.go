@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
@@ -19,7 +20,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"log/slog"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 )
 
 var resource *sdkresource.Resource
@@ -57,13 +57,21 @@ func NewLocalObserver() ObserverInterface {
 
 	return oi
 }
+
 // NewObserver creates a new Observer instance.
 func NewObserver(address string) ObserverInterface {
 	// Initialize the TracerProvider and Tracer.
 	initObserverOnce.Do(func() {
-		tp, _ := initTracerProvider("")
-		oi = &observer{
-			tp: tp,
+		if address == "" {
+			tp, _ := initStdoutProvider()
+			oi = &observer{
+				tp: tp,
+			}
+		} else {
+			tp, _ := initTracerProvider("")
+			oi = &observer{
+				tp: tp,
+			}
 		}
 	})
 
@@ -152,10 +160,10 @@ func initResource() *sdkresource.Resource {
 }
 
 func initStdoutProvider() (*sdktrace.TracerProvider, error) {
-    exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
-    if err != nil {
-        panic(fmt.Sprintf("failed to initialize stdouttrace export pipeline: %v", err))
-    }
+	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize stdouttrace export pipeline: %v", err))
+	}
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
