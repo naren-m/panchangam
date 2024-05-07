@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/naren-m/panchangam/observability"
+	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -73,12 +74,14 @@ func TestLogWithSpan(t *testing.T) {
 		C: &i,
 	}
 
+	o, _ := observability.NewObserver("")
+
 	log := slog.New(lh)
 	slog.SetLogLoggerLevel(slog.LevelDebug)
-	ctxWithSpanAndRecording, span := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	ctxWithSpanAndRecording, span := o.CreateSpan(context.Background(), "test")
 	defer span.End()
 
-	ctxWithSpanAndNotRecording, spanNotRecording := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	ctxWithSpanAndNotRecording, spanNotRecording := o.CreateSpan(context.Background(), "test")
 	spanNotRecording.End()
 
 	tests := []struct {
@@ -110,10 +113,11 @@ func TestLogWithSpan(t *testing.T) {
 }
 func TestMultiRoutines(t *testing.T) {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
-	ctxWithSpanAndRecording, span := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	o, _ :=  observability.NewObserver("")
+	ctxWithSpanAndRecording, span := o.CreateSpan(context.Background(), "test")
 	defer span.End()
 
-	ctxWithSpanAndNotRecording, spanNotRecording := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	ctxWithSpanAndNotRecording, spanNotRecording := o.CreateSpan(context.Background(), "test")
 	spanNotRecording.End()
 
 	tests := []struct {
@@ -186,10 +190,17 @@ func TestConvertSlogAttrToSpanAttr(t *testing.T) {
 }
 
 func BenchmarkLogging(b *testing.B) {
-	ctxWithSpanAndRecording, span := observability.NewObserver("").CreateSpan(context.Background(), "test")
-	defer span.End()
+	o, _ := observability.NewObserver("")
+	assert.NotNil(b, o)
+	ctxWithSpanAndRecording, span := o.CreateSpan(context.Background(), "test")
 
-	ctxWithSpanAndNotRecording, spanNotRecording := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	defer func ()  {
+		if span != nil {
+			span.End()
+		}
+	}()
+
+	ctxWithSpanAndNotRecording, spanNotRecording := o.CreateSpan(context.Background(), "test")
 	spanNotRecording.End()
 
 	tests := []struct {

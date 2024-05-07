@@ -2,4 +2,41 @@
     "cSpell.words": [
         "panchangam"
     ]
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.insertSpaces": false,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "never",
+            "source.fixAll.markdownlint": "never"
+        },
+        "editor.suggest.snippetsPreventQuickSuggestions": false
+    },
+    "go.lintFlags": [
+        "--enable-all",
+        "--new",
+        "-exclude=vendor/...",
+    ],
+    "go.coverOnSave": false,
+    "go.coverageDecorator": {
+        "type": "highlight",
+        "coveredHighlightColor": "rgba(64,128,128,0.5)",
+        "uncoveredHighlightColor": "rgba(128,64,64,0.25)",
+        "coveredGutterStyle": "slashgreen",
+        "uncoveredGutterStyle": "blockred"
+    },
+    "go.coverOnSingleTest": false,
+    "go.toolsEnvVars": {
+        "GOCACHE": "/Users/nmudivar/.cache/go-build",
+        "GOMODCACHE": "/Users/nmudivar/go/pkg/mod",
+        "GOPATH": "/Users/nmudivar/go",
+        "SMARTUT": "1",
+    },
+    "go.testFlags": ["-race", "-count=1", "-v"],
+    "go.testEnvVars": {
+        "GOROOT": "/opt/homebrew/Cellar/go/1.22.2/libexec",
+        "GOPATH": "/Users/nmudivar/go",
+        "GOCACHE": "/Users/nmudivar/.cache/go-build",
+    },
+    "go.testTimeout": "60s",
+    "gopls": { "ui.semanticTokens": true },
 }

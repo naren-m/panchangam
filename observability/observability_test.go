@@ -9,9 +9,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewObserver(t *testing.T) {
-	observer := NewObserver("localhost:4317")
+
+func newObserver(t *testing.T) (ObserverInterface, error) {
+	observer, err := NewObserver("localhost:4317")
 	assert.NotNil(t, observer)
+	assert.Nil(t, err)
+	return observer, err
+}
+
+
+func TestNewObserver(t *testing.T) {
+	newObserver(t)
 }
 
 func TestObserver(t *testing.T) {
@@ -20,39 +28,39 @@ func TestObserver(t *testing.T) {
 }
 func TestObserverSingleton(t *testing.T) {
 	// Create two observers using NewObserver
-	observer1 := NewObserver("localhost:4317")
-	observer2 := NewObserver("localhost:4317")
+	observer1, _ := newObserver(t)
+	observer2, _ :=  newObserver(t)
 
 	// Create two observers using Observer
 	observer3 := Observer()
 	observer4 := Observer()
 
-	// Check that the observers created by NewObserver are not the same instance
 	assert.Equal(t, observer1, observer2)
-
-	// Check that the observers created by Observer are the same instance
 	assert.Equal(t, observer3, observer4)
+	assert.Equal(t, observer1, observer3)
 }
 
 // TODO: Test is not verifying.
 func TestShutdown(t *testing.T) {
-	observer := NewObserver("localhost:4317")
-	err := observer.Shutdown(context.Background())
+	observer, err := newObserver(t)
+	err = observer.Shutdown(context.Background())
 	assert.Nil(t, err)
 }
 
+
 func TestTracer(t *testing.T) {
-	observer := NewObserver("localhost:4317")
+	observer, _ :=  newObserver(t)
 	tracer := observer.Tracer("test")
 	assert.NotNil(t, tracer)
 }
 
 func TestCreateSpan(t *testing.T) {
-	observer := NewObserver("localhost:4317")
+	observer, _ :=  newObserver(t)
 	ctx, span := observer.CreateSpan(context.Background(), "test")
 	assert.NotNil(t, ctx)
 	assert.NotNil(t, span)
 }
+
 func TestConcurrency(t *testing.T) {
 	observer := NewLocalObserver()
 	var wg sync.WaitGroup

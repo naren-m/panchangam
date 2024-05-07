@@ -59,30 +59,31 @@ func NewLocalObserver() ObserverInterface {
 }
 
 // NewObserver creates a new Observer instance.
-func NewObserver(address string) ObserverInterface {
+func NewObserver(address string) (oi ObserverInterface, err error){
 	// Initialize the TracerProvider and Tracer.
+	var tp *sdktrace.TracerProvider
 	initObserverOnce.Do(func() {
 		if address == "" {
-			tp, _ := initStdoutProvider()
+			tp, err = initStdoutProvider()
 			oi = &observer{
 				tp: tp,
 			}
 		} else {
-			tp, _ := initTracerProvider("")
+			tp, err = initTracerProvider(address)
 			oi = &observer{
 				tp: tp,
 			}
 		}
 	})
 
-	return oi
+	return oi, err
 }
 
 // Observer returns the observer instance.
 func Observer() ObserverInterface {
 	if oi == nil {
 		// TODO: Cleanup later.
-		NewObserver("")
+		panic("Observer not initialized.")
 	}
 
 	return oi
@@ -178,7 +179,7 @@ func initStdoutProvider() (*sdktrace.TracerProvider, error) {
 
 func initTracerProvider(address string) (*sdktrace.TracerProvider, error) {
 	if address == "" {
-		address = "localhost:4317"
+		return nil, fmt.Errorf("address is required")
 	}
 	conn, err := grpc.NewClient(address,
 		// Note the use of insecure transport here. TLS is recommended in production.

@@ -16,8 +16,7 @@ var logger = log.Logger()
 func main() {
 	// Step 1: Initialize OpenTelemetry
 	// Set up OpenTelemetry.
-	o := observability.NewObserver("")
-	o = observability.NewObserver("")
+	o, err := observability.NewObserver("")
 	defer o.Shutdown(context.Background())
 
 	// Create a listener on TCP port 50051
