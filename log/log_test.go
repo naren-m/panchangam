@@ -1,19 +1,22 @@
 package log
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/naren-m/panchangam/observability"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type wrappingHandler struct {
 	h slog.Handler
-	l []slog.Record
+	C *int16
 }
 
 func (h wrappingHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -22,12 +25,17 @@ func (h wrappingHandler) Enabled(ctx context.Context, level slog.Level) bool {
 func (h wrappingHandler) WithGroup(name string) slog.Handler    { return h.h.WithGroup(name) }
 func (h wrappingHandler) WithAttrs(as []slog.Attr) slog.Handler { return h.h.WithAttrs(as) }
 func (h wrappingHandler) Handle(ctx context.Context, r slog.Record) error {
-	h.l = append(h.l, r)
+	*h.C++
 	return h.h.Handle(ctx, r)
 }
 
+var opts = &slog.HandlerOptions{
+	Level: slog.LevelDebug,
+	AddSource: true,
+}
+
 func TestHandler(t *testing.T) {
-	h := NewHandler(slog.LevelDebug, slog.NewTextHandler(os.Stdout, nil))
+	h := NewHandler(slog.NewTextHandler(os.Stdout, opts))
 
 	if h.Handler() != h.handler {
 		t.Errorf("Handler() = %v, want %v", h.Handler(), h.handler)
@@ -35,7 +43,7 @@ func TestHandler(t *testing.T) {
 }
 
 func TestWithAttrs(t *testing.T) {
-	h := NewHandler(slog.LevelDebug, slog.NewTextHandler(os.Stdout, nil))
+	h := NewHandler(slog.NewTextHandler(os.Stdout, opts))
 	attrs := []slog.Attr{slog.String("key", "value")}
 
 	newHandler := h.WithAttrs(attrs)
@@ -46,7 +54,7 @@ func TestWithAttrs(t *testing.T) {
 }
 
 func TestWithGroup(t *testing.T) {
-	h := NewHandler(slog.LevelDebug, slog.NewTextHandler(os.Stdout, nil))
+	h := NewHandler(slog.NewTextHandler(os.Stdout, opts))
 	groupName := "testGroup"
 
 	newHandler := h.WithGroup(groupName)
@@ -58,13 +66,15 @@ func TestWithGroup(t *testing.T) {
 
 // Test logging with and wihout span. If the context does not have span,
 // the log should be written to the handler. But should not fail.
-func TestHandleWithoutSpan(t *testing.T) {
+func TestLogWithSpan(t *testing.T) {
+	i := int16(0)
 	lh := wrappingHandler{
-		h: NewHandler(slog.LevelDebug, slog.NewTextHandler(os.Stdout, nil)),
-		l: []slog.Record{}}
+		h: NewHandler(slog.NewTextHandler(os.Stdout, opts)),
+		C: &i,
+	}
 
 	log := slog.New(lh)
-
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 	ctxWithSpanAndRecording, span := observability.NewObserver("").CreateSpan(context.Background(), "test")
 	defer span.End()
 
@@ -74,27 +84,73 @@ func TestHandleWithoutSpan(t *testing.T) {
 	tests := []struct {
 		name string
 		ctx  context.Context
+		span trace.Span
 	}{
-		{"no span", context.Background()},
-		{"span", ctxWithSpanAndRecording},
-		{"span not recording", ctxWithSpanAndNotRecording},
-		{"span recording", ctxWithSpanAndRecording},
-		{"nil", nil},
+		{"no span", context.Background(), nil},
+		{"span", ctxWithSpanAndRecording, observability.SpanFromContext(ctxWithSpanAndRecording)},
+		{"span recording", ctxWithSpanAndRecording, observability.SpanFromContext(ctxWithSpanAndRecording)},
+		{"span not recording", ctxWithSpanAndNotRecording, observability.SpanFromContext(ctxWithSpanAndNotRecording)},
+		{"context is nil", nil, nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log.InfoContext(tt.ctx, tt.name)
-			log.ErrorContext(tt.ctx, tt.name)
 			log.DebugContext(tt.ctx, tt.name)
 			log.WarnContext(tt.ctx, tt.name)
+			log.ErrorContext(tt.ctx, tt.name)
 
-			if len(lh.l) != 4 {
-				t.Errorf("Handle() should have been called 4 times, got %d", len(lh.l))
+			if *lh.C != 4 {
+				t.Errorf("Handle() should have been called 4 times, got %v", lh.C)
 			}
+			i = 0
 		})
 	}
 
+}
+func TestMultiRoutines(t *testing.T) {
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+	ctxWithSpanAndRecording, span := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	defer span.End()
+
+	ctxWithSpanAndNotRecording, spanNotRecording := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	spanNotRecording.End()
+
+	tests := []struct {
+		name  string
+		count int
+		ctx   context.Context
+		span  trace.Span
+	}{
+		// Existing test cases...
+		{"no span", 100, context.Background(), nil},
+		{"span", 200, ctxWithSpanAndRecording, observability.SpanFromContext(ctxWithSpanAndRecording)},
+		{"span recording", 300, ctxWithSpanAndRecording, observability.SpanFromContext(ctxWithSpanAndRecording)},
+		{"span not recording", 100, ctxWithSpanAndNotRecording, observability.SpanFromContext(ctxWithSpanAndNotRecording)},
+		{"context is nil", 500, nil, nil},
+	}
+	h := NewHandler(slog.NewTextHandler(os.Stdout, opts))
+	log := slog.New(h)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var wg sync.WaitGroup
+			wg.Add(tt.count)
+
+			for i := 0; i < tt.count; i++ {
+				go func() {
+					defer wg.Done()
+					log.InfoContext(tt.ctx, tt.name)
+					log.DebugContext(tt.ctx, tt.name)
+					log.WarnContext(tt.ctx, tt.name)
+					log.ErrorContext(tt.ctx, tt.name)
+				}()
+			}
+
+			wg.Wait()
+		})
+	}
 }
 
 func TestConvertSlogAttrToSpanAttr(t *testing.T) {
@@ -126,5 +182,46 @@ func TestConvertSlogAttrToSpanAttr(t *testing.T) {
 				t.Errorf("convertSlogAttrToSpanAttr() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func BenchmarkLogging(b *testing.B) {
+	ctxWithSpanAndRecording, span := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	defer span.End()
+
+	ctxWithSpanAndNotRecording, spanNotRecording := observability.NewObserver("").CreateSpan(context.Background(), "test")
+	spanNotRecording.End()
+
+	tests := []struct {
+		name  string
+		count int
+		ctx   context.Context
+		span  trace.Span
+	}{
+		// Existing test cases...
+		{"no span", 100, context.Background(), nil},
+		{"span", 100, ctxWithSpanAndRecording, observability.SpanFromContext(ctxWithSpanAndRecording)},
+		{"span recording", 100, ctxWithSpanAndRecording, observability.SpanFromContext(ctxWithSpanAndRecording)},
+		{"span not recording", 100, ctxWithSpanAndNotRecording, observability.SpanFromContext(ctxWithSpanAndNotRecording)},
+		{"context is nil", 100, nil, nil},
+	}
+	var buf bytes.Buffer
+	h := NewHandler(slog.NewTextHandler(&buf, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+		AddSource: true,
+	}))
+
+	log := slog.New(h)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+
+	b.ResetTimer() // Reset the timer to exclude setup time
+
+	for i := 0; i < b.N; i++ { // b.N is provided by the testing framework
+		for _, tt := range tests {
+			for j := 0; j < tt.count; j++ {
+				log.InfoContext(tt.ctx, tt.name)
+			}
+			buf.Reset()
+		}
 	}
 }

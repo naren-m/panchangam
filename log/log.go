@@ -13,12 +13,10 @@ import (
 
 var logger *slog.Logger
 var initOnce sync.Once
-var spanEnabled = true
 
 func init() {
 	initOnce.Do(func() {
-		logger = slog.New(NewHandler(slog.LevelDebug,
-			slog.NewTextHandler(os.Stdout, nil)))
+		logger = slog.New(NewHandler(slog.NewTextHandler(os.Stdout, nil)))
 	})
 }
 
@@ -29,37 +27,34 @@ func Logger() *slog.Logger {
 // A Handler wraps a Handler with an Enabled method
 // that returns false for levels below a minimum.
 type Handler struct {
-	level   slog.Leveler
 	handler slog.Handler
 }
 
 // NewHandler returns a LevelHandler with the given level.
 // All methods except Enabled delegate to h.
-func NewHandler(level slog.Leveler, h slog.Handler) *Handler {
+func NewHandler(h slog.Handler) *Handler {
 	// Optimization: avoid chains of LevelHandlers.
 	if lh, ok := h.(*Handler); ok {
 		h = lh.Handler()
 	}
-	return &Handler{level, h}
+	return &Handler{h}
 }
 
 // Enabled implements Handler.Enabled by reporting whether
 // level is at least as large as h's level.
-func (h *Handler) Enabled(_ context.Context, level slog.Level) bool {
-	return level >= h.level.Level()
+func (h *Handler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.handler.Enabled(ctx, level)
 }
 
 // Handle implements Handler.Handle.
 func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
-	if ctx != nil && spanEnabled {
+	if ctx != nil {
 		span := observability.SpanFromContext(ctx)
-		if !span.IsRecording() {
-			h.handler.Handle(ctx, slog.NewRecord(r.Time, r.Level, "Span is not recording", r.PC))
+		if span == nil || !span.IsRecording() {
+			r.Message = fmt.Sprintf("span not found: %s", r.Message)
 			return h.handler.Handle(ctx, r)
 		}
-
 		span.AddEvent(r.Message)
-
 	}
 
 	return h.handler.Handle(ctx, r)
@@ -96,16 +91,14 @@ func convertSlogAttrToSpanAttr(key string, attr slog.Value) (attribute.KeyValue,
 }
 
 // Handler returns the Handler wrapped by h.
-func (h *Handler) Handler() slog.Handler {
-	return h.handler
-}
+func (h *Handler) Handler() slog.Handler { return h.handler }
 
 // WithAttrs implements Handler.WithAttrs.
 func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return NewHandler(h.level, h.handler.WithAttrs(attrs))
+	return NewHandler(h.handler.WithAttrs(attrs))
 }
 
 // WithGroup implements Handler.WithGroup.
 func (h *Handler) WithGroup(name string) slog.Handler {
-	return NewHandler(h.level, h.handler.WithGroup(name))
+	return NewHandler(h.handler.WithGroup(name))
 }
