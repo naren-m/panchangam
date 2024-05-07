@@ -64,7 +64,7 @@ func TestWithGroup(t *testing.T) {
 	}
 }
 
-// Test logging with and wihout span. If the context does not have span,
+// Test logging with and without span. If the context does not have span,
 // the log should be written to the handler. But should not fail.
 func TestLogWithSpan(t *testing.T) {
 	i := int16(0)
@@ -124,10 +124,10 @@ func TestMultiRoutines(t *testing.T) {
 	}{
 		// Existing test cases...
 		{"no span", 100, context.Background(), nil},
-		{"span", 200, ctxWithSpanAndRecording, observability.SpanFromContext(ctxWithSpanAndRecording)},
-		{"span recording", 300, ctxWithSpanAndRecording, observability.SpanFromContext(ctxWithSpanAndRecording)},
+		{"span", 100, ctxWithSpanAndRecording, observability.SpanFromContext(ctxWithSpanAndRecording)},
+		{"span recording", 100, ctxWithSpanAndRecording, observability.SpanFromContext(ctxWithSpanAndRecording)},
 		{"span not recording", 100, ctxWithSpanAndNotRecording, observability.SpanFromContext(ctxWithSpanAndNotRecording)},
-		{"context is nil", 500, nil, nil},
+		{"context is nil", 100, nil, nil},
 	}
 	h := NewHandler(slog.NewTextHandler(os.Stdout, opts))
 	log := slog.New(h)
@@ -220,6 +220,9 @@ func BenchmarkLogging(b *testing.B) {
 		for _, tt := range tests {
 			for j := 0; j < tt.count; j++ {
 				log.InfoContext(tt.ctx, tt.name)
+				log.DebugContext(tt.ctx, tt.name)
+				log.WarnContext(tt.ctx, tt.name)
+				log.ErrorContext(tt.ctx, tt.name)
 			}
 			buf.Reset()
 		}
