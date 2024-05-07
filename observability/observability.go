@@ -59,9 +59,10 @@ func NewLocalObserver() ObserverInterface {
 }
 
 // NewObserver creates a new Observer instance.
-func NewObserver(address string) (oi ObserverInterface, err error){
+func NewObserver(address string) (ObserverInterface, error){
 	// Initialize the TracerProvider and Tracer.
 	var tp *sdktrace.TracerProvider
+	var err error
 	initObserverOnce.Do(func() {
 		if address == "" {
 			tp, err = initStdoutProvider()

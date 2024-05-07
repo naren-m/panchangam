@@ -18,14 +18,26 @@ func newObserver(t *testing.T) (ObserverInterface, error) {
 }
 
 
+// NOTE: This must be the first test, As it tests if call of Observer() panics if not initialized.
+func TestObserver(t *testing.T) {
+
+	t.Run("Test for panic", func(t *testing.T) {
+	assert.Panics(t, func() { Observer() }, "The code did not panic")
+	})
+
+	t.Run("Test for Observer", func(t *testing.T) {
+	newObserver(t)
+	observer := Observer()
+	assert.NotNil(t, observer)
+	})
+
+}
+
 func TestNewObserver(t *testing.T) {
 	newObserver(t)
 }
 
-func TestObserver(t *testing.T) {
-	observer := Observer()
-	assert.NotNil(t, observer)
-}
+
 func TestObserverSingleton(t *testing.T) {
 	// Create two observers using NewObserver
 	observer1, _ := newObserver(t)

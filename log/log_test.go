@@ -193,14 +193,9 @@ func BenchmarkLogging(b *testing.B) {
 	o, _ := observability.NewObserver("")
 	assert.NotNil(b, o)
 	ctxWithSpanAndRecording, span := o.CreateSpan(context.Background(), "test")
+	defer span.End()
 
-	defer func ()  {
-		if span != nil {
-			span.End()
-		}
-	}()
-
-	ctxWithSpanAndNotRecording, spanNotRecording := o.CreateSpan(context.Background(), "test")
+	ctxWithSpanAndNotRecording, spanNotRecording := o.CreateSpan(context.Background(), "Context for non recording span")
 	spanNotRecording.End()
 
 	tests := []struct {
