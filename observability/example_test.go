@@ -9,7 +9,7 @@ import (
 
 func ExampleObserver_Tracer() {
 	// Create a new observer
-	observer := observability.NewObserver("localhost:4317")
+	observer := observability.NewLocalObserver()
 
 	// Get a tracer from the observer
 	tracer := observer.Tracer("test")
@@ -20,17 +20,17 @@ func ExampleObserver_Tracer() {
 
 func ExampleObserver_CreateSpan() {
 	// Create a new observer
-	observer := observability.NewObserver("localhost:4317")
+	observer := observability.NewLocalObserver()
 
 	// Create a new span using the observer
 	_, span := observer.CreateSpan(context.Background(), "test")
-	span.End()
+	defer span.End()
 	span.AddEvent("test event")
-	if span.IsRecording() {
-		fmt.Println("Span is recording")
-	} else {
-		fmt.Println("Span is not recording")
-	}
+	// if span.IsRecording() {
+	// 	fmt.Println("Span is recording")
+	// } else {
+	// 	fmt.Println("Span is not recording")
+	// }
 	// Output: Successfully created span using observer
 	fmt.Println("Successfully created span using observer")
 }

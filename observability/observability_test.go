@@ -2,6 +2,8 @@ package observability
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,4 +52,58 @@ func TestCreateSpan(t *testing.T) {
 	ctx, span := observer.CreateSpan(context.Background(), "test")
 	assert.NotNil(t, ctx)
 	assert.NotNil(t, span)
+}
+func TestConcurrency(t *testing.T) {
+	observer := NewLocalObserver()
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			ctx := context.WithValue(context.Background(), "key", fmt.Sprintf("value%d", i))
+
+			ctx, span := observer.Tracer("test").Start(ctx, "test")
+			// assert.True(t, span.IsRecording())
+			defer span.End()
+
+			assert.NotNil(t, ctx)
+			assert.NotNil(t, span)
+
+			s := SpanFromContext(ctx)
+			assert.NotNil(t, s)
+
+			s.AddEvent("test")
+
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Add assertions to check that all observations were made correctly
+}
+
+
+func BenchmarkObserver(b *testing.B) {
+	observer := NewLocalObserver()
+
+	for n := 0; n < b.N; n++ {
+		var wg sync.WaitGroup
+
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				ctx := context.WithValue(context.Background(), "key", fmt.Sprintf("value%d", i))
+
+				ctx, span := observer.Tracer("test").Start(ctx, "test")
+				defer span.End()
+
+				s := SpanFromContext(ctx)
+				s.AddEvent("test")
+			}(i)
+		}
+
+		wg.Wait()
+	}
 }

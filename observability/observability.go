@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"log/slog"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 )
 
 var resource *sdkresource.Resource
@@ -45,6 +46,17 @@ type observer struct {
 
 var oi *observer
 
+func NewLocalObserver() ObserverInterface {
+	// Initialize the TracerProvider and Tracer.
+	initObserverOnce.Do(func() {
+		tp, _ := initStdoutProvider()
+		oi = &observer{
+			tp: tp,
+		}
+	})
+
+	return oi
+}
 // NewObserver creates a new Observer instance.
 func NewObserver(address string) ObserverInterface {
 	// Initialize the TracerProvider and Tracer.
@@ -137,6 +149,23 @@ func initResource() *sdkresource.Resource {
 		)
 	})
 	return resource
+}
+
+func initStdoutProvider() (*sdktrace.TracerProvider, error) {
+    exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+    if err != nil {
+        panic(fmt.Sprintf("failed to initialize stdouttrace export pipeline: %v", err))
+    }
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(initResource()),
+	)
+
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+
+	return tp, nil
 }
 
 func initTracerProvider(address string) (*sdktrace.TracerProvider, error) {
