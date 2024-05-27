@@ -16,7 +16,7 @@ var logger = log.Logger()
 func main() {
 	// Step 1: Initialize OpenTelemetry
 	// Set up OpenTelemetry.
-	o, err := observability.NewObserver("")
+	o, err := observability.NewObserver("localhost:4317")
 	defer o.Shutdown(context.Background())
 
 	// Create a listener on TCP port 50051
@@ -27,7 +27,6 @@ func main() {
 	}
 	a := aaa.NewAuth()
 	grpcServer := grpc.NewServer(
-		grpc.StatsHandler(observability.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
 			observability.UnaryServerInterceptor(),
 			a.AuthInterceptor(),
