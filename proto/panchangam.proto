@@ -49,12 +49,33 @@ message PanchangamEvent {
 
     // Time of the event (in ISO 8601 format: HH:MM:SS)
     string time = 2;
+
+    // Optional: Type of event (e.g., RAHU_KALAM, YAMAGANDAM, FESTIVAL)
+    string event_type = 3;
 }
 
 // Request message to retrieve Panchangam data for a specific date
 message GetPanchangamRequest {
     // Date for which Panchangam data is requested (in ISO 8601 format: YYYY-MM-DD)
     string date = 1;
+
+    // Latitude of the location (required, -90 to 90)
+    double latitude = 2;
+
+    // Longitude of the location (required, -180 to 180)
+    double longitude = 3;
+
+    // Optional: Timezone identifier (e.g., "Asia/Kolkata")
+    string timezone = 4;
+
+    // Optional: Regional system (e.g., "Tamil Nadu", "Kerala")
+    string region = 5;
+
+    // Optional: Calculation method (e.g., "Drik", "Vakya")
+    string calculation_method = 6;
+
+    // Optional: Language/locale (e.g., "en", "ta")
+    string locale = 7;
 }
 
 // Response message containing Panchangam data for the requested date

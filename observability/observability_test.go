@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-
 func newObserver(t *testing.T) (ObserverInterface, error) {
 	observer, err := NewObserver("localhost:4317")
 	assert.NotNil(t, observer)
@@ -17,18 +16,17 @@ func newObserver(t *testing.T) (ObserverInterface, error) {
 	return observer, err
 }
 
-
 // NOTE: This must be the first test, As it tests if call of Observer() panics if not initialized.
 func TestObserver(t *testing.T) {
 
 	t.Run("Test for panic", func(t *testing.T) {
-	assert.Panics(t, func() { Observer() }, "The code did not panic")
+		assert.Panics(t, func() { Observer() }, "The code did not panic")
 	})
 
 	t.Run("Test for Observer", func(t *testing.T) {
-	newObserver(t)
-	observer := Observer()
-	assert.NotNil(t, observer)
+		newObserver(t)
+		observer := Observer()
+		assert.NotNil(t, observer)
 	})
 
 }
@@ -37,11 +35,10 @@ func TestNewObserver(t *testing.T) {
 	newObserver(t)
 }
 
-
 func TestObserverSingleton(t *testing.T) {
 	// Create two observers using NewObserver
 	observer1, _ := newObserver(t)
-	observer2, _ :=  newObserver(t)
+	observer2, _ := newObserver(t)
 
 	// Create two observers using Observer
 	observer3 := Observer()
@@ -59,15 +56,14 @@ func TestShutdown(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-
 func TestTracer(t *testing.T) {
-	observer, _ :=  newObserver(t)
+	observer, _ := newObserver(t)
 	tracer := observer.Tracer("test")
 	assert.NotNil(t, tracer)
 }
 
 func TestCreateSpan(t *testing.T) {
-	observer, _ :=  newObserver(t)
+	observer, _ := newObserver(t)
 	ctx, span := observer.CreateSpan(context.Background(), "test")
 	assert.NotNil(t, ctx)
 	assert.NotNil(t, span)

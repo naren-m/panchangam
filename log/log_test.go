@@ -113,7 +113,7 @@ func TestLogWithSpan(t *testing.T) {
 }
 func TestMultiRoutines(t *testing.T) {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
-	o, _ :=  observability.NewObserver("")
+	o, _ := observability.NewObserver("")
 	ctxWithSpanAndRecording, span := o.CreateSpan(context.Background(), "test")
 	defer span.End()
 

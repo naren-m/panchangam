@@ -14,7 +14,7 @@ Regional variations add another layer of complexity to Panchangam implementation
 
 ### Tithi: The lunar day calculation engine
 
-Tithi calculation forms the cornerstone of Panchangam's temporal framework. **The formula (Moon_longitude - Sun_longitude) ÷ 12° appears deceptively simple, yet implementing it requires sophisticated astronomical algorithms**. Each of the 30 tithis in a lunar month carries specific energetic qualities categorized into five groups: Nanda (joyous), Bhadra (healthy), Jaya (victorious), Rikta (loss), and Purna (complete). 
+Tithi calculation forms the cornerstone of Panchangam's temporal framework. **The formula (Moon_longitude - Sun_longitude) ÷ 12° appears deceptively simple, yet implementing it requires sophisticated astronomical algorithms**. Each of the 30 tithis in a lunar month carries specific energetic qualities categorized into five groups: Nanda (joyous), Bhadra (healthy), Jaya (victorious), Rikta (loss), and Purna (complete).
 
 The duration of each tithi varies significantly—from approximately 19 hours 59 minutes to 26 hours 47 minutes—due to the elliptical nature of lunar and solar orbits. This variation necessitates continuous real-time calculations rather than static tables. Modern implementations must handle edge cases where multiple tithis might occur within a single solar day or when a tithi spans across multiple days.
 
