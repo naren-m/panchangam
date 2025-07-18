@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/naren-m/panchangam/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -11,6 +12,9 @@ import (
 // TestHistoricalValidation tests sunrise/sunset calculations against known historical data
 // from TimeAndDate.com for January 15, 2020 across all continents
 func TestHistoricalValidation(t *testing.T) {
+	// Initialize observability for testing
+	observability.NewLocalObserver()
+	
 	// Test date: January 15, 2020 (historical date)
 	testDate := time.Date(2020, 1, 15, 0, 0, 0, 0, time.UTC)
 	
