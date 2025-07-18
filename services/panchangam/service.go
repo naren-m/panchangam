@@ -210,14 +210,14 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 	
 	// Calculate sunrise and sunset times
 	logger.InfoContext(ctx, "Calculating sun times", 
-		"operation", "CalculateSunTimes",
+		"operation", "CalculateSunTimesWithContext",
 		"date", date.Format("2006-01-02"),
 		"location", fmt.Sprintf("%.4f,%.4f", location.Latitude, location.Longitude))
-	sunTimes, err := astronomy.CalculateSunTimes(location, date)
+	sunTimes, err := astronomy.CalculateSunTimesWithContext(ctx, location, date)
 	if err != nil {
 		err = status.Error(codes.Internal, fmt.Sprintf("failed to calculate sun times: %v", err))
 		logger.ErrorContext(ctx, "Astronomical calculation failed", 
-			"operation", "CalculateSunTimes",
+			"operation", "CalculateSunTimesWithContext",
 			"error", err,
 			"location", fmt.Sprintf("%.4f,%.4f", location.Latitude, location.Longitude),
 			"date", date.Format("2006-01-02"))
