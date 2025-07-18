@@ -1,0 +1,336 @@
+name: Label Automation & Management
+
+on:
+  issues:
+    types: [opened, edited, closed, reopened]
+  pull_request:
+    types: [opened, edited, closed, reopened]
+  schedule:
+    # Run weekly label cleanup on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  auto-label-issues:
+    runs-on: ubuntu-latest
+    name: Auto Label Issues
+    if: github.event_name == 'issues' && (github.event.action == 'opened' || github.event.action == 'edited')
+    steps:
+      - name: Auto Label Based on Content
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { issue } = context.payload;
+            const title = issue.title.toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+            const content = `${title} ${body}`;
+            
+            const labelsToAdd = [];
+            const labelsToRemove = [];
+            
+            // Auto-label based on content patterns
+            const labelPatterns = {
+              // Component labels
+              'component:astronomical': ['tithi', 'nakshatra', 'yoga', 'karana', 'vara', 'sun', 'moon', 'planetary', 'ephemeris'],
+              'component:regional': ['regional', 'tamil', 'kerala', 'bengal', 'gujarat', 'maharashtra', 'amanta', 'purnimanta', 'drik', 'vakya'],
+              'component:events': ['event', 'festival', 'rahu', 'yamagandam', 'muhurta'],
+              'component:api': ['api', 'grpc', 'endpoint', 'service', 'protocol'],
+              'component:ui': ['ui', 'interface', 'frontend', 'component', 'visualization'],
+              'component:observability': ['tracing', 'logging', 'monitoring', 'telemetry', 'observability'],
+              'component:testing': ['test', 'testing', 'coverage', 'validation', 'verification'],
+              'component:documentation': ['documentation', 'docs', 'guide', 'readme'],
+              
+              // Complexity labels
+              'complexity:low': ['simple', 'minor', 'small', 'quick', 'easy'],
+              'complexity:medium': ['moderate', 'medium', 'standard'],
+              'complexity:high': ['complex', 'major', 'large', 'difficult', 'comprehensive'],
+              
+              // Priority labels
+              'priority:critical': ['critical', 'urgent', 'blocking', 'production', 'security'],
+              'priority:high': ['important', 'high priority', 'needed soon'],
+              'priority:low': ['nice to have', 'low priority', 'future', 'enhancement'],
+              
+              // Type labels
+              'type:feature': ['feature', 'new', 'add', 'implement', 'create'],
+              'type:bug': ['bug', 'error', 'issue', 'problem', 'fix'],
+              'type:enhancement': ['improvement', 'enhance', 'optimize', 'refactor', 'upgrade'],
+              'type:documentation': ['document', 'docs', 'guide', 'readme', 'explain'],
+              'type:performance': ['performance', 'optimize', 'speed', 'efficiency', 'slow'],
+              'type:security': ['security', 'vulnerability', 'auth', 'permission', 'access'],
+              
+              // Status labels (only for new issues)
+              'status:needs-triage': []  // Default for new issues
+            };
+            
+            // Check each pattern
+            for (const [label, keywords] of Object.entries(labelPatterns)) {
+              if (keywords.length === 0) {
+                // Special case for default labels
+                if (label === 'status:needs-triage' && issue.labels.length === 0) {
+                  labelsToAdd.push(label);
+                }
+                continue;
+              }
+              
+              const hasMatch = keywords.some(keyword => content.includes(keyword));
+              if (hasMatch) {
+                labelsToAdd.push(label);
+              }
+            }
+            
+            // Remove conflicting labels
+            const existingLabels = issue.labels.map(l => l.name);
+            
+            // Remove conflicting complexity labels
+            const complexityLabels = ['complexity:low', 'complexity:medium', 'complexity:high'];
+            const addedComplexity = labelsToAdd.filter(l => complexityLabels.includes(l));
+            if (addedComplexity.length > 0) {
+              const toRemove = complexityLabels.filter(l => l !== addedComplexity[0] && existingLabels.includes(l));
+              labelsToRemove.push(...toRemove);
+            }
+            
+            // Remove conflicting priority labels
+            const priorityLabels = ['priority:critical', 'priority:high', 'priority:medium', 'priority:low'];
+            const addedPriority = labelsToAdd.filter(l => priorityLabels.includes(l));
+            if (addedPriority.length > 0) {
+              const toRemove = priorityLabels.filter(l => l !== addedPriority[0] && existingLabels.includes(l));
+              labelsToRemove.push(...toRemove);
+            }
+            
+            // Apply labels
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labelsToAdd
+              });
+              
+              console.log(`Added labels: ${labelsToAdd.join(', ')}`);
+            }
+            
+            if (labelsToRemove.length > 0) {
+              for (const label of labelsToRemove) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    name: label
+                  });
+                } catch (error) {
+                  console.log(`Could not remove label ${label}: ${error.message}`);
+                }
+              }
+              
+              console.log(`Removed labels: ${labelsToRemove.join(', ')}`);
+            }
+
+  status-label-automation:
+    runs-on: ubuntu-latest
+    name: Status Label Automation
+    if: github.event_name == 'issues' && (github.event.action == 'closed' || github.event.action == 'reopened')
+    steps:
+      - name: Update Status Labels
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { issue } = context.payload;
+            const action = context.payload.action;
+            
+            const statusLabels = [
+              'status:needs-triage',
+              'status:in-progress', 
+              'status:blocked',
+              'status:review',
+              'status:testing',
+              'status:done'
+            ];
+            
+            // Remove all existing status labels
+            for (const label of statusLabels) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  name: label
+                });
+              } catch (error) {
+                // Label might not exist, continue
+              }
+            }
+            
+            // Add appropriate status label
+            let newLabel;
+            if (action === 'closed') {
+              newLabel = 'status:done';
+            } else if (action === 'reopened') {
+              newLabel = 'status:needs-triage';
+            }
+            
+            if (newLabel) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: [newLabel]
+              });
+              
+              console.log(`Updated status to: ${newLabel}`);
+            }
+
+  create-missing-labels:
+    runs-on: ubuntu-latest
+    name: Create Missing Labels
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Ensure Standard Labels Exist
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const standardLabels = [
+              // Type labels
+              { name: 'type:feature', color: '0e8a16', description: 'New feature or functionality' },
+              { name: 'type:bug', color: 'd73a4a', description: 'Bug report or error' },
+              { name: 'type:enhancement', color: 'a2eeef', description: 'Enhancement to existing feature' },
+              { name: 'type:documentation', color: '0052cc', description: 'Documentation changes' },
+              { name: 'type:performance', color: 'fbca04', description: 'Performance optimization' },
+              { name: 'type:security', color: 'b60205', description: 'Security-related issue' },
+              { name: 'type:epic', color: '5319e7', description: 'Large feature spanning multiple issues' },
+              
+              // Priority labels
+              { name: 'priority:critical', color: 'b60205', description: 'Critical priority - immediate attention required' },
+              { name: 'priority:high', color: 'd93f0b', description: 'High priority - should be addressed soon' },
+              { name: 'priority:medium', color: 'fbca04', description: 'Medium priority - normal queue' },
+              { name: 'priority:low', color: '0e8a16', description: 'Low priority - can be addressed later' },
+              
+              // Status labels
+              { name: 'status:needs-triage', color: 'f9d0c4', description: 'Needs initial triage and labeling' },
+              { name: 'status:in-progress', color: 'fbca04', description: 'Currently being worked on' },
+              { name: 'status:blocked', color: 'd73a4a', description: 'Blocked by dependency or issue' },
+              { name: 'status:review', color: '0e8a16', description: 'Ready for review' },
+              { name: 'status:testing', color: '1d76db', description: 'In testing phase' },
+              { name: 'status:done', color: '0e8a16', description: 'Completed' },
+              
+              // Complexity labels
+              { name: 'complexity:low', color: 'c5def5', description: '1-2 days work' },
+              { name: 'complexity:medium', color: 'bfd4f2', description: '3-5 days work' },
+              { name: 'complexity:high', color: 'b3d4fc', description: '1-2 weeks work' },
+              
+              // Component labels
+              { name: 'component:astronomical', color: 'ff6b6b', description: 'Astronomical calculations' },
+              { name: 'component:regional', color: '4ecdc4', description: 'Regional variations' },
+              { name: 'component:events', color: 'ffe66d', description: 'Event generation' },
+              { name: 'component:api', color: '95e1d3', description: 'API endpoints' },
+              { name: 'component:ui', color: 'fce38a', description: 'User interface' },
+              { name: 'component:observability', color: 'f38ba8', description: 'Monitoring and tracing' },
+              { name: 'component:testing', color: 'a8e6cf', description: 'Testing infrastructure' },
+              { name: 'component:documentation', color: '88d8b0', description: 'Documentation' },
+              
+              // Special labels
+              { name: 'good first issue', color: '7057ff', description: 'Good for newcomers' },
+              { name: 'help wanted', color: '008672', description: 'Extra attention is needed' },
+              { name: 'progress-report', color: 'fef2c0', description: 'Automated progress report' },
+              { name: 'milestone-health-report', color: 'fef2c0', description: 'Milestone health report' },
+              { name: 'milestone-analytics', color: 'fef2c0', description: 'Milestone analytics' },
+              { name: 'automation', color: 'e4e669', description: 'Automated issue or process' },
+              { name: 'celebration', color: 'ff69b4', description: 'Celebration or achievement' }
+            ];
+            
+            // Get existing labels
+            const existingLabels = await github.rest.issues.listLabelsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            const existingLabelNames = existingLabels.data.map(label => label.name);
+            
+            // Create missing labels
+            for (const label of standardLabels) {
+              if (!existingLabelNames.includes(label.name)) {
+                try {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description
+                  });
+                  
+                  console.log(`Created label: ${label.name}`);
+                } catch (error) {
+                  console.log(`Could not create label ${label.name}: ${error.message}`);
+                }
+              }
+            }
+
+  label-cleanup:
+    runs-on: ubuntu-latest
+    name: Label Cleanup
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Clean Up Unused Labels
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Get all labels
+            const allLabels = await github.rest.issues.listLabelsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            // Find unused labels
+            const unusedLabels = [];
+            
+            for (const label of allLabels.data) {
+              const issues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: label.name,
+                state: 'all',
+                per_page: 1
+              });
+              
+              if (issues.data.length === 0) {
+                unusedLabels.push(label.name);
+              }
+            }
+            
+            // Report unused labels (don't auto-delete for safety)
+            if (unusedLabels.length > 0) {
+              console.log(`Found ${unusedLabels.length} unused labels:`);
+              console.log(unusedLabels.join(', '));
+              
+              // Create issue to report unused labels
+              const reportContent = `
+              # 🏷️ Unused Labels Report
+              
+              The following labels are not currently used by any issues or pull requests:
+              
+              ${unusedLabels.map(label => `- \`${label}\``).join('\n')}
+              
+              ## Recommended Actions
+              - Review these labels to determine if they should be kept
+              - Delete unused labels that are no longer needed
+              - Consider if any of these labels should be applied to existing issues
+              
+              > **Note**: This is an automated report. Labels are not automatically deleted for safety.
+              `;
+              
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🏷️ Unused Labels Report - ${new Date().toLocaleDateString()}`,
+                body: reportContent,
+                labels: ['automation', 'label-cleanup', 'maintenance']
+              });
+            }

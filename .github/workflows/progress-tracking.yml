@@ -1,0 +1,228 @@
+name: Progress Tracking & Milestone Management
+
+on:
+  issues:
+    types: [opened, closed, reopened, labeled, unlabeled, assigned, unassigned]
+  pull_request:
+    types: [opened, closed, merged, ready_for_review]
+  milestone:
+    types: [created, closed, opened, edited, deleted]
+  schedule:
+    # Run weekly progress report on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  update-progress:
+    runs-on: ubuntu-latest
+    name: Update Project Progress
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Update Issue Progress
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { issue } = context.payload;
+            const milestone = issue.milestone;
+            
+            if (milestone) {
+              console.log(`Issue #${issue.number} updated in milestone: ${milestone.title}`);
+              
+              // Add progress tracking comment if issue was closed
+              if (context.payload.action === 'closed') {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `🎉 Issue completed! This contributes to milestone progress: **${milestone.title}**\n\n` +
+                        `📊 Check milestone progress: [${milestone.title}](${milestone.html_url})`
+                });
+              }
+              
+              // Add milestone progress to issue if newly assigned
+              if (context.payload.action === 'opened' && milestone) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `📋 This issue is part of milestone: **${milestone.title}**\n\n` +
+                        `🎯 Due date: ${milestone.due_on ? new Date(milestone.due_on).toLocaleDateString() : 'Not set'}\n` +
+                        `📊 Progress: [View milestone](${milestone.html_url})`
+                });
+              }
+            }
+
+      - name: Generate Weekly Progress Report
+        if: github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Get all milestones
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            let reportContent = `# 📊 Weekly Progress Report - ${new Date().toLocaleDateString()}\n\n`;
+            reportContent += `## 🎯 Milestone Progress\n\n`;
+            
+            for (const milestone of milestones.data) {
+              const totalIssues = milestone.open_issues + milestone.closed_issues;
+              const progress = totalIssues > 0 ? Math.round((milestone.closed_issues / totalIssues) * 100) : 0;
+              const progressBar = '█'.repeat(Math.floor(progress / 5)) + '░'.repeat(20 - Math.floor(progress / 5));
+              
+              reportContent += `### ${milestone.title}\n`;
+              reportContent += `- **Progress**: ${progress}% (${milestone.closed_issues}/${totalIssues})\n`;
+              reportContent += `- **Due**: ${milestone.due_on ? new Date(milestone.due_on).toLocaleDateString() : 'No due date'}\n`;
+              reportContent += `- **Status**: ${progressBar} ${progress}%\n`;
+              
+              if (milestone.due_on) {
+                const dueDate = new Date(milestone.due_on);
+                const now = new Date();
+                const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+                
+                if (daysUntilDue < 0) {
+                  reportContent += `- **Alert**: ⚠️ Overdue by ${Math.abs(daysUntilDue)} days\n`;
+                } else if (daysUntilDue < 7) {
+                  reportContent += `- **Alert**: 🚨 Due in ${daysUntilDue} days\n`;
+                } else if (daysUntilDue < 14) {
+                  reportContent += `- **Alert**: 📅 Due in ${daysUntilDue} days\n`;
+                }
+              }
+              
+              reportContent += `\n`;
+            }
+            
+            // Get recent activity
+            const recentIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 10
+            });
+            
+            reportContent += `## 📈 Recent Activity\n\n`;
+            for (const issue of recentIssues.data.slice(0, 5)) {
+              const icon = issue.state === 'closed' ? '✅' : '🔄';
+              reportContent += `- ${icon} #${issue.number}: ${issue.title}\n`;
+            }
+            
+            // Find existing progress report issue or create new one
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'progress-report',
+              state: 'open'
+            });
+            
+            if (existingIssues.data.length > 0) {
+              // Update existing progress report
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssues.data[0].number,
+                body: reportContent
+              });
+            } else {
+              // Create new progress report issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Weekly Progress Report - ${new Date().toLocaleDateString()}`,
+                body: reportContent,
+                labels: ['progress-report', 'documentation']
+              });
+            }
+
+      - name: Check Milestone Health
+        if: github.event_name == 'issues' || github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            for (const milestone of milestones.data) {
+              if (milestone.due_on) {
+                const dueDate = new Date(milestone.due_on);
+                const now = new Date();
+                const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+                const totalIssues = milestone.open_issues + milestone.closed_issues;
+                const progress = totalIssues > 0 ? (milestone.closed_issues / totalIssues) * 100 : 0;
+                
+                // Alert if milestone is at risk
+                if (daysUntilDue < 7 && progress < 80) {
+                  console.log(`⚠️ Milestone at risk: ${milestone.title} (${progress.toFixed(1)}% complete, ${daysUntilDue} days remaining)`);
+                  
+                  // Get blocked issues in this milestone
+                  const blockedIssues = await github.rest.issues.listForRepo({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    milestone: milestone.number,
+                    labels: 'status:blocked',
+                    state: 'open'
+                  });
+                  
+                  if (blockedIssues.data.length > 0) {
+                    console.log(`🚨 ${blockedIssues.data.length} blocked issues in at-risk milestone`);
+                  }
+                }
+              }
+            }
+
+      - name: Update PR with Milestone Info
+        if: github.event_name == 'pull_request' && github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { pull_request } = context.payload;
+            
+            // Check if PR description mentions any issues
+            const issueReferences = pull_request.body?.match(/#(\d+)/g) || [];
+            
+            if (issueReferences.length > 0) {
+              let milestoneInfo = "## 📋 Related Milestones\n\n";
+              
+              for (const ref of issueReferences) {
+                const issueNumber = parseInt(ref.replace('#', ''));
+                
+                try {
+                  const issue = await github.rest.issues.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber
+                  });
+                  
+                  if (issue.data.milestone) {
+                    milestoneInfo += `- Issue #${issueNumber}: [${issue.data.milestone.title}](${issue.data.milestone.html_url})\n`;
+                  }
+                } catch (error) {
+                  console.log(`Could not fetch issue #${issueNumber}`);
+                }
+              }
+              
+              // Add milestone info as comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pull_request.number,
+                body: milestoneInfo
+              });
+            }
