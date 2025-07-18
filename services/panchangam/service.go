@@ -90,7 +90,7 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		Longitude: req.Longitude,
 	}
 	
-	sunTimes, err := astronomy.CalculateSunTimes(location, date)
+	sunTimes, err := astronomy.CalculateSunTimesWithContext(ctx, location, date)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to calculate sun times: %v", err))
 	}

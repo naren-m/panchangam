@@ -1,8 +1,12 @@
 package astronomy
 
 import (
+	"context"
 	"math"
 	"time"
+
+	"github.com/naren-m/panchangam/observability"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
@@ -220,4 +224,321 @@ func decimalHoursToTime(decimalHours float64, year int, month time.Month, day in
 	seconds := int(((decimalHours - float64(hours)) * 60 - float64(minutes)) * 60)
 	
 	return time.Date(year, month, day, hours, minutes, seconds, 0, loc)
+}
+
+// CalculateSunTimesWithContext calculates sunrise and sunset times with OpenTelemetry tracing
+func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.Time) (*SunTimes, error) {
+	observer := observability.Observer()
+	ctx, span := observer.CreateSpan(ctx, "CalculateSunTimes")
+	defer span.End()
+	
+	// Set span attributes for location and date
+	span.SetAttributes(
+		attribute.Float64("location.latitude", loc.Latitude),
+		attribute.Float64("location.longitude", loc.Longitude),
+		attribute.String("date", date.Format("2006-01-02")),
+		attribute.String("timezone", date.Location().String()),
+	)
+	
+	// Important calculation milestone: Start of calculation
+	span.AddEvent("calculation.started", observability.WithAttributes(
+		attribute.String("calculation.type", "sunrise_sunset"),
+		attribute.String("algorithm", "NOAA Solar Position Algorithm"),
+	))
+	
+	year, month, day := date.Date()
+	
+	// Convert to Julian day number
+	jd := julianDayNumber(year, int(month), day)
+	
+	// Important calculation milestone: Julian day computed
+	span.AddEvent("julian_day.computed", observability.WithAttributes(
+		attribute.Float64("julian_day", jd),
+		attribute.String("reference_epoch", "J2000.0"),
+	))
+	
+	// Calculate centuries since J2000.0
+	n := jd - 2451545.0
+	
+	// Mean longitude of the Sun
+	L := math.Mod(280.460+0.9856474*n, 360.0)
+	
+	// Mean anomaly of the Sun
+	g := math.Mod(357.528+0.9856003*n, 360.0) * DegToRad
+	
+	// Ecliptic longitude of the Sun
+	lambda := L + 1.915*math.Sin(g) + 0.020*math.Sin(2*g)
+	
+	// Important calculation milestone: Solar position computed
+	span.AddEvent("solar_position.computed", observability.WithAttributes(
+		attribute.Float64("mean_longitude", L),
+		attribute.Float64("mean_anomaly", g*RadToDeg),
+		attribute.Float64("ecliptic_longitude", lambda),
+		attribute.Float64("centuries_since_j2000", n/36525.0),
+	))
+	
+	// Obliquity of the ecliptic
+	epsilon := 23.439 - 0.0000004*n
+	
+	// Right ascension
+	alpha := math.Atan2(math.Cos(epsilon*DegToRad)*math.Sin(lambda*DegToRad), math.Cos(lambda*DegToRad)) * RadToDeg
+	
+	// Declination
+	delta := math.Asin(math.Sin(epsilon*DegToRad)*math.Sin(lambda*DegToRad)) * RadToDeg
+	
+	// Important calculation milestone: Solar coordinates computed
+	span.AddEvent("solar_coordinates.computed", observability.WithAttributes(
+		attribute.Float64("obliquity", epsilon),
+		attribute.Float64("right_ascension", alpha),
+		attribute.Float64("declination", delta),
+	))
+	
+	// Equation of time (in minutes)
+	EqT := 4 * (L - alpha)
+	
+	// Hour angle for sunrise/sunset
+	latRad := loc.Latitude * DegToRad
+	deltaRad := delta * DegToRad
+	
+	// Calculate hour angle
+	cosH := (math.Cos(90.833*DegToRad) - math.Sin(latRad)*math.Sin(deltaRad)) / (math.Cos(latRad) * math.Cos(deltaRad))
+	
+	// Check for polar day or polar night
+	if cosH > 1 {
+		// Polar night - sun never rises
+		span.AddEvent("polar_night.detected", observability.WithAttributes(
+			attribute.String("condition", "polar_night"),
+			attribute.String("description", "Sun never rises"),
+			attribute.Float64("cos_hour_angle", cosH),
+		))
+		
+		polarTime := time.Date(year, month, day, 12, 0, 0, 0, date.Location())
+		return &SunTimes{
+			Sunrise: polarTime,
+			Sunset:  polarTime,
+		}, nil
+	} else if cosH < -1 {
+		// Polar day - sun never sets
+		span.AddEvent("polar_day.detected", observability.WithAttributes(
+			attribute.String("condition", "polar_day"),
+			attribute.String("description", "Sun never sets"),
+			attribute.Float64("cos_hour_angle", cosH),
+		))
+		
+		return &SunTimes{
+			Sunrise: time.Date(year, month, day, 0, 0, 0, 0, date.Location()),
+			Sunset:  time.Date(year, month, day, 23, 59, 59, 0, date.Location()),
+		}, nil
+	}
+	
+	// Hour angle in degrees
+	H := math.Acos(cosH) * RadToDeg
+	
+	// Important calculation milestone: Hour angle computed
+	span.AddEvent("hour_angle.computed", observability.WithAttributes(
+		attribute.Float64("hour_angle", H),
+		attribute.Float64("equation_of_time", EqT),
+		attribute.String("horizon_type", "geometric"),
+	))
+	
+	// Solar noon (in decimal hours UTC)
+	solarNoon := 12.0 - loc.Longitude/15.0 - EqT/60.0
+	
+	// Sunrise and sunset times (in decimal hours UTC)
+	sunriseDecimal := solarNoon - H/15.0
+	sunsetDecimal := solarNoon + H/15.0
+	
+	// Important calculation milestone: Solar times computed
+	span.AddEvent("solar_times.computed", observability.WithAttributes(
+		attribute.Float64("solar_noon", solarNoon),
+		attribute.Float64("sunrise_decimal", sunriseDecimal),
+		attribute.Float64("sunset_decimal", sunsetDecimal),
+	))
+	
+	// Convert to time
+	sunriseTime := decimalHoursToTime(sunriseDecimal, year, month, day, time.UTC)
+	sunsetTime := decimalHoursToTime(sunsetDecimal, year, month, day, time.UTC)
+	
+	// Important calculation milestone: Conversion to time objects complete
+	span.AddEvent("time_conversion.completed", observability.WithAttributes(
+		attribute.String("sunrise_time", sunriseTime.Format("15:04:05")),
+		attribute.String("sunset_time", sunsetTime.Format("15:04:05")),
+		attribute.Float64("day_length_hours", sunsetTime.Sub(sunriseTime).Hours()),
+	))
+	
+	// Final milestone: Calculation completed successfully
+	span.AddEvent("calculation.completed", observability.WithAttributes(
+		attribute.String("status", "success"),
+		attribute.String("calculation_type", "sunrise_sunset"),
+	))
+	
+	return &SunTimes{
+		Sunrise: sunriseTime,
+		Sunset:  sunsetTime,
+	}, nil
+}
+
+// GetSunriseTimeWithContext returns just the sunrise time with OpenTelemetry tracing
+func GetSunriseTimeWithContext(ctx context.Context, loc Location, date time.Time) (time.Time, error) {
+	observer := observability.Observer()
+	ctx, span := observer.CreateSpan(ctx, "GetSunriseTime")
+	defer span.End()
+	
+	span.SetAttributes(
+		attribute.Float64("location.latitude", loc.Latitude),
+		attribute.Float64("location.longitude", loc.Longitude),
+		attribute.String("date", date.Format("2006-01-02")),
+		attribute.String("request_type", "sunrise_only"),
+	)
+	
+	sunTimes, err := CalculateSunTimesWithContext(ctx, loc, date)
+	if err != nil {
+		span.AddEvent("error.occurred", observability.WithAttributes(
+			attribute.String("error", err.Error()),
+			attribute.String("operation", "sunrise_calculation"),
+		))
+		return time.Time{}, err
+	}
+	
+	span.AddEvent("sunrise_extracted", observability.WithAttributes(
+		attribute.String("sunrise_time", sunTimes.Sunrise.Format("15:04:05")),
+	))
+	
+	return sunTimes.Sunrise, nil
+}
+
+// GetSunsetTimeWithContext returns just the sunset time with OpenTelemetry tracing
+func GetSunsetTimeWithContext(ctx context.Context, loc Location, date time.Time) (time.Time, error) {
+	observer := observability.Observer()
+	ctx, span := observer.CreateSpan(ctx, "GetSunsetTime")
+	defer span.End()
+	
+	span.SetAttributes(
+		attribute.Float64("location.latitude", loc.Latitude),
+		attribute.Float64("location.longitude", loc.Longitude),
+		attribute.String("date", date.Format("2006-01-02")),
+		attribute.String("request_type", "sunset_only"),
+	)
+	
+	sunTimes, err := CalculateSunTimesWithContext(ctx, loc, date)
+	if err != nil {
+		span.AddEvent("error.occurred", observability.WithAttributes(
+			attribute.String("error", err.Error()),
+			attribute.String("operation", "sunset_calculation"),
+		))
+		return time.Time{}, err
+	}
+	
+	span.AddEvent("sunset_extracted", observability.WithAttributes(
+		attribute.String("sunset_time", sunTimes.Sunset.Format("15:04:05")),
+	))
+	
+	return sunTimes.Sunset, nil
+}
+
+// solarPositionWithContext calculates equation of time and solar declination with tracing
+func solarPositionWithContext(ctx context.Context, jd float64) (float64, float64) {
+	observer := observability.Observer()
+	ctx, span := observer.CreateSpan(ctx, "solarPosition")
+	defer span.End()
+	
+	span.SetAttributes(
+		attribute.Float64("julian_day", jd),
+	)
+	
+	n := jd - 2451545.0
+	L := math.Mod(280.460+0.9856474*n, 360)
+	g := math.Mod(357.528+0.9856003*n, 360) * DegToRad
+	
+	// Solar ecliptic longitude
+	lambda := L + 1.915*math.Sin(g) + 0.020*math.Sin(2*g)
+	
+	span.AddEvent("solar_longitude.computed", observability.WithAttributes(
+		attribute.Float64("mean_longitude", L),
+		attribute.Float64("mean_anomaly", g*RadToDeg),
+		attribute.Float64("ecliptic_longitude", lambda),
+	))
+	
+	// Right ascension
+	ra := math.Atan2(math.Cos(23.44*DegToRad)*math.Sin(lambda*DegToRad), math.Cos(lambda*DegToRad)) * RadToDeg
+	ra = math.Mod(ra+360, 360)
+	
+	// Equation of time (in minutes)
+	eqTime := 4 * (L - ra)
+	
+	// Solar declination
+	decl := math.Asin(math.Sin(23.44*DegToRad) * math.Sin(lambda*DegToRad))
+	
+	span.AddEvent("solar_position.computed", observability.WithAttributes(
+		attribute.Float64("right_ascension", ra),
+		attribute.Float64("equation_of_time", eqTime),
+		attribute.Float64("declination", decl*RadToDeg),
+	))
+	
+	return eqTime, decl
+}
+
+// calculateRiseSetWithContext calculates sunrise and sunset times with tracing
+func calculateRiseSetWithContext(ctx context.Context, latitude, longitude, jd, eqTime, decl float64) (float64, float64) {
+	observer := observability.Observer()
+	ctx, span := observer.CreateSpan(ctx, "calculateRiseSet")
+	defer span.End()
+	
+	span.SetAttributes(
+		attribute.Float64("latitude", latitude),
+		attribute.Float64("longitude", longitude),
+		attribute.Float64("julian_day", jd),
+		attribute.Float64("equation_of_time", eqTime),
+		attribute.Float64("declination", decl*RadToDeg),
+	)
+	
+	latRad := latitude * DegToRad
+	
+	// Hour angle with solar depression angle
+	cosH := (math.Cos(SolarDepressionAngle*DegToRad) - math.Sin(latRad)*math.Sin(decl)) / 
+		(math.Cos(latRad) * math.Cos(decl))
+	
+	span.AddEvent("hour_angle_cosine.computed", observability.WithAttributes(
+		attribute.Float64("cos_hour_angle", cosH),
+		attribute.Float64("solar_depression_angle", SolarDepressionAngle),
+	))
+	
+	// Check for polar day or polar night
+	if cosH > 1 {
+		// Polar night - sun never rises
+		span.AddEvent("polar_night.detected", observability.WithAttributes(
+			attribute.String("condition", "polar_night"),
+			attribute.Float64("cos_hour_angle", cosH),
+		))
+		return 0, 0
+	} else if cosH < -1 {
+		// Polar day - sun never sets
+		span.AddEvent("polar_day.detected", observability.WithAttributes(
+			attribute.String("condition", "polar_day"),
+			attribute.Float64("cos_hour_angle", cosH),
+		))
+		return 0, 24 * 60
+	}
+	
+	H := math.Acos(cosH) * RadToDeg
+	
+	// Time corrections (equation of time and longitude correction)
+	timeCorrection := eqTime + longitude*4
+	
+	// Sunrise and sunset times (minutes from midnight UTC)
+	sunrise := 720 - 4*H - timeCorrection
+	sunset := 720 + 4*H - timeCorrection
+	
+	// Ensure times are within 0-1440 minutes (24 hours)
+	sunrise = math.Mod(sunrise+1440, 1440)
+	sunset = math.Mod(sunset+1440, 1440)
+	
+	span.AddEvent("rise_set_times.computed", observability.WithAttributes(
+		attribute.Float64("hour_angle", H),
+		attribute.Float64("time_correction", timeCorrection),
+		attribute.Float64("sunrise_minutes", sunrise),
+		attribute.Float64("sunset_minutes", sunset),
+	))
+	
+	return sunrise, sunset
 }
