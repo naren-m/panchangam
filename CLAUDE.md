@@ -4,6 +4,7 @@
 - **Always branch out** for every task/feature
 - Include detailed issue information in branch names and descriptions
 - Follow established naming conventions for branches
+- **please keep the issue number in the branch name and pr description**
 
 ## Code Integration Process
 - **Regularly pull from master/main** to stay current with latest changes
