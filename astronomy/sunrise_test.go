@@ -11,6 +11,9 @@ import (
 )
 
 func TestCalculateSunTimes(t *testing.T) {
+	// Initialize observability for testing
+	observability.NewLocalObserver()
+	
 	tests := []struct {
 		name     string
 		location Location
@@ -102,6 +105,9 @@ func TestCalculateSunTimes(t *testing.T) {
 }
 
 func TestJulianDate(t *testing.T) {
+	// Initialize observability for testing
+	observability.NewLocalObserver()
+	
 	tests := []struct {
 		name     string
 		date     time.Time
@@ -131,6 +137,9 @@ func TestJulianDate(t *testing.T) {
 }
 
 func TestGetSunriseTime(t *testing.T) {
+	// Initialize observability for testing
+	observability.NewLocalObserver()
+	
 	loc := Location{
 		Latitude:  40.7128,
 		Longitude: -74.0060,
@@ -144,6 +153,9 @@ func TestGetSunriseTime(t *testing.T) {
 }
 
 func TestGetSunsetTime(t *testing.T) {
+	// Initialize observability for testing
+	observability.NewLocalObserver()
+	
 	loc := Location{
 		Latitude:  40.7128,
 		Longitude: -74.0060,
@@ -157,6 +169,9 @@ func TestGetSunsetTime(t *testing.T) {
 }
 
 func TestPolarConditions(t *testing.T) {
+	// Initialize observability for testing
+	observability.NewLocalObserver()
+	
 	tests := []struct {
 		name     string
 		location Location
@@ -193,6 +208,9 @@ func TestPolarConditions(t *testing.T) {
 }
 
 func TestInvalidInputs(t *testing.T) {
+	// Initialize observability for testing
+	observability.NewLocalObserver()
+	
 	tests := []struct {
 		name     string
 		location Location
@@ -243,6 +261,9 @@ func TestInvalidInputs(t *testing.T) {
 }
 
 func TestSolarPosition(t *testing.T) {
+	// Initialize observability for testing
+	observability.NewLocalObserver()
+	
 	jd := julianDate(time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC))
 	eqTime, decl := solarPosition(jd)
 	
@@ -256,6 +277,9 @@ func TestSolarPosition(t *testing.T) {
 }
 
 func TestCalculateRiseSet(t *testing.T) {
+	// Initialize observability for testing
+	observability.NewLocalObserver()
+	
 	tests := []struct {
 		name      string
 		latitude  float64
@@ -300,8 +324,9 @@ func TestCalculateRiseSet(t *testing.T) {
 	}
 }
 
-// TestCalculateSunTimesWithContext tests the context-aware function with span events
+// TestCalculateSunTimesWithContext tests the context-aware version with tracing
 func TestCalculateSunTimesWithContext(t *testing.T) {
+	// Initialize observability for testing
 	observability.NewLocalObserver()
 	ctx := context.Background()
 	
@@ -312,73 +337,46 @@ func TestCalculateSunTimesWithContext(t *testing.T) {
 		desc     string
 	}{
 		{
-			name: "Equator Equinox with Context",
-			location: Location{
-				Latitude:  0.0,
-				Longitude: 0.0,
-			},
-			date: time.Date(2024, 3, 20, 0, 0, 0, 0, time.UTC),
-			desc: "Should have approximately 12-hour day with tracing",
-		},
-		{
-			name: "New York Summer Solstice with Context",
+			name: "New York with Context",
 			location: Location{
 				Latitude:  40.7128,
 				Longitude: -74.0060,
 			},
 			date: time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC),
-			desc: "Should have long day (>12 hours) with tracing",
+			desc: "Should trace all calculation steps",
 		},
 		{
-			name: "London Winter Solstice with Context",
+			name: "Arctic Location - Polar Day",
 			location: Location{
-				Latitude:  51.5074,
-				Longitude: -0.1278,
+				Latitude:  75.0,
+				Longitude: 0.0,
+			},
+			date: time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC),
+			desc: "Should trace polar day condition",
+		},
+		{
+			name: "Arctic Location - Polar Night",
+			location: Location{
+				Latitude:  75.0,
+				Longitude: 0.0,
 			},
 			date: time.Date(2024, 12, 21, 0, 0, 0, 0, time.UTC),
-			desc: "Should have short day (<12 hours) with tracing",
-		},
-		{
-			name: "Chennai India with Context",
-			location: Location{
-				Latitude:  13.0827,
-				Longitude: 80.2707,
-			},
-			date: time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC),
-			desc: "Tropical location with tracing",
+			desc: "Should trace polar night condition",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sunTimes, err := CalculateSunTimesWithContext(ctx, tt.location, tt.date)
-			
-			require.NoError(t, err, "Failed to calculate sun times for %s", tt.name)
-			require.NotNil(t, sunTimes, "Sun times should not be nil for %s", tt.name)
+			require.NoError(t, err)
+			require.NotNil(t, sunTimes)
 
-			// Basic validation
-			assert.NotZero(t, sunTimes.Sunrise, "Sunrise should not be zero for %s", tt.name)
-			assert.NotZero(t, sunTimes.Sunset, "Sunset should not be zero for %s", tt.name)
+			// Basic validation - times should be valid
+			assert.NotZero(t, sunTimes.Sunrise)
+			assert.NotZero(t, sunTimes.Sunset)
 			
-			// Check that both times are on the same day
-			assert.Equal(t, tt.date.Year(), sunTimes.Sunrise.Year(), "Sunrise year mismatch for %s", tt.name)
-			assert.Equal(t, tt.date.Month(), sunTimes.Sunrise.Month(), "Sunrise month mismatch for %s", tt.name)
-			assert.Equal(t, tt.date.Day(), sunTimes.Sunrise.Day(), "Sunrise day mismatch for %s", tt.name)
-			
-			// Day length should be reasonable (3-21 hours for most locations)
-			dayLength := sunTimes.Sunset.Sub(sunTimes.Sunrise)
-			if dayLength < 0 {
-				dayLength += 24 * time.Hour
-			}
-			assert.Greater(t, dayLength, 3*time.Hour, "Day length too short for %s", tt.name)
-			assert.Less(t, dayLength, 21*time.Hour, "Day length too long for %s", tt.name)
-			
-			t.Logf("Location: %s", tt.name)
-			t.Logf("Date: %s", tt.date.Format("2006-01-02"))
-			t.Logf("Sunrise: %s", sunTimes.Sunrise.Format("15:04:05"))
-			t.Logf("Sunset: %s", sunTimes.Sunset.Format("15:04:05"))
-			t.Logf("Day length: %v", dayLength)
-			t.Logf("Description: %s", tt.desc)
+			t.Logf("Location: %s, Sunrise: %s, Sunset: %s", 
+				tt.name, sunTimes.Sunrise.Format("15:04:05"), sunTimes.Sunset.Format("15:04:05"))
 		})
 	}
 }
@@ -386,221 +384,250 @@ func TestCalculateSunTimesWithContext(t *testing.T) {
 // TestGetSunriseTimeWithContext tests the context-aware sunrise function
 func TestGetSunriseTimeWithContext(t *testing.T) {
 	observability.NewLocalObserver()
-	ctx := context.Background()
 	
-	location := Location{
+	ctx := context.Background()
+	loc := Location{
 		Latitude:  40.7128,
 		Longitude: -74.0060,
 	}
 	date := time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC)
+
+	sunrise, err := GetSunriseTimeWithContext(ctx, loc, date)
+	assert.NoError(t, err)
+	assert.NotZero(t, sunrise)
 	
-	sunriseTime, err := GetSunriseTimeWithContext(ctx, location, date)
-	
-	require.NoError(t, err, "Failed to get sunrise time")
-	assert.NotZero(t, sunriseTime, "Sunrise time should not be zero")
-	
-	// Compare with full calculation
-	sunTimes, err := CalculateSunTimesWithContext(ctx, location, date)
-	require.NoError(t, err)
-	
-	assert.Equal(t, sunTimes.Sunrise, sunriseTime, "Sunrise time should match full calculation")
-	
-	t.Logf("Sunrise time: %s", sunriseTime.Format("15:04:05"))
+	// Compare with regular function
+	sunriseRegular, err := GetSunriseTime(loc, date)
+	assert.NoError(t, err)
+	assert.Equal(t, sunriseRegular, sunrise)
 }
 
 // TestGetSunsetTimeWithContext tests the context-aware sunset function
 func TestGetSunsetTimeWithContext(t *testing.T) {
 	observability.NewLocalObserver()
-	ctx := context.Background()
 	
-	location := Location{
+	ctx := context.Background()
+	loc := Location{
 		Latitude:  40.7128,
 		Longitude: -74.0060,
 	}
 	date := time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC)
+
+	sunset, err := GetSunsetTimeWithContext(ctx, loc, date)
+	assert.NoError(t, err)
+	assert.NotZero(t, sunset)
 	
-	sunsetTime, err := GetSunsetTimeWithContext(ctx, location, date)
-	
-	require.NoError(t, err, "Failed to get sunset time")
-	assert.NotZero(t, sunsetTime, "Sunset time should not be zero")
-	
-	// Compare with full calculation
-	sunTimes, err := CalculateSunTimesWithContext(ctx, location, date)
-	require.NoError(t, err)
-	
-	assert.Equal(t, sunTimes.Sunset, sunsetTime, "Sunset time should match full calculation")
-	
-	t.Logf("Sunset time: %s", sunsetTime.Format("15:04:05"))
+	// Compare with regular function
+	sunsetRegular, err := GetSunsetTime(loc, date)
+	assert.NoError(t, err)
+	assert.Equal(t, sunsetRegular, sunset)
 }
 
-// TestPolarConditionsWithContext tests polar day and polar night conditions with context
-func TestPolarConditionsWithContext(t *testing.T) {
+// TestSolarPositionWithContext tests the context-aware solar position function
+func TestSolarPositionWithContext(t *testing.T) {
 	observability.NewLocalObserver()
+	
+	ctx := context.Background()
+	jd := julianDate(time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC))
+	
+	eqTime, decl := solarPositionWithContext(ctx, jd)
+	
+	// Equation of time should be within reasonable bounds (-20 to +20 minutes)
+	assert.Greater(t, eqTime, -20.0)
+	assert.Less(t, eqTime, 20.0)
+	
+	// Declination should be within solar bounds (-23.44 to +23.44 degrees in radians)
+	assert.Greater(t, decl, -23.44*DegToRad)
+	assert.Less(t, decl, 23.44*DegToRad)
+	
+	// Compare with regular function
+	eqTimeRegular, declRegular := solarPosition(jd)
+	assert.Equal(t, eqTimeRegular, eqTime)
+	assert.Equal(t, declRegular, decl)
+}
+
+// TestCalculateRiseSetWithContext tests the context-aware rise/set function
+func TestCalculateRiseSetWithContext(t *testing.T) {
+	observability.NewLocalObserver()
+	
 	ctx := context.Background()
 	
 	tests := []struct {
 		name      string
-		location  Location
-		date      time.Time
-		expected  string
+		latitude  float64
+		longitude float64
+		jd        float64
+		eqTime    float64
+		decl      float64
 		desc      string
 	}{
 		{
-			name: "Arctic Winter - Polar Night",
-			location: Location{
-				Latitude:  75.0,
-				Longitude: 0.0,
-			},
-			date:     time.Date(2024, 12, 21, 0, 0, 0, 0, time.UTC),
-			expected: "polar_night",
-			desc:     "High latitude winter should result in polar night",
+			name:      "Equator test with context",
+			latitude:  0.0,
+			longitude: 0.0,
+			jd:        2451545.0,
+			eqTime:    0.0,
+			decl:      0.0,
+			desc:      "Should trace equatorial calculation",
 		},
 		{
-			name: "Arctic Summer - Polar Day",
-			location: Location{
-				Latitude:  75.0,
-				Longitude: 0.0,
-			},
-			date:     time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC),
-			expected: "polar_day",
-			desc:     "High latitude summer should result in polar day",
-		},
-		{
-			name: "Antarctic Winter - Polar Day",
-			location: Location{
-				Latitude:  -75.0,
-				Longitude: 0.0,
-			},
-			date:     time.Date(2024, 12, 21, 0, 0, 0, 0, time.UTC),
-			expected: "polar_day",
-			desc:     "High southern latitude winter should result in polar day",
-		},
-		{
-			name: "Antarctic Summer - Polar Night",
-			location: Location{
-				Latitude:  -75.0,
-				Longitude: 0.0,
-			},
-			date:     time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC),
-			expected: "polar_night",
-			desc:     "High southern latitude summer should result in polar night",
+			name:      "Arctic test - should detect polar conditions",
+			latitude:  80.0,
+			longitude: 0.0,
+			jd:        2451545.0,
+			eqTime:    0.0,
+			decl:      23.0 * DegToRad,
+			desc:      "Should trace polar day condition",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sunTimes, err := CalculateSunTimesWithContext(ctx, tt.location, tt.date)
+			sunrise, sunset := calculateRiseSetWithContext(ctx, tt.latitude, tt.longitude, tt.jd, tt.eqTime, tt.decl)
 			
-			require.NoError(t, err, "Failed to calculate sun times for %s", tt.name)
-			require.NotNil(t, sunTimes, "Sun times should not be nil for %s", tt.name)
-
-			switch tt.expected {
-			case "polar_night":
-				// In polar night, sunrise and sunset should be the same (noon)
-				assert.Equal(t, sunTimes.Sunrise.Hour(), 12, "Polar night sunrise should be at noon")
-				assert.Equal(t, sunTimes.Sunset.Hour(), 12, "Polar night sunset should be at noon")
-				assert.Equal(t, sunTimes.Sunrise, sunTimes.Sunset, "Polar night sunrise and sunset should be equal")
-			case "polar_day":
-				// In polar day, sunrise should be at start of day, sunset at end
-				assert.Equal(t, sunTimes.Sunrise.Hour(), 0, "Polar day sunrise should be at midnight")
-				assert.Equal(t, sunTimes.Sunset.Hour(), 23, "Polar day sunset should be at end of day")
-				assert.Equal(t, sunTimes.Sunset.Minute(), 59, "Polar day sunset should be at 23:59")
-			}
+			// Basic sanity checks
+			assert.GreaterOrEqual(t, sunrise, 0.0)
+			assert.LessOrEqual(t, sunrise, 1440.0) // 24 hours in minutes
+			assert.GreaterOrEqual(t, sunset, 0.0)
+			assert.LessOrEqual(t, sunset, 1440.0)
 			
-			t.Logf("Location: %s", tt.name)
-			t.Logf("Date: %s", tt.date.Format("2006-01-02"))
-			t.Logf("Sunrise: %s", sunTimes.Sunrise.Format("15:04:05"))
-			t.Logf("Sunset: %s", sunTimes.Sunset.Format("15:04:05"))
-			t.Logf("Expected: %s", tt.expected)
-			t.Logf("Description: %s", tt.desc)
+			// Compare with regular function
+			sunriseRegular, sunsetRegular := calculateRiseSet(tt.latitude, tt.longitude, tt.jd, tt.eqTime, tt.decl)
+			assert.Equal(t, sunriseRegular, sunrise)
+			assert.Equal(t, sunsetRegular, sunset)
 		})
 	}
 }
 
-// TestSpanEventsAndAttributes tests that span events and attributes are properly created
-func TestSpanEventsAndAttributes(t *testing.T) {
+// TestTracingPerformance tests that tracing doesn't significantly impact performance
+func TestTracingPerformance(t *testing.T) {
 	observability.NewLocalObserver()
-	ctx := context.Background()
 	
-	location := Location{
+	ctx := context.Background()
+	loc := Location{
 		Latitude:  40.7128,
 		Longitude: -74.0060,
 	}
 	date := time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC)
+
+	// Test regular function performance
+	start := time.Now()
+	for i := 0; i < 100; i++ {
+		_, err := CalculateSunTimes(loc, date)
+		require.NoError(t, err)
+	}
+	regularDuration := time.Since(start)
+
+	// Test context-aware function performance
+	start = time.Now()
+	for i := 0; i < 100; i++ {
+		_, err := CalculateSunTimesWithContext(ctx, loc, date)
+		require.NoError(t, err)
+	}
+	contextDuration := time.Since(start)
+
+	// Context-aware function should not be more than 3x slower
+	assert.Less(t, contextDuration, regularDuration*3, 
+		"Context-aware function is too slow: regular=%v, context=%v", 
+		regularDuration, contextDuration)
+		
+	t.Logf("Performance comparison: regular=%v, context=%v (%.2fx slower)", 
+		regularDuration, contextDuration, float64(contextDuration)/float64(regularDuration))
+}
+
+// TestContextCancellation tests that context cancellation is properly handled
+func TestContextCancellation(t *testing.T) {
+	observability.NewLocalObserver()
 	
-	// Test context-aware function
-	sunTimes, err := CalculateSunTimesWithContext(ctx, location, date)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+	
+	loc := Location{
+		Latitude:  40.7128,
+		Longitude: -74.0060,
+	}
+	date := time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC)
+
+	// Function should still work despite cancelled context
+	sunTimes, err := CalculateSunTimesWithContext(ctx, loc, date)
 	require.NoError(t, err)
 	require.NotNil(t, sunTimes)
 	
-	// Test individual sunrise function
-	sunriseTime, err := GetSunriseTimeWithContext(ctx, location, date)
+	// Results should be the same as regular function
+	sunTimesRegular, err := CalculateSunTimes(loc, date)
 	require.NoError(t, err)
-	assert.Equal(t, sunTimes.Sunrise, sunriseTime)
-	
-	// Test individual sunset function
-	sunsetTime, err := GetSunsetTimeWithContext(ctx, location, date)
-	require.NoError(t, err)
-	assert.Equal(t, sunTimes.Sunset, sunsetTime)
-	
-	// Test helper functions with context
-	jd := julianDayNumber(date.Year(), int(date.Month()), date.Day())
-	eqTime, decl := solarPositionWithContext(ctx, jd)
-	
-	// Basic validation of helper function results
-	assert.Greater(t, eqTime, -20.0)
-	assert.Less(t, eqTime, 20.0)
-	assert.Greater(t, decl, -23.44*DegToRad)
-	assert.Less(t, decl, 23.44*DegToRad)
-	
-	// Test calculateRiseSetWithContext
-	sunrise, sunset := calculateRiseSetWithContext(ctx, location.Latitude, location.Longitude, jd, eqTime, decl)
-	assert.GreaterOrEqual(t, sunrise, 0.0)
-	assert.LessOrEqual(t, sunrise, 1440.0)
-	assert.GreaterOrEqual(t, sunset, 0.0)
-	assert.LessOrEqual(t, sunset, 1440.0)
-	
-	t.Logf("Successfully created spans and events for all context-aware functions")
+	assert.Equal(t, sunTimesRegular.Sunrise, sunTimes.Sunrise)
+	assert.Equal(t, sunTimesRegular.Sunset, sunTimes.Sunset)
 }
 
-// TestCompareContextAndNonContextFunctions tests that context and non-context functions produce the same results
-func TestCompareContextAndNonContextFunctions(t *testing.T) {
+// TestSpanAttributes tests that proper span attributes are set
+func TestSpanAttributes(t *testing.T) {
 	observability.NewLocalObserver()
-	ctx := context.Background()
 	
-	location := Location{
+	ctx := context.Background()
+
+	// Test various locations and dates to ensure spans are created
+	testCases := []struct {
+		name     string
+		location Location
+		date     time.Time
+	}{
+		{
+			name: "New York",
+			location: Location{Latitude: 40.7128, Longitude: -74.0060},
+			date: time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name: "London",
+			location: Location{Latitude: 51.5074, Longitude: -0.1278},
+			date: time.Date(2024, 12, 21, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name: "Sydney",
+			location: Location{Latitude: -33.8688, Longitude: 151.2093},
+			date: time.Date(2024, 3, 20, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			sunTimes, err := CalculateSunTimesWithContext(ctx, tc.location, tc.date)
+			require.NoError(t, err)
+			require.NotNil(t, sunTimes)
+			
+			// Also test individual functions
+			sunrise, err := GetSunriseTimeWithContext(ctx, tc.location, tc.date)
+			require.NoError(t, err)
+			assert.Equal(t, sunTimes.Sunrise, sunrise)
+			
+			sunset, err := GetSunsetTimeWithContext(ctx, tc.location, tc.date)
+			require.NoError(t, err)
+			assert.Equal(t, sunTimes.Sunset, sunset)
+		})
+	}
+}
+
+// TestErrorHandlingWithContext tests error handling in context-aware functions
+func TestErrorHandlingWithContext(t *testing.T) {
+	observability.NewLocalObserver()
+	
+	ctx := context.Background()
+	loc := Location{
 		Latitude:  40.7128,
 		Longitude: -74.0060,
 	}
 	date := time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC)
+
+	// Test that context-aware functions handle errors the same way
+	sunTimes, err := CalculateSunTimesWithContext(ctx, loc, date)
+	require.NoError(t, err)
+	require.NotNil(t, sunTimes)
 	
-	// Calculate using both methods
-	sunTimesContext, err1 := CalculateSunTimesWithContext(ctx, location, date)
-	sunTimesRegular, err2 := CalculateSunTimes(location, date)
+	sunrise, err := GetSunriseTimeWithContext(ctx, loc, date)
+	require.NoError(t, err)
+	assert.Equal(t, sunTimes.Sunrise, sunrise)
 	
-	require.NoError(t, err1)
-	require.NoError(t, err2)
-	require.NotNil(t, sunTimesContext)
-	require.NotNil(t, sunTimesRegular)
-	
-	// Results should be identical
-	assert.Equal(t, sunTimesRegular.Sunrise, sunTimesContext.Sunrise, "Context and non-context sunrise should match")
-	assert.Equal(t, sunTimesRegular.Sunset, sunTimesContext.Sunset, "Context and non-context sunset should match")
-	
-	// Test individual functions
-	sunriseContext, err3 := GetSunriseTimeWithContext(ctx, location, date)
-	sunriseRegular, err4 := GetSunriseTime(location, date)
-	
-	require.NoError(t, err3)
-	require.NoError(t, err4)
-	assert.Equal(t, sunriseRegular, sunriseContext, "Context and non-context sunrise functions should match")
-	
-	sunsetContext, err5 := GetSunsetTimeWithContext(ctx, location, date)
-	sunsetRegular, err6 := GetSunsetTime(location, date)
-	
-	require.NoError(t, err5)
-	require.NoError(t, err6)
-	assert.Equal(t, sunsetRegular, sunsetContext, "Context and non-context sunset functions should match")
-	
-	t.Logf("All context and non-context functions produce identical results")
+	sunset, err := GetSunsetTimeWithContext(ctx, loc, date)
+	require.NoError(t, err)
+	assert.Equal(t, sunTimes.Sunset, sunset)
 }

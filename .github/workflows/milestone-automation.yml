@@ -1,0 +1,359 @@
+name: Milestone Automation & Analytics
+
+on:
+  milestone:
+    types: [created, closed, opened, edited, deleted]
+  issues:
+    types: [milestoned, demilestoned]
+  schedule:
+    # Run daily at 8 AM UTC for milestone health checks
+    - cron: '0 8 * * *'
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  milestone-health-check:
+    runs-on: ubuntu-latest
+    name: Milestone Health Check
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Milestone Progress Analysis
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Get all active milestones
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'due_on',
+              direction: 'asc'
+            });
+            
+            const healthReport = [];
+            const today = new Date();
+            
+            for (const milestone of milestones.data) {
+              const totalIssues = milestone.open_issues + milestone.closed_issues;
+              const progress = totalIssues > 0 ? (milestone.closed_issues / totalIssues) * 100 : 0;
+              
+              const health = {
+                title: milestone.title,
+                number: milestone.number,
+                progress: Math.round(progress),
+                totalIssues: totalIssues,
+                openIssues: milestone.open_issues,
+                closedIssues: milestone.closed_issues,
+                dueDate: milestone.due_on,
+                url: milestone.html_url,
+                status: 'healthy',
+                alerts: []
+              };
+              
+              // Calculate days until due
+              if (milestone.due_on) {
+                const dueDate = new Date(milestone.due_on);
+                const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+                health.daysUntilDue = daysUntilDue;
+                
+                // Health status calculation
+                if (daysUntilDue < 0) {
+                  health.status = 'overdue';
+                  health.alerts.push(`⚠️ OVERDUE by ${Math.abs(daysUntilDue)} days`);
+                } else if (daysUntilDue <= 7 && progress < 80) {
+                  health.status = 'at-risk';
+                  health.alerts.push(`🚨 AT RISK: ${daysUntilDue} days remaining, ${progress}% complete`);
+                } else if (daysUntilDue <= 14 && progress < 60) {
+                  health.status = 'warning';
+                  health.alerts.push(`⚠️ WARNING: ${daysUntilDue} days remaining, ${progress}% complete`);
+                } else if (progress >= 100) {
+                  health.status = 'ready-to-close';
+                  health.alerts.push(`✅ READY TO CLOSE: All issues completed`);
+                }
+              }
+              
+              // Check for blocked issues
+              const blockedIssues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                milestone: milestone.number,
+                labels: 'status:blocked',
+                state: 'open'
+              });
+              
+              if (blockedIssues.data.length > 0) {
+                health.blockedIssues = blockedIssues.data.length;
+                health.alerts.push(`🚧 ${blockedIssues.data.length} blocked issues`);
+                if (health.status === 'healthy') {
+                  health.status = 'has-blockers';
+                }
+              }
+              
+              healthReport.push(health);
+            }
+            
+            // Generate health report
+            let reportContent = `# 📊 Milestone Health Report - ${today.toLocaleDateString()}\n\n`;
+            
+            // Summary statistics
+            const totalMilestones = healthReport.length;
+            const healthyMilestones = healthReport.filter(m => m.status === 'healthy').length;
+            const atRiskMilestones = healthReport.filter(m => m.status === 'at-risk' || m.status === 'overdue').length;
+            const avgProgress = healthReport.reduce((sum, m) => sum + m.progress, 0) / totalMilestones;
+            
+            reportContent += `## 🎯 Executive Summary\n`;
+            reportContent += `- **Total Active Milestones**: ${totalMilestones}\n`;
+            reportContent += `- **Healthy Milestones**: ${healthyMilestones}\n`;
+            reportContent += `- **At Risk/Overdue**: ${atRiskMilestones}\n`;
+            reportContent += `- **Average Progress**: ${Math.round(avgProgress)}%\n\n`;
+            
+            // Detailed milestone status
+            reportContent += `## 📋 Milestone Details\n\n`;
+            
+            for (const milestone of healthReport) {
+              const statusEmoji = {
+                'healthy': '✅',
+                'warning': '⚠️',
+                'at-risk': '🚨',
+                'overdue': '🔴',
+                'has-blockers': '🚧',
+                'ready-to-close': '🎉'
+              }[milestone.status] || '❓';
+              
+              const progressBar = '█'.repeat(Math.floor(milestone.progress / 5)) + '░'.repeat(20 - Math.floor(milestone.progress / 5));
+              
+              reportContent += `### ${statusEmoji} [${milestone.title}](${milestone.url})\n`;
+              reportContent += `- **Progress**: ${progressBar} ${milestone.progress}% (${milestone.closedIssues}/${milestone.totalIssues})\n`;
+              
+              if (milestone.dueDate) {
+                reportContent += `- **Due Date**: ${new Date(milestone.dueDate).toLocaleDateString()}`;
+                if (milestone.daysUntilDue !== undefined) {
+                  reportContent += ` (${milestone.daysUntilDue} days)`;
+                }
+                reportContent += `\n`;
+              }
+              
+              if (milestone.alerts.length > 0) {
+                reportContent += `- **Alerts**: ${milestone.alerts.join(', ')}\n`;
+              }
+              
+              if (milestone.blockedIssues) {
+                reportContent += `- **Blocked Issues**: ${milestone.blockedIssues}\n`;
+              }
+              
+              reportContent += `\n`;
+            }
+            
+            // Action items
+            const actionItems = healthReport.filter(m => m.status !== 'healthy').map(m => {
+              return `- **${m.title}**: ${m.alerts.join(', ')}`;
+            });
+            
+            if (actionItems.length > 0) {
+              reportContent += `## 🎯 Action Items\n\n`;
+              reportContent += actionItems.join('\n');
+              reportContent += `\n\n`;
+            }
+            
+            // Check for existing health report and update or create
+            const existingReports = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'milestone-health-report',
+              state: 'open'
+            });
+            
+            if (existingReports.data.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingReports.data[0].number,
+                title: `📊 Milestone Health Report - ${today.toLocaleDateString()}`,
+                body: reportContent
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `📊 Milestone Health Report - ${today.toLocaleDateString()}`,
+                body: reportContent,
+                labels: ['milestone-health-report', 'automation', 'documentation']
+              });
+            }
+            
+            // Log critical alerts
+            for (const milestone of healthReport) {
+              if (milestone.status === 'overdue' || milestone.status === 'at-risk') {
+                console.log(`ALERT: ${milestone.title} - ${milestone.alerts.join(', ')}`);
+              }
+            }
+
+  milestone-analytics:
+    runs-on: ubuntu-latest
+    name: Milestone Analytics
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Generate Milestone Analytics
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Get all milestones (open and closed)
+            const allMilestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              sort: 'created',
+              direction: 'desc'
+            });
+            
+            // Calculate velocity and completion metrics
+            const completedMilestones = allMilestones.data.filter(m => m.state === 'closed');
+            const openMilestones = allMilestones.data.filter(m => m.state === 'open');
+            
+            let analyticsContent = `# 📈 Milestone Analytics Dashboard\n\n`;
+            analyticsContent += `**Generated**: ${new Date().toLocaleDateString()}\n\n`;
+            
+            // Completion metrics
+            analyticsContent += `## 🎯 Completion Metrics\n\n`;
+            analyticsContent += `| Metric | Value |\n`;
+            analyticsContent += `|--------|-------|\n`;
+            analyticsContent += `| Total Milestones | ${allMilestones.data.length} |\n`;
+            analyticsContent += `| Completed | ${completedMilestones.length} |\n`;
+            analyticsContent += `| In Progress | ${openMilestones.length} |\n`;
+            analyticsContent += `| Completion Rate | ${allMilestones.data.length > 0 ? Math.round((completedMilestones.length / allMilestones.data.length) * 100) : 0}% |\n\n`;
+            
+            // Velocity analysis (if we have completed milestones)
+            if (completedMilestones.length > 0) {
+              const avgIssuesPerMilestone = completedMilestones.reduce((sum, m) => sum + m.closed_issues, 0) / completedMilestones.length;
+              
+              analyticsContent += `## 📊 Velocity Analysis\n\n`;
+              analyticsContent += `- **Average Issues per Milestone**: ${Math.round(avgIssuesPerMilestone)}\n`;
+              analyticsContent += `- **Completed Milestones**: ${completedMilestones.length}\n`;
+              analyticsContent += `- **Total Issues Delivered**: ${completedMilestones.reduce((sum, m) => sum + m.closed_issues, 0)}\n\n`;
+            }
+            
+            // Current milestone progress
+            analyticsContent += `## 🚀 Current Progress\n\n`;
+            for (const milestone of openMilestones.slice(0, 5)) {
+              const totalIssues = milestone.open_issues + milestone.closed_issues;
+              const progress = totalIssues > 0 ? Math.round((milestone.closed_issues / totalIssues) * 100) : 0;
+              const progressBar = '█'.repeat(Math.floor(progress / 5)) + '░'.repeat(20 - Math.floor(progress / 5));
+              
+              analyticsContent += `### ${milestone.title}\n`;
+              analyticsContent += `${progressBar} ${progress}% (${milestone.closed_issues}/${totalIssues})\n`;
+              if (milestone.due_on) {
+                analyticsContent += `**Due**: ${new Date(milestone.due_on).toLocaleDateString()}\n`;
+              }
+              analyticsContent += `\n`;
+            }
+            
+            // Find existing analytics report and update or create
+            const existingAnalytics = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'milestone-analytics',
+              state: 'open'
+            });
+            
+            if (existingAnalytics.data.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingAnalytics.data[0].number,
+                title: `📈 Milestone Analytics Dashboard`,
+                body: analyticsContent
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `📈 Milestone Analytics Dashboard`,
+                body: analyticsContent,
+                labels: ['milestone-analytics', 'automation', 'documentation']
+              });
+            }
+
+  auto-milestone-management:
+    runs-on: ubuntu-latest
+    name: Auto Milestone Management
+    if: github.event_name == 'milestone'
+    steps:
+      - name: Milestone Event Handler
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { milestone, action } = context.payload;
+            
+            if (action === 'closed') {
+              // Auto-create celebration comment
+              const issues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                milestone: milestone.number,
+                state: 'all'
+              });
+              
+              const completedIssues = issues.data.filter(i => i.state === 'closed');
+              
+              const celebrationContent = `
+              🎉 **Milestone Completed: ${milestone.title}**
+              
+              📊 **Final Statistics:**
+              - **Total Issues**: ${issues.data.length}
+              - **Completed Issues**: ${completedIssues.length}
+              - **Completion Rate**: ${Math.round((completedIssues.length / issues.data.length) * 100)}%
+              
+              🏆 **Major Achievements:**
+              ${completedIssues.slice(0, 5).map(issue => `- #${issue.number}: ${issue.title}`).join('\n')}
+              
+              Thank you to all contributors who made this milestone possible! 🙏
+              `;
+              
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🎉 Milestone Completed: ${milestone.title}`,
+                body: celebrationContent,
+                labels: ['milestone-completion', 'celebration', 'documentation']
+              });
+            }
+            
+            if (action === 'created') {
+              // Auto-create milestone kickoff issue
+              const kickoffContent = `
+              🚀 **Milestone Started: ${milestone.title}**
+              
+              📋 **Milestone Details:**
+              - **Due Date**: ${milestone.due_on ? new Date(milestone.due_on).toLocaleDateString() : 'Not set'}
+              - **Description**: ${milestone.description || 'No description provided'}
+              
+              🎯 **Getting Started:**
+              - Review all issues in this milestone
+              - Assign issues to team members
+              - Set up any required infrastructure
+              - Plan regular check-ins
+              
+              📊 **Progress Tracking:**
+              This milestone will be automatically tracked with daily health checks and weekly progress reports.
+              `;
+              
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🚀 Milestone Kickoff: ${milestone.title}`,
+                body: kickoffContent,
+                labels: ['milestone-kickoff', 'automation', 'documentation'],
+                milestone: milestone.number
+              });
+            }
