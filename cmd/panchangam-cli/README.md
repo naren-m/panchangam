@@ -1,6 +1,60 @@
-# Panchangam CLI Client
+# Panchangam CLI
 
-A comprehensive command-line interface for testing and interacting with the Panchangam gRPC service.
+A comprehensive command-line interface for astronomical calculations based on Hindu calendar systems.
+
+## 📚 Documentation
+
+- **[User Guide](USER_GUIDE.md)** - Complete usage guide with examples and best practices
+- **[Quick Reference](QUICK_REFERENCE.md)** - Command cheat sheet for immediate use
+- **[Commands Reference](COMMANDS.md)** - Detailed documentation for all commands
+
+## 🚀 Enhanced Features (New!)
+
+- 🌙 **Tithi Calculations** - Lunar day with detailed timing and characteristics
+- 🌅 **Enhanced Sun Times** - Sunrise, sunset, solar noon, and day length
+- 🏥 **Health Monitoring** - Service status and ephemeris health checks
+- 📊 **Multiple Output Formats** - Table, JSON, YAML, CSV support
+- 🌍 **Global Coverage** - Predefined locations and custom coordinates
+- 📋 **Framework Ready** - Commands prepared for Nakshatra, Yoga, Karana, Events, Muhurtas
+
+## ⚡ Quick Start
+
+```bash
+# Build the CLI
+go build -o panchangam-cli .
+
+# Get today's Tithi for Mumbai
+./panchangam-cli tithi -l mumbai
+
+# Get detailed sun times for London  
+./panchangam-cli sun -l london --detailed
+
+# Check service health
+./panchangam-cli health
+
+# See all commands
+./panchangam-cli --help
+```
+
+## 📋 Available Commands
+
+| Command | Status | Description |
+|---------|--------|-------------|
+| `tithi` | ✅ **Working** | Calculate Tithi (lunar day) with timing |
+| `sun` | ✅ **Working** | Detailed sun timing information |
+| `health` | ✅ **Working** | Service health and status check |
+| `version` | ✅ **Working** | Version and feature information |
+| `get` | ✅ **Working** | Basic Panchangam data (legacy) |
+| `locations` | ✅ **Working** | List predefined city locations |
+| `validate` | ✅ **Working** | Validate server connectivity |
+| `benchmark` | ✅ **Working** | Performance testing |
+| `nakshatra` | 📋 Framework Ready | Lunar mansion calculations |
+| `yoga` | 📋 Framework Ready | Combined Sun/Moon positions |
+| `karana` | 📋 Framework Ready | Half-tithi calculations |
+| `ephemeris` | 📋 Framework Ready | Planetary position data |
+| `events` | 📋 Framework Ready | Festivals and special occasions |
+| `muhurta` | 📋 Framework Ready | Auspicious time periods |
+| `range` | 📋 Framework Ready | Multi-day calculations |
 
 ## Features
 
