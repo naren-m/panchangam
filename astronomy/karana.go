@@ -3,7 +3,6 @@ package astronomy
 import (
 	"context"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/naren-m/panchangam/astronomy/ephemeris"
@@ -37,15 +36,15 @@ type KaranaInfo struct {
 
 // KaranaCalculator handles Karana calculations
 type KaranaCalculator struct {
-	ephemerisManager *ephemeris.Manager
-	observer         observability.ObserverInterface
+	tithiCalculator *TithiCalculator
+	observer        observability.ObserverInterface
 }
 
 // NewKaranaCalculator creates a new KaranaCalculator
 func NewKaranaCalculator(ephemerisManager *ephemeris.Manager) *KaranaCalculator {
 	return &KaranaCalculator{
-		ephemerisManager: ephemerisManager,
-		observer:         observability.Observer(),
+		tithiCalculator: NewTithiCalculator(ephemerisManager),
+		observer:        observability.Observer(),
 	}
 }
 
@@ -81,33 +80,21 @@ func (kc *KaranaCalculator) GetKaranaForDate(ctx context.Context, date time.Time
 		attribute.String("timezone", date.Location().String()),
 	)
 
-	// Convert to Julian day (using noon for calculation)
-	noonDate := time.Date(date.Year(), date.Month(), date.Day(), 12, 0, 0, 0, date.Location())
-	jd := ephemeris.TimeToJulianDay(noonDate)
-
-	span.SetAttributes(attribute.Float64("julian_day", float64(jd)))
-
-	// Get planetary positions
-	ctx, posSpan := kc.observer.CreateSpan(ctx, "getKaranaPositions")
-	positions, err := kc.ephemerisManager.GetPlanetaryPositions(ctx, jd)
+	// Get Tithi first using the existing calculator
+	tithi, err := kc.tithiCalculator.GetTithiForDate(ctx, date)
 	if err != nil {
-		posSpan.RecordError(err)
-		posSpan.End()
 		span.RecordError(err)
-		return nil, fmt.Errorf("failed to get planetary positions: %w", err)
+		return nil, fmt.Errorf("failed to get tithi for karana calculation: %w", err)
 	}
 
-	sunLong := positions.Sun.Longitude
-	moonLong := positions.Moon.Longitude
-
-	posSpan.SetAttributes(
-		attribute.Float64("sun_longitude", sunLong),
-		attribute.Float64("moon_longitude", moonLong),
+	span.SetAttributes(
+		attribute.Int("tithi_number", tithi.Number),
+		attribute.String("tithi_name", tithi.Name),
+		attribute.Float64("moon_sun_diff", tithi.MoonSunDiff),
 	)
-	posSpan.End()
 
-	// Calculate Karana
-	karana, err := kc.calculateKaranaFromLongitudes(ctx, sunLong, moonLong, date)
+	// Calculate Karana from Tithi information
+	karana, err := kc.calculateKaranaFromTithi(ctx, tithi, date)
 	if err != nil {
 		span.RecordError(err)
 		return nil, err
@@ -132,68 +119,42 @@ func (kc *KaranaCalculator) GetKaranaForDate(ctx context.Context, date time.Time
 	return karana, nil
 }
 
-// calculateKaranaFromLongitudes calculates Karana from Sun and Moon longitudes
-func (kc *KaranaCalculator) calculateKaranaFromLongitudes(ctx context.Context, sunLong, moonLong float64, referenceDate time.Time) (*KaranaInfo, error) {
-	ctx, span := kc.observer.CreateSpan(ctx, "KaranaCalculator.calculateKaranaFromLongitudes")
+// calculateKaranaFromTithi calculates Karana from Tithi information
+func (kc *KaranaCalculator) calculateKaranaFromTithi(ctx context.Context, tithi *TithiInfo, referenceDate time.Time) (*KaranaInfo, error) {
+	ctx, span := kc.observer.CreateSpan(ctx, "KaranaCalculator.calculateKaranaFromTithi")
 	defer span.End()
 
 	span.SetAttributes(
-		attribute.Float64("sun_longitude", sunLong),
-		attribute.Float64("moon_longitude", moonLong),
+		attribute.Int("tithi_number", tithi.Number),
+		attribute.String("tithi_name", tithi.Name),
+		attribute.Float64("moon_sun_diff", tithi.MoonSunDiff),
 		attribute.String("reference_date", referenceDate.Format("2006-01-02")),
 	)
 
-	// Calculate the difference (Moon longitude - Sun longitude)
-	moonSunDiff := moonLong - sunLong
-
-	// Normalize to 0-360 degrees
-	if moonSunDiff < 0 {
-		moonSunDiff += 360
-	}
-	if moonSunDiff >= 360 {
-		moonSunDiff -= 360
-	}
-
-	span.SetAttributes(attribute.Float64("normalized_moon_sun_diff", moonSunDiff))
-
-	// Calculate Tithi number first (each Tithi is 12 degrees)
-	tithiFloat := moonSunDiff / 12.0
-	tithiNumber := int(tithiFloat) + 1
-
-	// Ensure Tithi number is in valid range (1-30)
-	if tithiNumber > 30 {
-		tithiNumber = 30
-	}
-	if tithiNumber < 1 {
-		tithiNumber = 1
-	}
-
 	// Each Tithi is divided into 2 Karanas (6 degrees each)
 	// Determine which half of the Tithi we're in
-	positionInTithi := moonSunDiff - (float64(tithiNumber-1) * 12.0)
+	positionInTithi := tithi.MoonSunDiff - (float64(tithi.Number-1) * 12.0)
 	halfTithi := 1
 	if positionInTithi >= 6.0 {
 		halfTithi = 2
 	}
 
 	span.SetAttributes(
-		attribute.Float64("tithi_float", tithiFloat),
-		attribute.Int("tithi_number", tithiNumber),
 		attribute.Float64("position_in_tithi", positionInTithi),
 		attribute.Int("half_tithi", halfTithi),
 	)
 
 	// Calculate Karana number using the traditional cycle
-	karanaNumber := kc.calculateKaranaNumber(tithiNumber, halfTithi)
+	karanaNumber := kc.calculateKaranaNumber(tithi.Number, halfTithi)
 
 	span.SetAttributes(attribute.Int("karana_number", karanaNumber))
 
 	// Get Karana details
 	karanaDetails := KaranaData[karanaNumber]
 
-	// Calculate approximate start and end times
+	// Calculate approximate start and end times based on Tithi times
 	// Each Karana is half a Tithi, so approximately 12.395 hours
-	startTime, endTime := kc.calculateKaranaTimes(ctx, tithiFloat, halfTithi, referenceDate)
+	startTime, endTime := kc.calculateKaranaTimesFromTithi(ctx, tithi, halfTithi)
 
 	span.SetAttributes(
 		attribute.String("karana_name", karanaDetails.Name),
@@ -215,8 +176,8 @@ func (kc *KaranaCalculator) calculateKaranaFromLongitudes(ctx context.Context, s
 		StartTime:   startTime,
 		EndTime:     endTime,
 		Duration:    duration,
-		MoonSunDiff: moonSunDiff,
-		TithiNumber: tithiNumber,
+		MoonSunDiff: tithi.MoonSunDiff,
+		TithiNumber: tithi.Number,
 		HalfTithi:   halfTithi,
 	}
 
@@ -270,58 +231,33 @@ func (kc *KaranaCalculator) calculateKaranaNumber(tithiNumber, halfTithi int) in
 	return 1
 }
 
-// calculateKaranaTimes estimates the start and end times of a Karana
-func (kc *KaranaCalculator) calculateKaranaTimes(ctx context.Context, tithiFloat float64, halfTithi int, referenceDate time.Time) (startTime, endTime time.Time) {
-	ctx, span := kc.observer.CreateSpan(ctx, "KaranaCalculator.calculateKaranaTimes")
+// calculateKaranaTimesFromTithi estimates the start and end times of a Karana based on Tithi times
+func (kc *KaranaCalculator) calculateKaranaTimesFromTithi(ctx context.Context, tithi *TithiInfo, halfTithi int) (startTime, endTime time.Time) {
+	ctx, span := kc.observer.CreateSpan(ctx, "KaranaCalculator.calculateKaranaTimesFromTithi")
 	defer span.End()
 
 	span.SetAttributes(
-		attribute.Float64("tithi_float", tithiFloat),
+		attribute.Int("tithi_number", tithi.Number),
+		attribute.String("tithi_name", tithi.Name),
 		attribute.Int("half_tithi", halfTithi),
-		attribute.String("reference_date", referenceDate.Format("2006-01-02")),
+		attribute.Float64("tithi_duration_hours", tithi.Duration),
 	)
 
-	// Calculate position within the current Tithi
-	tithiProgress := tithiFloat - math.Floor(tithiFloat)
-	
-	// Average Tithi duration is approximately 24.79 hours
-	avgTithiDuration := time.Duration(24.79 * float64(time.Hour))
-	
 	// Each Karana is half a Tithi
-	avgKaranaDuration := avgTithiDuration / 2
+	karanaDuration := time.Duration(tithi.Duration/2.0) * time.Hour
 
-	// Calculate position within current Karana
-	var karanaProgress float64
 	if halfTithi == 1 {
-		// First half: 0.0 to 0.5 of Tithi progress maps to 0.0 to 1.0 of Karana progress
-		karanaProgress = tithiProgress * 2.0
-		if karanaProgress > 1.0 {
-			karanaProgress = 1.0
-		}
+		// First half of Tithi
+		startTime = tithi.StartTime
+		endTime = tithi.StartTime.Add(karanaDuration)
 	} else {
-		// Second half: 0.5 to 1.0 of Tithi progress maps to 0.0 to 1.0 of Karana progress
-		karanaProgress = (tithiProgress - 0.5) * 2.0
-		if karanaProgress < 0.0 {
-			karanaProgress = 0.0
-		}
-		if karanaProgress > 1.0 {
-			karanaProgress = 1.0
-		}
+		// Second half of Tithi
+		startTime = tithi.StartTime.Add(karanaDuration)
+		endTime = tithi.EndTime
 	}
 
-	// Estimate when this Karana started and will end
-	timeIntoKarana := time.Duration(karanaProgress * float64(avgKaranaDuration))
-
-	// Start time is reference time minus how far we are into the Karana
-	noonRef := time.Date(referenceDate.Year(), referenceDate.Month(), referenceDate.Day(), 12, 0, 0, 0, referenceDate.Location())
-	startTime = noonRef.Add(-timeIntoKarana)
-	endTime = startTime.Add(avgKaranaDuration)
-
 	span.SetAttributes(
-		attribute.Float64("tithi_progress", tithiProgress),
-		attribute.Float64("karana_progress", karanaProgress),
-		attribute.Float64("avg_karana_duration_hours", avgKaranaDuration.Hours()),
-		attribute.Float64("time_into_karana_hours", timeIntoKarana.Hours()),
+		attribute.Float64("karana_duration_hours", karanaDuration.Hours()),
 		attribute.String("calculated_start_time", startTime.Format("2006-01-02 15:04:05")),
 		attribute.String("calculated_end_time", endTime.Format("2006-01-02 15:04:05")),
 	)
@@ -346,7 +282,14 @@ func (kc *KaranaCalculator) GetKaranaFromLongitudes(ctx context.Context, sunLong
 		attribute.String("date", date.Format("2006-01-02")),
 	)
 
-	return kc.calculateKaranaFromLongitudes(ctx, sunLong, moonLong, date)
+	// Get Tithi from longitudes first
+	tithi, err := kc.tithiCalculator.GetTithiFromLongitudes(ctx, sunLong, moonLong, date)
+	if err != nil {
+		span.RecordError(err)
+		return nil, fmt.Errorf("failed to get tithi for karana calculation: %w", err)
+	}
+
+	return kc.calculateKaranaFromTithi(ctx, tithi, date)
 }
 
 // IsAuspiciousKarana returns true if the Karana is considered auspicious
