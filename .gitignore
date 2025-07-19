@@ -1,2 +1,47 @@
 # Test coverage files
 coverage.out
+*.cover
+*.coverage
+
+# Build artifacts
+panchangam
+panchangam-cli
+panchangam-cli-enhanced
+/bin/
+/dist/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE-specific files
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+go.work
+
+# Environment variables
+.env
+.env.local
+
+# Log files
+*.log
+
+# Dependency directories
+vendor/
