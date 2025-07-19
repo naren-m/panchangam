@@ -49,9 +49,46 @@ var locationPresets = map[string]struct {
 func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "panchangam-cli",
-		Short: "CLI client for Panchangam gRPC service",
-		Long: `A comprehensive CLI client for testing the Panchangam gRPC service.
-Supports sunrise/sunset calculations for any location and date.`,
+		Short: "Comprehensive CLI for Panchangam astronomical calculations",
+		Long: `Panchangam CLI - A comprehensive astronomical calculation tool for Hindu calendar systems.
+
+This CLI provides access to various astronomical calculations including:
+  • Tithi (lunar day) calculations with timing and characteristics
+  • Nakshatra (lunar mansion) information with pada and deity details
+  • Yoga calculations based on combined Sun and Moon positions
+  • Karana (half-tithi) calculations
+  • Detailed sunrise/sunset times with solar noon and day length
+  • Ephemeris data for planetary positions
+  • Festival and event calculations with regional variations
+  • Muhurta (auspicious timing) calculations
+  • Multi-day Panchangam data calculations
+
+Features:
+  • Support for multiple output formats (table, json, yaml, csv)
+  • Predefined location presets for major cities worldwide
+  • Custom coordinate input with timezone support
+  • Detailed mode for comprehensive information display
+  • Health monitoring and service status checks
+  • Regional variations (Tamil Nadu, Kerala, Bengal, etc.)
+
+Examples:
+  # Get today's Tithi for Mumbai
+  panchangam-cli tithi -l mumbai
+
+  # Get detailed sun times for Tokyo
+  panchangam-cli sun -l tokyo --detailed
+
+  # Get Panchangam data in JSON format
+  panchangam-cli get -l london -o json
+
+  # Use custom coordinates
+  panchangam-cli tithi --lat 19.0760 --lon 72.8777 --tz "Asia/Kolkata"
+
+  # Check service health
+  panchangam-cli health
+
+For more information on a specific command, use:
+  panchangam-cli [command] --help`,
 	}
 
 	// Global flags
