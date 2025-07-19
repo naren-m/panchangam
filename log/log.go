@@ -50,11 +50,48 @@ func (h *Handler) Enabled(ctx context.Context, level slog.Level) bool {
 func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 	if ctx != nil {
 		span := observability.SpanFromContext(ctx)
-		if span == nil || !span.IsRecording() {
-			r.Message = fmt.Sprintf("span not found: %s", r.Message)
-			return h.handler.Handle(ctx, r)
+		if span != nil && span.IsRecording() {
+			// Convert slog attributes to OpenTelemetry attributes
+			var spanAttrs []attribute.KeyValue
+			r.Attrs(func(attr slog.Attr) bool {
+				if spanAttr, err := convertSlogAttrToSpanAttr(attr.Key, attr.Value); err == nil {
+					spanAttrs = append(spanAttrs, spanAttr)
+				}
+				return true
+			})
+			
+			// Add log level as span attribute
+			spanAttrs = append(spanAttrs, attribute.String("log.level", r.Level.String()))
+			
+			// Create span event with attributes
+			eventName := fmt.Sprintf("log.%s", r.Level.String())
+			span.AddEvent(eventName, observability.WithAttributes(spanAttrs...))
+			
+			// For errors, also record the error on the span
+			if r.Level >= slog.LevelError {
+				// Try to extract error from attributes
+				var errorAttr slog.Attr
+				r.Attrs(func(attr slog.Attr) bool {
+					if attr.Key == "error" {
+						errorAttr = attr
+						return false
+					}
+					return true
+				})
+				
+				if errorAttr.Key != "" {
+					if err, ok := errorAttr.Value.Any().(error); ok {
+						span.RecordError(err)
+					} else {
+						// Create a synthetic error from the error attribute
+						span.RecordError(fmt.Errorf("%v", errorAttr.Value.Any()))
+					}
+				} else {
+					// Create a synthetic error from the log message
+					span.RecordError(fmt.Errorf("%s", r.Message))
+				}
+			}
 		}
-		span.AddEvent(r.Message)
 	}
 
 	return h.handler.Handle(ctx, r)

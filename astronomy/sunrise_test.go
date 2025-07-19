@@ -328,7 +328,6 @@ func TestCalculateRiseSet(t *testing.T) {
 func TestCalculateSunTimesWithContext(t *testing.T) {
 	// Initialize observability for testing
 	observability.NewLocalObserver()
-	
 	ctx := context.Background()
 	
 	tests := []struct {
