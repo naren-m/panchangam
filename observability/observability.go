@@ -80,11 +80,13 @@ func NewObserver(address string) (ObserverInterface, error) {
 	return oi, err
 }
 
-// Observer returns the observer instance.
+// Observer returns the observer instance. 
+// If no observer has been initialized, it will create a local observer with stdout output.
 func Observer() ObserverInterface {
 	if oi == nil {
-		// TODO: Cleanup later.
-		panic("Observer not initialized.")
+		// Auto-initialize with local observer if not already initialized
+		// This provides a safe default instead of panicking
+		return NewLocalObserver()
 	}
 
 	return oi
