@@ -51,6 +51,11 @@ func NewYogaCalculator(ephemerisManager *ephemeris.Manager) *YogaCalculator {
 }
 
 // YogaData contains detailed information about each Yoga
+// Sources:
+// - "Brihat Parashara Hora Shastra" by Sage Parashara
+// - "Muhurta Chintamani" by Daivagya Ramachandra
+// - "Hindu Astronomy" by W.E. van Wijk (1930)
+// - "Surya Siddhanta" - Ancient Sanskrit astronomical text
 var YogaData = map[int]struct {
 	Name        string
 	Quality     YogaQuality
