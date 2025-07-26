@@ -40,7 +40,7 @@ func CalculateSunTimes(loc Location, date time.Time) (*SunTimes, error) {
 func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.Time) (*SunTimes, error) {
 	// Create span for the entire calculation
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "CalculateSunTimes")
+	_, span := observability.StartSpan(ctx, "CalculateSunTimes")
 	defer span.End()
 	
 	// Add span attributes for tracing
@@ -241,7 +241,7 @@ func solarPosition(jd float64) (float64, float64) {
 // solarPositionWithContext calculates equation of time and solar declination with tracing
 func solarPositionWithContext(ctx context.Context, jd float64) (float64, float64) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "solarPosition")
+	_, span := observability.StartSpan(ctx, "solarPosition")
 	defer span.End()
 	
 	span.SetAttributes(attribute.Float64("julian_day", jd))
@@ -289,7 +289,7 @@ func calculateRiseSet(latitude, longitude, jd, eqTime, decl float64) (float64, f
 // calculateRiseSetWithContext calculates sunrise and sunset times in minutes from midnight with tracing
 func calculateRiseSetWithContext(ctx context.Context, latitude, longitude, jd, eqTime, decl float64) (float64, float64) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "calculateRiseSet")
+	_, span := observability.StartSpan(ctx, "calculateRiseSet")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -362,7 +362,7 @@ func GetSunriseTime(loc Location, date time.Time) (time.Time, error) {
 // GetSunriseTimeWithContext returns just the sunrise time for a location and date with tracing
 func GetSunriseTimeWithContext(ctx context.Context, loc Location, date time.Time) (time.Time, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "GetSunriseTime")
+	_, span := observability.StartSpan(ctx, "GetSunriseTime")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -393,7 +393,7 @@ func GetSunsetTime(loc Location, date time.Time) (time.Time, error) {
 // GetSunsetTimeWithContext returns just the sunset time for a location and date with tracing
 func GetSunsetTimeWithContext(ctx context.Context, loc Location, date time.Time) (time.Time, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "GetSunsetTime")
+	_, span := observability.StartSpan(ctx, "GetSunsetTime")
 	defer span.End()
 	
 	span.SetAttributes(

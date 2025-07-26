@@ -306,50 +306,6 @@ func (c *CalculationMethodPlugin) calculateNakshatraFromLongitude(moonLongitude 
 	}
 }
 
-// Helper methods for calculation differences
-
-func (c *CalculationMethodPlugin) getCalculationMethodAccuracy(method api.CalculationMethod) map[string]interface{} {
-	switch method {
-	case api.MethodDrik:
-		return map[string]interface{}{
-			"accuracy":           "very_high",
-			"precision_seconds":  "±30 seconds",
-			"suitable_for":      []string{"modern_dates", "precise_timing", "scientific_use"},
-			"ephemeris_based":   true,
-			"atmospheric_corrections": true,
-			"description":       "Modern observational astronomy with precise ephemeris data",
-		}
-	case api.MethodVakya:
-		return map[string]interface{}{
-			"accuracy":          "traditional",
-			"precision_minutes": "±15 minutes",
-			"suitable_for":     []string{"historical_dates", "traditional_practices", "approximate_timing"},
-			"tabular_based":    true,
-			"historical_accuracy": true,
-			"description":      "Traditional Hindu astronomical tables and mean motion calculations",
-		}
-	case api.MethodAuto:
-		return map[string]interface{}{
-			"accuracy":     "adaptive",
-			"description":  "Automatically chooses between Drik and Vakya based on date and requirements",
-			"decision_logic": "Drik for modern dates (>=1900), Vakya for historical dates",
-		}
-	default:
-		return map[string]interface{}{}
-	}
-}
-
-func (c *CalculationMethodPlugin) getMethodDifferences(drikResult, vakyaResult *api.Tithi) map[string]interface{} {
-	timeDiff := drikResult.StartTime.Sub(vakyaResult.StartTime)
-	
-	return map[string]interface{}{
-		"time_difference_minutes": timeDiff.Minutes(),
-		"drik_start_time":        drikResult.StartTime.Format("15:04:05"),
-		"vakya_start_time":       vakyaResult.StartTime.Format("15:04:05"),
-		"precision_difference":   "Drik is typically more precise for modern dates",
-		"historical_note":        "Vakya may be more appropriate for dates before 1900 CE",
-	}
-}
 
 // Helper methods for Tithi and Nakshatra information
 

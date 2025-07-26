@@ -46,7 +46,7 @@ func NewJPLProvider() *JPLProvider {
 
 // GetPlanetaryPositions returns positions of all planets for a given Julian day
 func (j *JPLProvider) GetPlanetaryPositions(ctx context.Context, jd JulianDay) (*PlanetaryPositions, error) {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.GetPlanetaryPositions")
+	_, span := j.observer.CreateSpan(ctx, "jpl.GetPlanetaryPositions")
 	defer span.End()
 
 	span.SetAttributes(
@@ -89,7 +89,7 @@ func (j *JPLProvider) GetPlanetaryPositions(ctx context.Context, jd JulianDay) (
 
 // GetSunPosition returns detailed Sun position for a given Julian day
 func (j *JPLProvider) GetSunPosition(ctx context.Context, jd JulianDay) (*SolarPosition, error) {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.GetSunPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.GetSunPosition")
 	defer span.End()
 
 	span.SetAttributes(
@@ -120,7 +120,7 @@ func (j *JPLProvider) GetSunPosition(ctx context.Context, jd JulianDay) (*SolarP
 
 // GetMoonPosition returns detailed Moon position for a given Julian day
 func (j *JPLProvider) GetMoonPosition(ctx context.Context, jd JulianDay) (*LunarPosition, error) {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.GetMoonPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.GetMoonPosition")
 	defer span.End()
 
 	span.SetAttributes(
@@ -151,7 +151,7 @@ func (j *JPLProvider) GetMoonPosition(ctx context.Context, jd JulianDay) (*Lunar
 
 // IsAvailable checks if the ephemeris provider is available
 func (j *JPLProvider) IsAvailable(ctx context.Context) bool {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.IsAvailable")
+	_, span := j.observer.CreateSpan(ctx, "jpl.IsAvailable")
 	defer span.End()
 
 	// Update health status if it's been more than 30 seconds
@@ -175,7 +175,7 @@ func (j *JPLProvider) GetDataRange() (startJD, endJD JulianDay) {
 
 // GetHealthStatus returns the current health status
 func (j *JPLProvider) GetHealthStatus(ctx context.Context) (*HealthStatus, error) {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.GetHealthStatus")
+	_, span := j.observer.CreateSpan(ctx, "jpl.GetHealthStatus")
 	defer span.End()
 
 	// Update health status
@@ -208,7 +208,7 @@ func (j *JPLProvider) Close() error {
 
 // updateHealthStatus updates the health status of the provider
 func (j *JPLProvider) updateHealthStatus(ctx context.Context) {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.updateHealthStatus")
+	_, span := j.observer.CreateSpan(ctx, "jpl.updateHealthStatus")
 	defer span.End()
 
 	start := time.Now()
@@ -252,7 +252,7 @@ func (j *JPLProvider) updateHealthStatus(ctx context.Context) {
 
 // calculateSunPosition calculates basic sun position
 func (j *JPLProvider) calculateSunPosition(ctx context.Context, jd JulianDay) Position {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.calculateSunPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.calculateSunPosition")
 	defer span.End()
 
 	// Days since J2000.0
@@ -294,7 +294,7 @@ func (j *JPLProvider) calculateSunPosition(ctx context.Context, jd JulianDay) Po
 
 // calculateMoonPosition calculates basic moon position
 func (j *JPLProvider) calculateMoonPosition(ctx context.Context, jd JulianDay) Position {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.calculateMoonPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.calculateMoonPosition")
 	defer span.End()
 
 	// Days since J2000.0
@@ -344,7 +344,7 @@ func (j *JPLProvider) calculateMoonPosition(ctx context.Context, jd JulianDay) P
 
 // calculatePlanetPosition calculates basic planet position
 func (j *JPLProvider) calculatePlanetPosition(ctx context.Context, jd JulianDay, planet string) Position {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.calculatePlanetPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.calculatePlanetPosition")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("planet", planet))
@@ -428,7 +428,7 @@ func (j *JPLProvider) calculatePlanetPosition(ctx context.Context, jd JulianDay,
 
 // calculateDetailedSunPosition calculates detailed sun position
 func (j *JPLProvider) calculateDetailedSunPosition(ctx context.Context, jd JulianDay) *SolarPosition {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.calculateDetailedSunPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.calculateDetailedSunPosition")
 	defer span.End()
 
 	// Days since J2000.0
@@ -501,7 +501,7 @@ func (j *JPLProvider) calculateDetailedSunPosition(ctx context.Context, jd Julia
 
 // calculateDetailedMoonPosition calculates detailed moon position
 func (j *JPLProvider) calculateDetailedMoonPosition(ctx context.Context, jd JulianDay) *LunarPosition {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.calculateDetailedMoonPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.calculateDetailedMoonPosition")
 	defer span.End()
 
 	// Days since J2000.0

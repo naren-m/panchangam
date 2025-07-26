@@ -138,7 +138,7 @@ func NewManager(primary, fallback EphemerisProvider, cache Cache) *Manager {
 
 // GetPlanetaryPositions retrieves planetary positions with caching and fallback
 func (m *Manager) GetPlanetaryPositions(ctx context.Context, jd JulianDay) (*PlanetaryPositions, error) {
-	ctx, span := m.observer.CreateSpan(ctx, "ephemeris.GetPlanetaryPositions")
+	_, span := m.observer.CreateSpan(ctx, "ephemeris.GetPlanetaryPositions")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -195,7 +195,7 @@ func (m *Manager) GetPlanetaryPositions(ctx context.Context, jd JulianDay) (*Pla
 
 // GetSunPosition retrieves Sun position with caching and fallback
 func (m *Manager) GetSunPosition(ctx context.Context, jd JulianDay) (*SolarPosition, error) {
-	ctx, span := m.observer.CreateSpan(ctx, "ephemeris.GetSunPosition")
+	_, span := m.observer.CreateSpan(ctx, "ephemeris.GetSunPosition")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -252,7 +252,7 @@ func (m *Manager) GetSunPosition(ctx context.Context, jd JulianDay) (*SolarPosit
 
 // GetMoonPosition retrieves Moon position with caching and fallback
 func (m *Manager) GetMoonPosition(ctx context.Context, jd JulianDay) (*LunarPosition, error) {
-	ctx, span := m.observer.CreateSpan(ctx, "ephemeris.GetMoonPosition")
+	_, span := m.observer.CreateSpan(ctx, "ephemeris.GetMoonPosition")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -314,7 +314,7 @@ func (m *Manager) tryProvider(ctx context.Context, provider EphemerisProvider, p
 		return nil, fmt.Errorf("%s provider is nil", providerType)
 	}
 	
-	ctx, span := m.observer.CreateSpan(ctx, fmt.Sprintf("ephemeris.try_%s_provider", providerType))
+	_, span := m.observer.CreateSpan(ctx, fmt.Sprintf("ephemeris.try_%s_provider", providerType))
 	defer span.End()
 	
 	span.SetAttributes(
@@ -344,7 +344,7 @@ func (m *Manager) tryProvider(ctx context.Context, provider EphemerisProvider, p
 
 // GetHealthStatus returns the health status of all providers
 func (m *Manager) GetHealthStatus(ctx context.Context) (map[string]*HealthStatus, error) {
-	ctx, span := m.observer.CreateSpan(ctx, "ephemeris.GetHealthStatus")
+	_, span := m.observer.CreateSpan(ctx, "ephemeris.GetHealthStatus")
 	defer span.End()
 	
 	status := make(map[string]*HealthStatus)

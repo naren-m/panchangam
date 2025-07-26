@@ -43,7 +43,7 @@ func CalculateTraditionalPeriods(loc Location, date time.Time) (*TraditionalPeri
 // CalculateTraditionalPeriodsWithContext calculates traditional periods with OpenTelemetry tracing
 func CalculateTraditionalPeriodsWithContext(ctx context.Context, loc Location, date time.Time) (*TraditionalPeriods, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "CalculateTraditionalPeriods")
+	_, span := observability.StartSpan(ctx, "CalculateTraditionalPeriods")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -385,7 +385,7 @@ func GetRahuKalam(loc Location, date time.Time) (*TimePeriod, error) {
 // GetRahuKalamWithContext returns Rahu Kalam with tracing
 func GetRahuKalamWithContext(ctx context.Context, loc Location, date time.Time) (*TimePeriod, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "GetRahuKalam")
+	_, span := observability.StartSpan(ctx, "GetRahuKalam")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -418,7 +418,7 @@ func GetAbhijitMuhurta(loc Location, date time.Time) (*TimePeriod, error) {
 // GetAbhijitMuhurtaWithContext returns Abhijit Muhurta with tracing
 func GetAbhijitMuhurtaWithContext(ctx context.Context, loc Location, date time.Time) (*TimePeriod, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "GetAbhijitMuhurta")
+	_, span := observability.StartSpan(ctx, "GetAbhijitMuhurta")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -452,7 +452,7 @@ func CalculateMuhurtas(loc Location, date time.Time) ([]*MuhurtaInfo, error) {
 // CalculateMuhurtasWithContext calculates all muhurtas with OpenTelemetry tracing
 func CalculateMuhurtasWithContext(ctx context.Context, loc Location, date time.Time) ([]*MuhurtaInfo, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "CalculateMuhurtas")
+	_, span := observability.StartSpan(ctx, "CalculateMuhurtas")
 	defer span.End()
 	
 	span.SetAttributes(

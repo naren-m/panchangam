@@ -61,7 +61,7 @@ func CalculateLunarTimes(loc Location, date time.Time) (*LunarTimes, error) {
 // CalculateLunarTimesWithContext calculates moonrise and moonset times with OpenTelemetry tracing
 func CalculateLunarTimesWithContext(ctx context.Context, loc Location, date time.Time) (*LunarTimes, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "CalculateLunarTimes")
+	_, span := observability.StartSpan(ctx, "CalculateLunarTimes")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -209,7 +209,7 @@ func CalculateLunarTimesWithContext(ctx context.Context, loc Location, date time
 // calculateLunarPositionJD calculates the moon's position for a given Julian day
 func calculateLunarPositionJD(ctx context.Context, jd float64) *LunarPosition {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "calculateLunarPositionJD")
+	_, span := observability.StartSpan(ctx, "calculateLunarPositionJD")
 	defer span.End()
 	
 	span.SetAttributes(attribute.Float64("julian_day", jd))
@@ -343,7 +343,7 @@ func CalculateLunarPhase(date time.Time) (*LunarPhase, error) {
 // CalculateLunarPhaseWithContext calculates lunar phase with OpenTelemetry tracing
 func CalculateLunarPhaseWithContext(ctx context.Context, date time.Time) (*LunarPhase, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "CalculateLunarPhase")
+	_, span := observability.StartSpan(ctx, "CalculateLunarPhase")
 	defer span.End()
 	
 	span.SetAttributes(attribute.String("date", date.Format("2006-01-02")))
@@ -508,7 +508,7 @@ func GetMoonriseTime(loc Location, date time.Time) (time.Time, error) {
 // GetMoonriseTimeWithContext returns just the moonrise time with tracing
 func GetMoonriseTimeWithContext(ctx context.Context, loc Location, date time.Time) (time.Time, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "GetMoonriseTime")
+	_, span := observability.StartSpan(ctx, "GetMoonriseTime")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -542,7 +542,7 @@ func GetMoonsetTime(loc Location, date time.Time) (time.Time, error) {
 // GetMoonsetTimeWithContext returns just the moonset time with tracing
 func GetMoonsetTimeWithContext(ctx context.Context, loc Location, date time.Time) (time.Time, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "GetMoonsetTime")
+	_, span := observability.StartSpan(ctx, "GetMoonsetTime")
 	defer span.End()
 	
 	span.SetAttributes(

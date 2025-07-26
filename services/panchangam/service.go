@@ -603,17 +603,17 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 	if traditionalPeriods != nil {
 		events = append(events,
 			&ppb.PanchangamEvent{
-				Name:      fmt.Sprintf("Rahu Kalam"),
+				Name:      "Rahu Kalam",
 				Time:      traditionalPeriods.RahuKalam.Start.Format("15:04:05"),
 				EventType: "RAHU_KALAM",
 			},
 			&ppb.PanchangamEvent{
-				Name:      fmt.Sprintf("Yamagandam"),
+				Name:      "Yamagandam",
 				Time:      traditionalPeriods.Yamagandam.Start.Format("15:04:05"),
 				EventType: "YAMAGANDAM",
 			},
 			&ppb.PanchangamEvent{
-				Name:      fmt.Sprintf("Gulika Kalam"),
+				Name:      "Gulika Kalam",
 				Time:      traditionalPeriods.GulikaKalam.Start.Format("15:04:05"),
 				EventType: "GULIKA_KALAM",
 			},
