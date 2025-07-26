@@ -314,11 +314,11 @@ func TestTraceAttributes(t *testing.T) {
 	attrs := traceAttributes("key1", "value1", "key2", "value2")
 	assert.NotNil(t, attrs)
 	assert.Len(t, attrs, 1) // Should return slice with one EventOption
-	
+
 	// Test odd number of arguments (should return nil)
 	attrs = traceAttributes("key1", "value1", "key2")
 	assert.Nil(t, attrs)
-	
+
 	// Test empty arguments
 	attrs = traceAttributes()
 	assert.NotNil(t, attrs)
@@ -329,7 +329,7 @@ func TestTraceAttributes(t *testing.T) {
 func TestPanchangamServer_LoggingPaths(t *testing.T) {
 	observability.NewLocalObserver()
 	server := NewPanchangamServer()
-	
+
 	// Test successful request with all fields
 	req := &ppb.GetPanchangamRequest{
 		Date:              "2024-06-21",
@@ -340,7 +340,7 @@ func TestPanchangamServer_LoggingPaths(t *testing.T) {
 		CalculationMethod: "Drik",
 		Locale:            "en-US",
 	}
-	
+
 	// Try multiple times to get a successful response (to test success logging)
 	var resp *ppb.GetPanchangamResponse
 	var err error
@@ -354,11 +354,11 @@ func TestPanchangamServer_LoggingPaths(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	
+
 	if err != nil && status.Code(err) == codes.Internal {
 		t.Skip("Could not get successful response due to random errors")
 	}
-	
+
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.NotNil(t, resp.PanchangamData)
@@ -368,14 +368,14 @@ func TestPanchangamServer_LoggingPaths(t *testing.T) {
 func TestPanchangamServer_LoggingEmptyFields(t *testing.T) {
 	observability.NewLocalObserver()
 	server := NewPanchangamServer()
-	
+
 	req := &ppb.GetPanchangamRequest{
 		Date:      "2024-06-21",
 		Latitude:  40.7128,
 		Longitude: -74.0060,
 		// All other fields empty
 	}
-	
+
 	// Try to get response (may fail due to random error)
 	resp, err := server.Get(context.Background(), req)
 	if err != nil && status.Code(err) == codes.Internal {
@@ -391,13 +391,13 @@ func TestPanchangamServer_LoggingEmptyFields(t *testing.T) {
 func TestPanchangamServer_EmptyDate(t *testing.T) {
 	observability.NewLocalObserver()
 	server := NewPanchangamServer()
-	
+
 	req := &ppb.GetPanchangamRequest{
 		Date:      "",
 		Latitude:  40.7128,
 		Longitude: -74.0060,
 	}
-	
+
 	resp, err := server.Get(context.Background(), req)
 	assert.Error(t, err)
 	assert.Nil(t, resp)
@@ -408,14 +408,14 @@ func TestPanchangamServer_EmptyDate(t *testing.T) {
 func TestPanchangamServer_LongTimezone(t *testing.T) {
 	observability.NewLocalObserver()
 	server := NewPanchangamServer()
-	
+
 	req := &ppb.GetPanchangamRequest{
 		Date:      "2024-06-21",
 		Latitude:  40.7128,
 		Longitude: -74.0060,
 		Timezone:  "This/Is/A/Very/Long/Invalid/Timezone/String/That/Should/Cause/An/Error",
 	}
-	
+
 	// This should still work but fallback to local timezone
 	resp, err := server.Get(context.Background(), req)
 	if err != nil && status.Code(err) == codes.Internal {
@@ -431,7 +431,7 @@ func TestPanchangamServer_LongTimezone(t *testing.T) {
 func TestPanchangamServer_BoundaryCoordinates(t *testing.T) {
 	observability.NewLocalObserver()
 	server := NewPanchangamServer()
-	
+
 	tests := []struct {
 		name      string
 		latitude  float64
@@ -447,7 +447,7 @@ func TestPanchangamServer_BoundaryCoordinates(t *testing.T) {
 		{"Just over east boundary", 0.0, 180.1, true},
 		{"Just over west boundary", 0.0, -180.1, true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := &ppb.GetPanchangamRequest{
@@ -455,7 +455,7 @@ func TestPanchangamServer_BoundaryCoordinates(t *testing.T) {
 				Latitude:  tt.latitude,
 				Longitude: tt.longitude,
 			}
-			
+
 			resp, err := server.Get(context.Background(), req)
 			if tt.shouldErr {
 				assert.Error(t, err)
@@ -478,7 +478,7 @@ func TestPanchangamServer_BoundaryCoordinates(t *testing.T) {
 func TestPanchangamServer_Initialization(t *testing.T) {
 	observability.NewLocalObserver()
 	server := NewPanchangamServer()
-	
+
 	assert.NotNil(t, server)
 	assert.NotNil(t, server.observer)
 	assert.IsType(t, &PanchangamServer{}, server)
@@ -488,18 +488,18 @@ func TestPanchangamServer_Initialization(t *testing.T) {
 func TestPanchangamServer_DateFormats(t *testing.T) {
 	observability.NewLocalObserver()
 	server := NewPanchangamServer()
-	
+
 	invalidDates := []string{
-		"2024-13-01",    // Invalid month
-		"2024-02-30",    // Invalid day
-		"2024-06-32",    // Invalid day
-		"24-06-21",      // Wrong year format
-		"2024/06/21",    // Wrong separator
-		"2024-6-21",     // Single digit month
-		"2024-06-1",     // Single digit day
-		"invalid-date",  // Completely invalid
+		"2024-13-01",   // Invalid month
+		"2024-02-30",   // Invalid day
+		"2024-06-32",   // Invalid day
+		"24-06-21",     // Wrong year format
+		"2024/06/21",   // Wrong separator
+		"2024-6-21",    // Single digit month
+		"2024-06-1",    // Single digit day
+		"invalid-date", // Completely invalid
 	}
-	
+
 	for _, date := range invalidDates {
 		t.Run(fmt.Sprintf("Invalid date: %s", date), func(t *testing.T) {
 			req := &ppb.GetPanchangamRequest{
@@ -507,7 +507,7 @@ func TestPanchangamServer_DateFormats(t *testing.T) {
 				Latitude:  40.7128,
 				Longitude: -74.0060,
 			}
-			
+
 			resp, err := server.Get(context.Background(), req)
 			assert.Error(t, err)
 			assert.Nil(t, resp)

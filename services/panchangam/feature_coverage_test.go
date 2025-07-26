@@ -51,7 +51,7 @@ func testFeatureTITHI_001(t *testing.T, ctx context.Context, testDate time.Time)
 	t.Run("TITHI_001_Lunar_Day_Calculation", func(t *testing.T) {
 		// Create mock ephemeris since real ephemeris setup is complex
 		// This test validates the calculator interface and data structures
-		
+
 		// Test data structure validation
 		testTithi := &astronomy.TithiInfo{
 			Number:      15,
@@ -69,7 +69,7 @@ func testFeatureTITHI_001(t *testing.T, ctx context.Context, testDate time.Time)
 		assert.NotEmpty(t, testTithi.Name, "TITHI_001: Name should not be empty")
 		assert.True(t, testTithi.Duration > 0, "TITHI_001: Duration should be positive")
 		assert.True(t, testTithi.MoonSunDiff >= 0 && testTithi.MoonSunDiff < 360, "TITHI_001: MoonSunDiff should be 0-360")
-		
+
 		// Validate Tithi types (5 categories)
 		validTypes := map[astronomy.TithiType]bool{
 			astronomy.TithiTypeNanda:  true,
@@ -119,10 +119,10 @@ func testFeatureNAKSHATRA_001(t *testing.T, ctx context.Context, testDate time.T
 		assert.NotEmpty(t, testNakshatra.Deity, "NAKSHATRA_001: Deity should not be empty")
 		assert.NotEmpty(t, testNakshatra.PlanetaryLord, "NAKSHATRA_001: PlanetaryLord should not be empty")
 		assert.NotEmpty(t, testNakshatra.Symbol, "NAKSHATRA_001: Symbol should not be empty")
-		
+
 		// Validate Pada calculation (4 quarters per Nakshatra)
 		assert.True(t, testNakshatra.Pada >= 1 && testNakshatra.Pada <= 4, "NAKSHATRA_001: Pada should be 1-4")
-		
+
 		// Validate longitude calculation (27 divisions of 360° = 13.33° each)
 		expectedLongitudeRange := 13.333333
 		nakshatraStart := float64(testNakshatra.Number-1) * expectedLongitudeRange
@@ -156,7 +156,7 @@ func testFeatureYOGA_001(t *testing.T, ctx context.Context, testDate time.Time) 
 		assert.True(t, testYoga.Number >= 1 && testYoga.Number <= 27, "YOGA_001: Number should be 1-27")
 		assert.NotEmpty(t, testYoga.Name, "YOGA_001: Name should not be empty")
 		assert.NotEmpty(t, testYoga.Description, "YOGA_001: Description should not be empty")
-		
+
 		// Validate quality categorization (Auspicious/Inauspicious/Mixed)
 		validQualities := map[astronomy.YogaQuality]bool{
 			astronomy.YogaQualityAuspicious:   true,
@@ -167,7 +167,7 @@ func testFeatureYOGA_001(t *testing.T, ctx context.Context, testDate time.Time) 
 
 		// Validate Sun+Moon longitude sum calculation
 		assert.True(t, testYoga.CombinedValue >= 0 && testYoga.CombinedValue < 360, "YOGA_001: CombinedValue should be 0-360")
-		
+
 		// Validate 27 divisions (360° / 27 = 13.33° each)
 		expectedYogaSize := 360.0 / 27.0
 		yogaStart := float64(testYoga.Number-1) * expectedYogaSize
@@ -176,7 +176,7 @@ func testFeatureYOGA_001(t *testing.T, ctx context.Context, testDate time.Time) 
 		if normalizedSum >= 360 {
 			normalizedSum -= 360
 		}
-		
+
 		assert.True(t, normalizedSum >= yogaStart && normalizedSum < yogaEnd,
 			"YOGA_001: Sun+Moon sum should be within Yoga range")
 
@@ -209,7 +209,7 @@ func testFeatureKARANA_001(t *testing.T, ctx context.Context, testDate time.Time
 		assert.True(t, testKarana.Number >= 1 && testKarana.Number <= 11, "KARANA_001: Number should be 1-11")
 		assert.NotEmpty(t, testKarana.Name, "KARANA_001: Name should not be empty")
 		assert.NotEmpty(t, testKarana.Description, "KARANA_001: Description should not be empty")
-		
+
 		// Validate Karana types (Movable/Fixed)
 		validTypes := map[astronomy.KaranaType]bool{
 			astronomy.KaranaTypeMovable: true,
@@ -238,7 +238,7 @@ func testFeatureKARANA_001(t *testing.T, ctx context.Context, testDate time.Time
 		// Validate half-Tithi relationship
 		assert.True(t, testKarana.TithiNumber >= 1 && testKarana.TithiNumber <= 30, "KARANA_001: TithiNumber should be 1-30")
 		assert.True(t, testKarana.HalfTithi >= 1 && testKarana.HalfTithi <= 2, "KARANA_001: HalfTithi should be 1 or 2")
-		
+
 		// Validate duration (approximately half a Tithi)
 		assert.True(t, testKarana.Duration > 6 && testKarana.Duration < 18, "KARANA_001: Duration should be roughly half a Tithi")
 
@@ -254,19 +254,19 @@ func testFeatureVARA_001(t *testing.T, ctx context.Context, testDate time.Time) 
 	t.Run("VARA_001_Weekday_Calculation", func(t *testing.T) {
 		// Test Vara data structure validation
 		testVara := &astronomy.VaraInfo{
-			Number:          2,
-			Name:            "Somavara",
-			PlanetaryLord:   "Moon",
-			Quality:         "Peaceful",
-			Color:           "White",
-			Deity:           "Soma",
-			StartTime:       testDate,
-			EndTime:         testDate.Add(24 * time.Hour),
-			Duration:        24.0,
-			GregorianDay:    "Monday",
-			IsAuspicious:    true,
-			CurrentHora:     8,
-			HoraPlanet:      "Moon",
+			Number:        2,
+			Name:          "Somavara",
+			PlanetaryLord: "Moon",
+			Quality:       "Peaceful",
+			Color:         "White",
+			Deity:         "Soma",
+			StartTime:     testDate,
+			EndTime:       testDate.Add(24 * time.Hour),
+			Duration:      24.0,
+			GregorianDay:  "Monday",
+			IsAuspicious:  true,
+			CurrentHora:   8,
+			HoraPlanet:    "Moon",
 		}
 
 		// Validate feature requirements
@@ -313,7 +313,7 @@ func testFeatureSERVICE_001(t *testing.T) {
 	t.Run("SERVICE_001_gRPC_Service", func(t *testing.T) {
 		// Initialize observability for testing
 		observability.NewLocalObserver()
-		
+
 		// Create service instance
 		server := NewPanchangamServer()
 		require.NotNil(t, server, "SERVICE_001: Server should be created")
@@ -362,7 +362,7 @@ func testFeatureASTRONOMY_001(t *testing.T) {
 		ctx := context.Background()
 		testDate := time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC) // Summer solstice
 		location := astronomy.Location{
-			Latitude:  12.9716,  // Bangalore
+			Latitude:  12.9716, // Bangalore
 			Longitude: 77.5946,
 		}
 
@@ -373,7 +373,7 @@ func testFeatureASTRONOMY_001(t *testing.T) {
 
 		// Validate sunrise and sunset
 		assert.True(t, sunTimes.Sunrise.Before(sunTimes.Sunset), "ASTRONOMY_001: Sunrise should be before sunset")
-		
+
 		// Validate time format and reasonable values (more flexible for different calculations)
 		assert.True(t, sunTimes.Sunrise.Hour() >= 0 && sunTimes.Sunrise.Hour() <= 23, "ASTRONOMY_001: Sunrise should be valid hour")
 		assert.True(t, sunTimes.Sunset.Hour() >= 0 && sunTimes.Sunset.Hour() <= 23, "ASTRONOMY_001: Sunset should be valid hour")
@@ -382,7 +382,7 @@ func testFeatureASTRONOMY_001(t *testing.T) {
 		dayLength := sunTimes.Sunset.Sub(sunTimes.Sunrise)
 		assert.True(t, dayLength > 8*time.Hour && dayLength < 16*time.Hour, "ASTRONOMY_001: Day length should be reasonable")
 
-		t.Logf("✅ ASTRONOMY_001: Validated sunrise %s, sunset %s", 
+		t.Logf("✅ ASTRONOMY_001: Validated sunrise %s, sunset %s",
 			sunTimes.Sunrise.Format("15:04:05"), sunTimes.Sunset.Format("15:04:05"))
 	})
 }
@@ -395,17 +395,17 @@ func testFeatureOBSERVABILITY_001(t *testing.T) {
 		require.NotNil(t, observer, "OBSERVABILITY_001: Observer should be created")
 
 		ctx := context.Background()
-		
+
 		// Test span creation
 		ctx, span := observer.CreateSpan(ctx, "test_span")
 		assert.NotNil(t, span, "OBSERVABILITY_001: Span should be created")
-		
+
 		// Test span attributes
 		span.SetAttributes(attribute.String("test_key", "test_value"))
-		
+
 		// Test span events
 		span.AddEvent("test_event")
-		
+
 		// Test span completion
 		span.End()
 
@@ -426,23 +426,23 @@ func testFeatureOBSERVABILITY_001(t *testing.T) {
 func testFeatureQA_001(t *testing.T) {
 	t.Run("QA_001_Test_Infrastructure", func(t *testing.T) {
 		// This test validates that our test infrastructure itself works
-		
+
 		// Test assertion framework
 		assert.True(t, true, "QA_001: Basic assertions should work")
 		require.NotNil(t, t, "QA_001: Test context should be available")
-		
+
 		// Test context handling
 		ctx := context.Background()
 		assert.NotNil(t, ctx, "QA_001: Context should be available")
-		
+
 		// Test time handling
 		now := time.Now()
 		assert.True(t, now.Before(time.Now().Add(time.Second)), "QA_001: Time operations should work")
-		
+
 		// Test error handling
 		testErr := assert.AnError
 		assert.Error(t, testErr, "QA_001: Error handling should work")
-		
+
 		// Test mock capabilities (validated through test execution)
 		assert.True(t, testing.Testing(), "QA_001: Testing mode should be detected")
 
@@ -454,7 +454,7 @@ func testFeatureQA_001(t *testing.T) {
 func testFeatureQA_002(t *testing.T) {
 	t.Run("QA_002_Code_Quality", func(t *testing.T) {
 		// Test validation functions exist and work
-		
+
 		// Test Tithi validation
 		validTithi := &astronomy.TithiInfo{
 			Number:      15,
@@ -503,19 +503,19 @@ func TestFeatureCoveragePerformance(t *testing.T) {
 	t.Run("Feature_Performance_Benchmarks", func(t *testing.T) {
 		ctx := context.Background()
 		testDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
-		
+
 		// Performance target: Individual calculations <50ms, combined <100ms
 		start := time.Now()
-		
+
 		// Test sunrise/sunset performance (this is the actual calculation we can test)
 		location := astronomy.Location{Latitude: 12.9716, Longitude: 77.5946}
 		_, err := astronomy.CalculateSunTimesWithContext(ctx, location, testDate)
-		
+
 		duration := time.Since(start)
 		assert.NoError(t, err, "Performance test should not fail")
-		assert.True(t, duration < 50*time.Millisecond, 
+		assert.True(t, duration < 50*time.Millisecond,
 			"ASTRONOMY_001 performance: should be <50ms, got %v", duration)
-		
+
 		t.Logf("✅ Feature Performance: Astronomy calculation completed in %v", duration)
 	})
 }
@@ -525,22 +525,22 @@ func TestFeatureCoverageIntegration(t *testing.T) {
 	t.Run("Feature_Integration_Patterns", func(t *testing.T) {
 		// This test validates that features work together correctly
 		ctx := context.Background()
-		
+
 		// Test that different features can be used together
 		testDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
 		location := astronomy.Location{Latitude: 12.9716, Longitude: 77.5946}
-		
+
 		// Test astronomy integration
 		sunTimes, err := astronomy.CalculateSunTimesWithContext(ctx, location, testDate)
 		assert.NoError(t, err, "Integration: Astronomy should work")
 		require.NotNil(t, sunTimes, "Integration: Sun times should be calculated")
-		
+
 		// Test observability integration
 		observability.NewLocalObserver()
 		ctx, span := observability.Observer().CreateSpan(ctx, "integration_test")
 		span.SetAttributes(attribute.String("test", "integration"))
 		span.End()
-		
+
 		// Test service integration (placeholder data)
 		server := NewPanchangamServer()
 		req := &ppb.GetPanchangamRequest{
@@ -551,7 +551,7 @@ func TestFeatureCoverageIntegration(t *testing.T) {
 		resp, err := server.Get(ctx, req)
 		assert.NoError(t, err, "Integration: Service should work")
 		require.NotNil(t, resp, "Integration: Service should respond")
-		
+
 		t.Logf("✅ Feature Integration: All components work together")
 	})
 }

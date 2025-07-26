@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/naren-m/panchangam/astronomy"
+	"github.com/naren-m/panchangam/astronomy/ephemeris"
 	"github.com/naren-m/panchangam/log"
 	"github.com/naren-m/panchangam/observability"
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
@@ -20,13 +21,40 @@ import (
 var logger = log.Logger()
 
 type PanchangamServer struct {
-	observer observability.ObserverInterface
+	observer         observability.ObserverInterface
+	ephemerisManager *ephemeris.Manager
+	tithiCalc        *astronomy.TithiCalculator
+	nakshatraCalc    *astronomy.NakshatraCalculator
+	yogaCalc         *astronomy.YogaCalculator
+	karanaCalc       *astronomy.KaranaCalculator
+	varaCalc         *astronomy.VaraCalculator
 	ppb.UnimplementedPanchangamServer
 }
 
 func NewPanchangamServer() *PanchangamServer {
+	// Initialize ephemeris providers and cache
+	jplProvider := ephemeris.NewJPLProvider()
+	swissProvider := ephemeris.NewSwissProvider()
+	cache := ephemeris.NewMemoryCache(1000, 24*time.Hour) // 1000 entries, 24h TTL
+
+	// Create ephemeris manager
+	ephemerisManager := ephemeris.NewManager(jplProvider, swissProvider, cache)
+
+	// Initialize calculators
+	tithiCalc := astronomy.NewTithiCalculator(ephemerisManager)
+	nakshatraCalc := astronomy.NewNakshatraCalculator(ephemerisManager)
+	yogaCalc := astronomy.NewYogaCalculator(ephemerisManager)
+	karanaCalc := astronomy.NewKaranaCalculator(ephemerisManager)
+	varaCalc := astronomy.NewVaraCalculator()
+
 	return &PanchangamServer{
-		observer: observability.Observer(),
+		observer:         observability.Observer(),
+		ephemerisManager: ephemerisManager,
+		tithiCalc:        tithiCalc,
+		nakshatraCalc:    nakshatraCalc,
+		yogaCalc:         yogaCalc,
+		karanaCalc:       karanaCalc,
+		varaCalc:         varaCalc,
 	}
 }
 
@@ -399,24 +427,114 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		return nil, grpcErr
 	}
 
-	// Build panchangam data response
-	logger.InfoContext(ctx, "Building panchangam data response",
+	// Calculate all Panchangam elements
+	logger.InfoContext(ctx, "Calculating Panchangam elements",
+		"operation", "calculatePanchangamElements",
+		"date", req.Date,
+		"sunrise", sunTimes.Sunrise.Format("15:04:05"),
+		"sunset", sunTimes.Sunset.Format("15:04:05"))
+
+	// Calculate Tithi
+	tithi, err := s.tithiCalc.GetTithiForDate(ctx, date)
+	if err != nil {
+		grpcErr := status.Error(codes.Internal, fmt.Sprintf("failed to calculate tithi: %v", err))
+		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
+			Severity:  observability.SeverityHigh,
+			Category:  observability.CategoryCalculation,
+			Operation: "tithi_calculation",
+			Component: "panchangam_service",
+		})
+		logger.ErrorContext(ctx, "Failed to calculate tithi", "error", grpcErr)
+		span.RecordError(grpcErr)
+		return nil, grpcErr
+	}
+
+	// Calculate Nakshatra
+	nakshatra, err := s.nakshatraCalc.GetNakshatraForDate(ctx, date)
+	if err != nil {
+		grpcErr := status.Error(codes.Internal, fmt.Sprintf("failed to calculate nakshatra: %v", err))
+		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
+			Severity:  observability.SeverityHigh,
+			Category:  observability.CategoryCalculation,
+			Operation: "nakshatra_calculation",
+			Component: "panchangam_service",
+		})
+		logger.ErrorContext(ctx, "Failed to calculate nakshatra", "error", grpcErr)
+		span.RecordError(grpcErr)
+		return nil, grpcErr
+	}
+
+	// Calculate Yoga
+	yoga, err := s.yogaCalc.GetYogaForDate(ctx, date)
+	if err != nil {
+		grpcErr := status.Error(codes.Internal, fmt.Sprintf("failed to calculate yoga: %v", err))
+		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
+			Severity:  observability.SeverityHigh,
+			Category:  observability.CategoryCalculation,
+			Operation: "yoga_calculation",
+			Component: "panchangam_service",
+		})
+		logger.ErrorContext(ctx, "Failed to calculate yoga", "error", grpcErr)
+		span.RecordError(grpcErr)
+		return nil, grpcErr
+	}
+
+	// Calculate Karana
+	karana, err := s.karanaCalc.GetKaranaForDate(ctx, date)
+	if err != nil {
+		grpcErr := status.Error(codes.Internal, fmt.Sprintf("failed to calculate karana: %v", err))
+		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
+			Severity:  observability.SeverityHigh,
+			Category:  observability.CategoryCalculation,
+			Operation: "karana_calculation",
+			Component: "panchangam_service",
+		})
+		logger.ErrorContext(ctx, "Failed to calculate karana", "error", grpcErr)
+		span.RecordError(grpcErr)
+		return nil, grpcErr
+	}
+
+	// Calculate Vara
+	vara, err := s.varaCalc.GetVaraForDate(ctx, date, location)
+	if err != nil {
+		grpcErr := status.Error(codes.Internal, fmt.Sprintf("failed to calculate vara: %v", err))
+		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
+			Severity:  observability.SeverityHigh,
+			Category:  observability.CategoryCalculation,
+			Operation: "vara_calculation",
+			Component: "panchangam_service",
+		})
+		logger.ErrorContext(ctx, "Failed to calculate vara", "error", grpcErr)
+		span.RecordError(grpcErr)
+		return nil, grpcErr
+	}
+
+	// Build panchangam data response with real calculations
+	logger.InfoContext(ctx, "Building panchangam data response with real calculations",
 		"operation", "buildResponse",
 		"date", req.Date,
+		"tithi", tithi.Name,
+		"nakshatra", nakshatra.Name,
+		"yoga", yoga.Name,
+		"karana", karana.Name,
+		"vara", vara.Name,
 		"sunrise", sunTimes.Sunrise.Format("15:04:05"),
 		"sunset", sunTimes.Sunset.Format("15:04:05"))
 
 	data := &ppb.PanchangamData{
 		Date:        req.Date,
-		Tithi:       "Some Tithi",
-		Nakshatra:   "Some Nakshatra",
-		Yoga:        "Some Yoga",
-		Karana:      "Some Karana",
+		Tithi:       fmt.Sprintf("%s (%d)", tithi.Name, tithi.Number),
+		Nakshatra:   fmt.Sprintf("%s (%d)", nakshatra.Name, nakshatra.Number),
+		Yoga:        fmt.Sprintf("%s (%d)", yoga.Name, yoga.Number),
+		Karana:      fmt.Sprintf("%s (%d)", karana.Name, karana.Number),
 		SunriseTime: sunTimes.Sunrise.Format("15:04:05"),
 		SunsetTime:  sunTimes.Sunset.Format("15:04:05"),
 		Events: []*ppb.PanchangamEvent{
-			{Name: "Some Event 1", Time: "08:00:00", EventType: "RAHU_KALAM"},
-			{Name: "Some Event 2", Time: "12:00:00", EventType: "FESTIVAL"},
+			{Name: fmt.Sprintf("Tithi: %s", tithi.Name), Time: tithi.StartTime.Format("15:04:05"), EventType: "TITHI"},
+			{Name: fmt.Sprintf("Nakshatra: %s", nakshatra.Name), Time: "00:00:00", EventType: "NAKSHATRA"},
+			{Name: fmt.Sprintf("Yoga: %s", yoga.Name), Time: "00:00:00", EventType: "YOGA"},
+			{Name: fmt.Sprintf("Karana: %s", karana.Name), Time: "00:00:00", EventType: "KARANA"},
+			{Name: fmt.Sprintf("Vara: %s", vara.Name), Time: "00:00:00", EventType: "VARA"},
 		},
 	}
 
