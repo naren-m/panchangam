@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Globe, Calculator, Clock, Map } from 'lucide-react';
 import { Settings } from '../../types/panchangam';
+import { ApiHealthCheck } from './ApiHealthCheck';
 
 interface SettingsPanelProps {
   settings: Settings;
@@ -38,6 +39,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-6">
+          {/* API Health Check */}
+          <ApiHealthCheck />
+          
           {/* Calculation Method */}
           <div>
             <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-3">
