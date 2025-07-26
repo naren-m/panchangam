@@ -1,14 +1,52 @@
-# Panchangam Build and Development Makefile
+# Panchangam Project Makefile
+
+# Variables
+GO_VERSION := 1.21
+NODE_VERSION := 18
+DOCKER_REGISTRY := ghcr.io
+PROJECT_NAME := panchangam
+VERSION ?= $(shell git describe --tags --always --dirty)
+COMMIT_SHA := $(shell git rev-parse --short HEAD)
+BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Docker image names
+BACKEND_IMAGE := $(DOCKER_REGISTRY)/$(PROJECT_NAME)-backend
+FRONTEND_IMAGE := $(DOCKER_REGISTRY)/$(PROJECT_NAME)-frontend
+
+# Build flags
+LDFLAGS := -ldflags="-w -s -X main.Version=$(VERSION) -X main.CommitSHA=$(COMMIT_SHA) -X main.BuildTime=$(BUILD_TIME)"
+
+# Colors for output
+BLUE := \033[0;34m
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+RED := \033[0;31m
+NC := \033[0m # No Color
 
 .PHONY: build run test clean demo proto deps help all
 
 # Default target
 all: build
 
-# Build the main server
-build:
-	@echo "🔨 Building panchangam server..."
-	go build -o bin/panchangam .
+# =============================================================================
+# Building
+# =============================================================================
+
+# Build all components
+build: build-backend build-frontend
+
+# Build backend binaries
+build-backend:
+	@echo "$(BLUE)🔨 Building backend binaries...$(NC)"
+	@mkdir -p bin
+	@CGO_ENABLED=0 go build $(LDFLAGS) -o bin/panchangam-gateway ./cmd/gateway
+	@CGO_ENABLED=0 go build $(LDFLAGS) -o bin/panchangam-grpc ./cmd/grpc-server
+	@go build -o bin/panchangam .
+
+# Build frontend
+build-frontend:
+	@echo "$(BLUE)🔨 Building frontend...$(NC)"
+	@cd ui && npm run build
 
 # Build the demo client
 build-demo:
@@ -99,32 +137,72 @@ deps:
 	go mod tidy
 	go mod download
 
+# =============================================================================
+# Testing
+# =============================================================================
+
+# Run frontend tests
+test-frontend:
+	@echo "$(BLUE)🧪 Running frontend tests...$(NC)"
+	@cd ui && npm run test
+
+# Run integration tests
+test-integration:
+	@echo "$(BLUE)🧪 Running integration tests...$(NC)"
+	@go test -tags=integration ./...
+
+# Run end-to-end tests
+test-e2e:
+	@echo "$(BLUE)🧪 Running end-to-end tests...$(NC)"
+	@cd ui && npm run test:e2e
+
+# =============================================================================
+# Code Quality
+# =============================================================================
+
 # Clean build artifacts
 clean:
-	@echo "🧹 Cleaning build artifacts..."
+	@echo "$(BLUE)🧹 Cleaning build artifacts...$(NC)"
 	rm -rf bin/
+	rm -rf ui/dist/
 	rm -f panchangam sunrise-demo
 	rm -rf proto/panchangam/
+	rm -f coverage.out coverage.html
 
 # Format code
 fmt:
-	@echo "🎨 Formatting code..."
+	@echo "$(BLUE)🎨 Formatting code...$(NC)"
 	go fmt ./...
+	@cd ui && npm run format
 
 # Legacy format (compatibility)
 format: fmt
 
 # Run linter (if available)
 lint:
-	@echo "🔍 Running linter..."
+	@echo "$(BLUE)🔍 Running linter...$(NC)"
+	@go vet ./...
+	@gofmt -s -l . | grep -v vendor | tee /dev/stderr | test -z "$$(cat)"
+	@cd ui && npm run lint
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run; \
 	else \
-		echo "⚠️  golangci-lint not found, skipping lint check"; \
+		echo "⚠️  golangci-lint not found, skipping additional lint checks"; \
 	fi
+
+# Run security scans
+security:
+	@echo "$(BLUE)🔐 Running security scans...$(NC)"
+	@command -v gosec >/dev/null 2>&1 || go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+	@gosec ./...
+	@cd ui && npm audit --audit-level=high
 
 # Run all checks (format, lint, test)
 check: fmt lint test
+
+# =============================================================================
+# Development
+# =============================================================================
 
 # Development server with auto-reload (requires air)
 dev:
@@ -136,15 +214,128 @@ dev:
 		make run; \
 	fi
 
-# Docker build
-docker-build:
-	@echo "🐳 Building Docker image..."
-	docker build -t panchangam .
+# Start development servers
+dev-start:
+	@echo "$(BLUE)🚀 Starting development servers...$(NC)"
+	@trap 'kill 0' SIGINT; \
+	(go run cmd/grpc-server/main.go) & \
+	(sleep 3 && go run cmd/gateway/main.go) & \
+	(cd ui && npm run dev) & \
+	wait
 
-# Docker run
+# Set up development environment
+dev-setup:
+	@echo "$(BLUE)🔧 Setting up development environment...$(NC)"
+	@go mod download
+	@cd ui && npm install
+
+# =============================================================================
+# Docker
+# =============================================================================
+
+# Build all Docker images
+docker-build: docker-build-backend docker-build-frontend
+
+# Build backend Docker image
+docker-build-backend:
+	@echo "$(BLUE)🐳 Building backend Docker image...$(NC)"
+	@docker build -f docker/Dockerfile.backend -t $(BACKEND_IMAGE):$(VERSION) -t $(BACKEND_IMAGE):latest .
+
+# Build frontend Docker image
+docker-build-frontend:
+	@echo "$(BLUE)🐳 Building frontend Docker image...$(NC)"
+	@docker build -f ui/Dockerfile -t $(FRONTEND_IMAGE):$(VERSION) -t $(FRONTEND_IMAGE):latest ui/
+
+# Push Docker images to registry
+docker-push:
+	@echo "$(BLUE)🐳 Pushing Docker images...$(NC)"
+	@docker push $(BACKEND_IMAGE):$(VERSION)
+	@docker push $(BACKEND_IMAGE):latest
+	@docker push $(FRONTEND_IMAGE):$(VERSION)
+	@docker push $(FRONTEND_IMAGE):latest
+
+# Run application with Docker Compose
 docker-run:
-	@echo "🐳 Running Docker container..."
-	docker run -p 8080:8080 panchangam
+	@echo "$(BLUE)🐳 Starting application with Docker Compose...$(NC)"
+	@docker-compose up --build
+
+# Stop Docker Compose
+docker-stop:
+	@echo "$(BLUE)🐳 Stopping Docker Compose...$(NC)"
+	@docker-compose down
+
+# Clean Docker images and containers
+docker-clean:
+	@echo "$(BLUE)🐳 Cleaning Docker images and containers...$(NC)"
+	@docker-compose down --volumes --remove-orphans
+	@docker image prune -f
+	@docker volume prune -f
+
+# =============================================================================
+# Deployment
+# =============================================================================
+
+# Deploy to staging environment
+deploy-staging:
+	@echo "$(BLUE)🚀 Deploying to staging...$(NC)"
+	@./scripts/deploy.sh -e staging -v $(VERSION)
+
+# Deploy to production environment
+deploy-production:
+	@echo "$(BLUE)🚀 Deploying to production...$(NC)"
+	@./scripts/deploy.sh -e production -v $(VERSION)
+
+# Validate staging deployment
+validate-staging:
+	@echo "$(BLUE)✅ Validating staging deployment...$(NC)"
+	@./scripts/validate-deployment.sh -e staging
+
+# Validate production deployment
+validate-production:
+	@echo "$(BLUE)✅ Validating production deployment...$(NC)"
+	@./scripts/validate-deployment.sh -e production
+
+# =============================================================================
+# CI/CD Pipeline Commands
+# =============================================================================
+
+# CI linting (comprehensive)
+ci-lint:
+	@echo "$(BLUE)🔍 Running CI linting...$(NC)"
+	@$(MAKE) lint
+	@$(MAKE) security
+
+# CI testing (comprehensive test suite)
+ci-test:
+	@echo "$(BLUE)🧪 Running CI tests...$(NC)"
+	@$(MAKE) test
+	@$(MAKE) test-frontend
+	@$(MAKE) test-integration
+
+# CI build (build all components)
+ci-build:
+	@echo "$(BLUE)🔨 Running CI build...$(NC)"
+	@$(MAKE) build
+	@$(MAKE) docker-build
+
+# CI deployment (push images and deploy)
+ci-deploy:
+	@echo "$(BLUE)🚀 Running CI deployment...$(NC)"
+	@$(MAKE) docker-push
+	@$(MAKE) deploy-staging
+
+# =============================================================================
+# Utilities
+# =============================================================================
+
+# Show version information
+version:
+	@echo "$(BLUE)📋 Version Information:$(NC)"
+	@echo "  Version: $(VERSION)"
+	@echo "  Commit: $(COMMIT_SHA)"
+	@echo "  Build Time: $(BUILD_TIME)"
+	@echo "  Go Version: $$(go version | cut -d' ' -f3)"
+	@echo "  Node Version: $$(cd ui && node --version 2>/dev/null || echo 'Not available')"
 
 # Legacy docker start (compatibility)
 start:

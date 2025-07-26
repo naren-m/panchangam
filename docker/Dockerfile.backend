@@ -1,0 +1,57 @@
+# Multi-stage build for Go backend
+FROM golang:1.21-alpine AS builder
+
+# Install git and ca-certificates (needed for go modules)
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Create appuser for security
+RUN adduser -D -g '' appuser
+
+# Set working directory
+WORKDIR /build
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+RUN go mod verify
+
+# Copy source code
+COPY . .
+
+# Build the binaries
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o panchangam-gateway ./cmd/gateway
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o panchangam-grpc ./cmd/grpc-server
+
+# Final stage - minimal runtime image
+FROM scratch
+
+# Import from builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=builder /etc/passwd /etc/passwd
+
+# Copy binaries
+COPY --from=builder /build/panchangam-gateway /panchangam-gateway
+COPY --from=builder /build/panchangam-grpc /panchangam-grpc
+
+# Use appuser
+USER appuser
+
+# Expose ports
+EXPOSE 8080 50052
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD ["/panchangam-gateway", "--health-check"]
+
+# Default command (can be overridden)
+CMD ["/panchangam-gateway"]
