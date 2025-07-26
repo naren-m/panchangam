@@ -240,7 +240,7 @@ func (nc *NakshatraCalculator) calculateNakshatraFromLongitude(ctx context.Conte
 
 // calculateNakshatraTimes estimates the start and end times of a Nakshatra
 func (nc *NakshatraCalculator) calculateNakshatraTimes(ctx context.Context, nakshatraFloat float64, referenceDate time.Time) (startTime, endTime time.Time) {
-	ctx, span := nc.observer.CreateSpan(ctx, "NakshatraCalculator.calculateNakshatraTimes")
+	_, span := nc.observer.CreateSpan(ctx, "NakshatraCalculator.calculateNakshatraTimes")
 	defer span.End()
 
 	span.SetAttributes(

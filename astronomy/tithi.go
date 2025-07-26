@@ -203,7 +203,7 @@ func (tc *TithiCalculator) calculateTithiFromLongitudes(ctx context.Context, sun
 
 // calculateTithiTimes estimates the start and end times of a Tithi
 func (tc *TithiCalculator) calculateTithiTimes(ctx context.Context, tithiFloat float64, referenceDate time.Time) (startTime, endTime time.Time) {
-	ctx, span := tc.observer.CreateSpan(ctx, "TithiCalculator.calculateTithiTimes")
+	_, span := tc.observer.CreateSpan(ctx, "TithiCalculator.calculateTithiTimes")
 	defer span.End()
 
 	span.SetAttributes(

@@ -83,7 +83,7 @@ func NewMemoryCache(maxSize int, defaultTTL time.Duration) *MemoryCache {
 
 // Get retrieves a value from the cache
 func (c *MemoryCache) Get(ctx context.Context, key string) (interface{}, bool) {
-	ctx, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Get")
+	_, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Get")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -144,7 +144,7 @@ func (c *MemoryCache) Get(ctx context.Context, key string) (interface{}, bool) {
 
 // Set stores a value in the cache with TTL
 func (c *MemoryCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) {
-	ctx, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Set")
+	_, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Set")
 	defer span.End()
 	
 	if ttl == 0 {
@@ -191,7 +191,7 @@ func (c *MemoryCache) Set(ctx context.Context, key string, value interface{}, tt
 
 // Delete removes a value from the cache
 func (c *MemoryCache) Delete(ctx context.Context, key string) bool {
-	ctx, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Delete")
+	_, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Delete")
 	defer span.End()
 	
 	span.SetAttributes(
@@ -223,7 +223,7 @@ func (c *MemoryCache) Delete(ctx context.Context, key string) bool {
 
 // Clear clears all cache entries
 func (c *MemoryCache) Clear(ctx context.Context) error {
-	ctx, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Clear")
+	_, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Clear")
 	defer span.End()
 	
 	span.SetAttributes(attribute.String("operation", "clear"))
@@ -245,7 +245,7 @@ func (c *MemoryCache) Clear(ctx context.Context) error {
 
 // GetStats returns cache statistics
 func (c *MemoryCache) GetStats(ctx context.Context) *CacheStats {
-	ctx, span := c.observer.CreateSpan(ctx, "ephemeris.cache.GetStats")
+	_, span := c.observer.CreateSpan(ctx, "ephemeris.cache.GetStats")
 	defer span.End()
 	
 	c.mutex.RLock()

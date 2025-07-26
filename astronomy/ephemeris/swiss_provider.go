@@ -252,7 +252,7 @@ func (s *SwissProvider) updateHealthStatus(ctx context.Context) {
 
 // calculateSunPosition calculates basic sun position using Swiss Ephemeris methods
 func (s *SwissProvider) calculateSunPosition(ctx context.Context, jd JulianDay) Position {
-	ctx, span := s.observer.CreateSpan(ctx, "swiss.calculateSunPosition")
+	_, span := s.observer.CreateSpan(ctx, "swiss.calculateSunPosition")
 	defer span.End()
 
 	// Swiss Ephemeris uses more accurate planetary theory
@@ -297,7 +297,7 @@ func (s *SwissProvider) calculateSunPosition(ctx context.Context, jd JulianDay) 
 
 // calculateMoonPosition calculates basic moon position using Swiss Ephemeris methods
 func (s *SwissProvider) calculateMoonPosition(ctx context.Context, jd JulianDay) Position {
-	ctx, span := s.observer.CreateSpan(ctx, "swiss.calculateMoonPosition")
+	_, span := s.observer.CreateSpan(ctx, "swiss.calculateMoonPosition")
 	defer span.End()
 
 	// Swiss Ephemeris uses ELP-2000 lunar theory
@@ -356,7 +356,7 @@ func (s *SwissProvider) calculateMoonPosition(ctx context.Context, jd JulianDay)
 
 // calculatePlanetPosition calculates planet position using Swiss Ephemeris VSOP87 theory
 func (s *SwissProvider) calculatePlanetPosition(ctx context.Context, jd JulianDay, planet string) Position {
-	ctx, span := s.observer.CreateSpan(ctx, "swiss.calculatePlanetPosition")
+	_, span := s.observer.CreateSpan(ctx, "swiss.calculatePlanetPosition")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("planet", planet))
@@ -478,7 +478,7 @@ func (s *SwissProvider) calculatePlanetPosition(ctx context.Context, jd JulianDa
 
 // calculateDetailedSunPosition calculates detailed sun position using Swiss Ephemeris
 func (s *SwissProvider) calculateDetailedSunPosition(ctx context.Context, jd JulianDay) *SolarPosition {
-	ctx, span := s.observer.CreateSpan(ctx, "swiss.calculateDetailedSunPosition")
+	_, span := s.observer.CreateSpan(ctx, "swiss.calculateDetailedSunPosition")
 	defer span.End()
 
 	// Use more accurate Swiss Ephemeris algorithms

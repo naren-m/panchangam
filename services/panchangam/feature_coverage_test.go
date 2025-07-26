@@ -397,7 +397,7 @@ func testFeatureOBSERVABILITY_001(t *testing.T) {
 		ctx := context.Background()
 
 		// Test span creation
-		ctx, span := observer.CreateSpan(ctx, "test_span")
+		_, span := observer.CreateSpan(ctx, "test_span")
 		assert.NotNil(t, span, "OBSERVABILITY_001: Span should be created")
 
 		// Test span attributes

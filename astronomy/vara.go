@@ -213,7 +213,7 @@ func (vc *VaraCalculator) calculateVaraFromSunrise(ctx context.Context, currentS
 
 // calculateCurrentHora calculates the current hora and its ruling planet
 func (vc *VaraCalculator) calculateCurrentHora(ctx context.Context, currentSunrise, nextSunrise time.Time, referenceTime time.Time, varaNumber int) (int, string) {
-	ctx, span := vc.observer.CreateSpan(ctx, "VaraCalculator.calculateCurrentHora")
+	_, span := vc.observer.CreateSpan(ctx, "VaraCalculator.calculateCurrentHora")
 	defer span.End()
 
 	span.SetAttributes(

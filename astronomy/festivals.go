@@ -115,7 +115,7 @@ func (fc *FestivalCalendar) initializeLunarFestivals() {
 // GetFestivalsForDate returns festivals for a specific date
 func (fc *FestivalCalendar) GetFestivalsForDate(ctx context.Context, date time.Time, tithiNumber int) ([]Festival, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "GetFestivalsForDate")
+	_, span := observer.CreateSpan(ctx, "GetFestivalsForDate")
 	defer span.End()
 	
 	span.SetAttributes(

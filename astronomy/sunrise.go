@@ -176,7 +176,7 @@ func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.T
 	solarNoonSpan.End()
 	
 	// Convert to time
-	ctx, conversionSpan := observer.CreateSpan(ctx, "convertToTime")
+	_, conversionSpan := observer.CreateSpan(ctx, "convertToTime")
 	sunriseTime := decimalHoursToTime(sunriseDecimal, year, month, day, time.UTC)
 	sunsetTime := decimalHoursToTime(sunsetDecimal, year, month, day, time.UTC)
 	
@@ -241,7 +241,7 @@ func solarPosition(jd float64) (float64, float64) {
 // solarPositionWithContext calculates equation of time and solar declination with tracing
 func solarPositionWithContext(ctx context.Context, jd float64) (float64, float64) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "solarPosition")
+	_, span := observer.CreateSpan(ctx, "solarPosition")
 	defer span.End()
 	
 	span.SetAttributes(attribute.Float64("julian_day", jd))
@@ -289,7 +289,7 @@ func calculateRiseSet(latitude, longitude, jd, eqTime, decl float64) (float64, f
 // calculateRiseSetWithContext calculates sunrise and sunset times in minutes from midnight with tracing
 func calculateRiseSetWithContext(ctx context.Context, latitude, longitude, jd, eqTime, decl float64) (float64, float64) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "calculateRiseSet")
+	_, span := observer.CreateSpan(ctx, "calculateRiseSet")
 	defer span.End()
 	
 	span.SetAttributes(

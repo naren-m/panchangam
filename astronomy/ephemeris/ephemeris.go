@@ -314,7 +314,7 @@ func (m *Manager) tryProvider(ctx context.Context, provider EphemerisProvider, p
 		return nil, fmt.Errorf("%s provider is nil", providerType)
 	}
 	
-	ctx, span := m.observer.CreateSpan(ctx, fmt.Sprintf("ephemeris.try_%s_provider", providerType))
+	_, span := m.observer.CreateSpan(ctx, fmt.Sprintf("ephemeris.try_%s_provider", providerType))
 	defer span.End()
 	
 	span.SetAttributes(
