@@ -17,5 +17,5 @@ if (!globalThis.AbortSignal?.timeout) {
       setTimeout(() => controller.abort(), ms);
       return controller.signal;
     }
-  } as any;
+  } as typeof globalThis.AbortSignal;
 }

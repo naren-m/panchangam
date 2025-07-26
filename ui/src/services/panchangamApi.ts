@@ -43,7 +43,7 @@ const transformApiResponse = (apiData: ApiPanchangamData, requestDate: string): 
     events: apiData.events.map(event => ({
       name: event.name,
       time: event.time,
-      event_type: event.event_type as any, // Type assertion for event types
+      event_type: event.event_type as 'RAHU_KALAM' | 'YAMAGANDAM' | 'GULIKA_KALAM' | 'ABHIJIT_MUHURTA' | 'BRAHMA_MUHURTA' | 'SUNRISE' | 'SUNSET' | 'MOONRISE' | 'MOONSET' | 'TITHI' | 'NAKSHATRA' | 'YOGA' | 'KARANA' | 'VARA' | 'MUHURTA',
       quality: 'neutral' as const // Default quality since API doesn't provide this
     })),
     festivals: [], // Not provided by current API
@@ -160,7 +160,7 @@ class PanchangamApiService {
         {
           name: "API Connection Error",
           time: "00:00:00",
-          event_type: "MUHURTA" as any,
+          event_type: "MUHURTA" as const,
           quality: "neutral" as const
         }
       ],

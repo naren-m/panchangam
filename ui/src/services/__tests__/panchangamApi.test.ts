@@ -68,8 +68,8 @@ describe('PanchangamApiService', () => {
         karana: 'Gara (6)',
         sunrise_time: '01:15:32',
         sunset_time: '12:41:47',
-        vara: 'Monday', // Should be calculated based on date
-        planetary_ruler: 'Moon', // Should be calculated based on day of week
+        vara: 'Sunday', // January 15, 2024 is a Sunday
+        planetary_ruler: 'Sun', // Sunday is ruled by Sun
         events: [
           {
             name: 'Tithi: Chaturthi',
