@@ -5,6 +5,8 @@ import { formatTime, formatTimeRange } from '../../utils/dateHelpers';
 import { FiveAngas } from './FiveAngas';
 import { MuhurtaTimeline } from './MuhurtaTimeline';
 import { EventsList } from './EventsList';
+import { LunarTimings } from './LunarTimings';
+import { TraditionalPeriods } from './TraditionalPeriods';
 
 interface DayDetailModalProps {
   date: Date;
@@ -60,74 +62,45 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Left Column */}
-            <div className="space-y-6">
-              {/* Five Angas */}
-              <FiveAngas data={data} settings={settings} />
+          <div className="space-y-6">
+            {/* Five Angas */}
+            <FiveAngas data={data} settings={settings} />
 
-              {/* Astronomical Times */}
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-blue-800 mb-3">
-                  Astronomical Times
-                </h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-blue-600 font-medium">Sunrise:</span>
-                    <div className="text-blue-800">
-                      {formatTime(data.sunrise_time, settings.time_format)}
+            {/* Enhanced Lunar & Solar Timings */}
+            <LunarTimings data={data} settings={settings} />
+
+            {/* Traditional Time Periods */}
+            <TraditionalPeriods events={data.events} settings={settings} />
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Left Column */}
+              <div className="space-y-6">
+                {/* Festivals */}
+                {data.festivals && data.festivals.length > 0 && (
+                  <div className="bg-red-50 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-red-800 mb-3">
+                      Festivals & Observances
+                    </h3>
+                    <div className="space-y-2">
+                      {data.festivals.map((festival, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                          <span className="text-red-700 font-medium">{festival}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div>
-                    <span className="text-blue-600 font-medium">Sunset:</span>
-                    <div className="text-blue-800">
-                      {formatTime(data.sunset_time, settings.time_format)}
-                    </div>
-                  </div>
-                  {data.moonrise_time && (
-                    <div>
-                      <span className="text-blue-600 font-medium">Moonrise:</span>
-                      <div className="text-blue-800">
-                        {formatTime(data.moonrise_time, settings.time_format)}
-                      </div>
-                    </div>
-                  )}
-                  {data.moonset_time && (
-                    <div>
-                      <span className="text-blue-600 font-medium">Moonset:</span>
-                      <div className="text-blue-800">
-                        {formatTime(data.moonset_time, settings.time_format)}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
+
+                {/* Muhurta Timeline */}
+                <MuhurtaTimeline events={data.events} settings={settings} />
               </div>
 
-              {/* Festivals */}
-              {data.festivals && data.festivals.length > 0 && (
-                <div className="bg-red-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-red-800 mb-3">
-                    Festivals & Observances
-                  </h3>
-                  <div className="space-y-2">
-                    {data.festivals.map((festival, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                        <span className="text-red-700 font-medium">{festival}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-6">
-              {/* Muhurta Timeline */}
-              <MuhurtaTimeline events={data.events} settings={settings} />
-
-              {/* Events List */}
-              <EventsList events={data.events} settings={settings} />
+              {/* Right Column */}
+              <div className="space-y-6">
+                {/* Events List */}
+                <EventsList events={data.events} settings={settings} />
+              </div>
             </div>
           </div>
         </div>
