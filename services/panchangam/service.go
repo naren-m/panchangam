@@ -13,7 +13,6 @@ import (
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/exp/rand"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -80,6 +79,13 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
 	ctx, span := s.observer.CreateSpan(ctx, "Get")
 	defer span.End()
 
+	// Validate request is not nil
+	if req == nil {
+		err := status.Error(codes.InvalidArgument, "request cannot be nil")
+		span.RecordError(err)
+		return nil, err
+	}
+
 	// Log request with comprehensive context
 	logger.InfoContext(ctx, "Panchangam request received",
 		"operation", "Get",
@@ -105,6 +111,20 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
 
 	// Validate request parameters
 	logger.DebugContext(ctx, "Validating request parameters")
+	
+	// Validate required date parameter
+	if req.Date == "" {
+		err := status.Error(codes.InvalidArgument, "date parameter is required")
+		observability.RecordValidationFailure(ctx, "date", req.Date, "date parameter cannot be empty")
+		observability.RecordEvent(ctx, "Validation failure detected", map[string]interface{}{
+			"field":      "date",
+			"value":      req.Date,
+			"error_type": "missing_required",
+		})
+		span.RecordError(err)
+		return nil, err
+	}
+	
 	// Enhanced validation with comprehensive error recording
 	if req.Latitude < -90 || req.Latitude > 90 {
 		err := status.Error(codes.InvalidArgument, "latitude must be between -90 and 90")
@@ -203,8 +223,7 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
 		PanchangamData: d,
 	}
 
-	// Add processing delay simulation
-	time.Sleep(100 * time.Millisecond)
+	// Production ready - optimal response time without artificial delays
 
 	// Log successful response
 	logger.InfoContext(ctx, "Panchangam response prepared successfully",
@@ -244,9 +263,7 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		traceAttribute("location", fmt.Sprintf("%.4f,%.4f", req.Latitude, req.Longitude)),
 	)
 
-	// Simulate data fetching delay
-	logger.DebugContext(ctx, "Simulating data fetch delay")
-	time.Sleep(29 * time.Millisecond)
+	// Production ready - removed artificial delays for optimal performance
 
 	// Parse and validate the date
 	logger.DebugContext(ctx, "Parsing date", "date", req.Date)
@@ -390,42 +407,7 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		"sunrise", sunTimes.Sunrise.Format("15:04:05"),
 		"sunset", sunTimes.Sunset.Format("15:04:05"))
 
-	// Simulate random error for testing (as in original code)
-	if rand.Intn(10)%2 == 0 {
-		grpcErr := status.Error(codes.Internal, "failed to fetch panchangam data")
-
-		// Use enhanced error recording
-		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
-			Severity:  observability.SeverityMedium,
-			Category:  observability.CategoryInternal,
-			Operation: "fetchPanchangamData",
-			Component: "panchangam_service",
-			Additional: map[string]interface{}{
-				"error_type":    "simulated_random_error",
-				"testing_mode":  true,
-				"probability":   "50%",
-				"error_purpose": "testing_error_handling",
-			},
-			Retryable:   true,
-			ExpectedErr: true, // This is expected in testing
-		})
-
-		// Record as an important event
-		observability.RecordEvent(ctx, "Simulated error triggered", map[string]interface{}{
-			"error_type":        "random_testing_error",
-			"operation":         "fetchPanchangamData",
-			"testing_mode":      true,
-			"retry_recommended": true,
-		})
-
-		logger.ErrorContext(ctx, "Simulated random error occurred",
-			"operation", "fetchPanchangamData",
-			"error", grpcErr,
-			"note", "This is a simulated error for testing purposes")
-		span.RecordError(grpcErr)
-		span.AddEvent("Random error simulated")
-		return nil, grpcErr
-	}
+	// Production ready - removed random error simulation for reliable operation
 
 	// Calculate all Panchangam elements
 	logger.InfoContext(ctx, "Calculating Panchangam elements",
@@ -521,6 +503,45 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		"sunrise", sunTimes.Sunrise.Format("15:04:05"),
 		"sunset", sunTimes.Sunset.Format("15:04:05"))
 
+	// Build comprehensive event list with accurate timing
+	events := []*ppb.PanchangamEvent{
+		{
+			Name:      fmt.Sprintf("Sunrise"),
+			Time:      sunTimes.Sunrise.Format("15:04:05"),
+			EventType: "SUNRISE",
+		},
+		{
+			Name:      fmt.Sprintf("Sunset"),
+			Time:      sunTimes.Sunset.Format("15:04:05"),
+			EventType: "SUNSET",
+		},
+		{
+			Name:      fmt.Sprintf("Tithi: %s", tithi.Name),
+			Time:      tithi.StartTime.Format("15:04:05"),
+			EventType: "TITHI",
+		},
+		{
+			Name:      fmt.Sprintf("Nakshatra: %s", nakshatra.Name),
+			Time:      "00:00:00", // Nakshatra timing calculation can be enhanced
+			EventType: "NAKSHATRA",
+		},
+		{
+			Name:      fmt.Sprintf("Yoga: %s", yoga.Name),
+			Time:      "00:00:00", // Yoga timing calculation can be enhanced
+			EventType: "YOGA",
+		},
+		{
+			Name:      fmt.Sprintf("Karana: %s", karana.Name),
+			Time:      "00:00:00", // Karana timing calculation can be enhanced
+			EventType: "KARANA",
+		},
+		{
+			Name:      fmt.Sprintf("Vara: %s", vara.Name),
+			Time:      sunTimes.Sunrise.Format("15:04:05"), // Vara starts at sunrise
+			EventType: "VARA",
+		},
+	}
+
 	data := &ppb.PanchangamData{
 		Date:        req.Date,
 		Tithi:       fmt.Sprintf("%s (%d)", tithi.Name, tithi.Number),
@@ -529,13 +550,7 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		Karana:      fmt.Sprintf("%s (%d)", karana.Name, karana.Number),
 		SunriseTime: sunTimes.Sunrise.Format("15:04:05"),
 		SunsetTime:  sunTimes.Sunset.Format("15:04:05"),
-		Events: []*ppb.PanchangamEvent{
-			{Name: fmt.Sprintf("Tithi: %s", tithi.Name), Time: tithi.StartTime.Format("15:04:05"), EventType: "TITHI"},
-			{Name: fmt.Sprintf("Nakshatra: %s", nakshatra.Name), Time: "00:00:00", EventType: "NAKSHATRA"},
-			{Name: fmt.Sprintf("Yoga: %s", yoga.Name), Time: "00:00:00", EventType: "YOGA"},
-			{Name: fmt.Sprintf("Karana: %s", karana.Name), Time: "00:00:00", EventType: "KARANA"},
-			{Name: fmt.Sprintf("Vara: %s", vara.Name), Time: "00:00:00", EventType: "VARA"},
-		},
+		Events:      events,
 	}
 
 	logger.InfoContext(ctx, "Panchangam data fetched successfully",
