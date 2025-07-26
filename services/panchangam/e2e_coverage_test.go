@@ -52,7 +52,7 @@ func testCompleteWorkflow(t *testing.T) {
 	// Step 1: User makes request for Panchangam data
 	req := &ppb.GetPanchangamRequest{
 		Date:              "2024-01-15",
-		Latitude:          12.9716,  // Bangalore coordinates
+		Latitude:          12.9716, // Bangalore coordinates
 		Longitude:         77.5946,
 		Timezone:          "Asia/Kolkata",
 		Region:            "India",
@@ -184,7 +184,7 @@ func testMultipleLocations(t *testing.T) {
 			}
 
 			resp, err := server.Get(ctx, req)
-			
+
 			// Some locations may fail due to random error simulation, that's expected
 			if err != nil {
 				t.Logf("⚠️ E2E: Location %s failed (expected due to random simulation): %v", loc.name, err)
@@ -240,7 +240,7 @@ func testMultipleDates(t *testing.T) {
 			}
 
 			resp, err := server.Get(ctx, req)
-			
+
 			// Some requests may fail due to random error simulation
 			if err != nil {
 				t.Logf("⚠️ E2E: Date %s failed (expected due to random simulation): %v", dateTest.name, err)
