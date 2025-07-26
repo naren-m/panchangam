@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # Test framework service
+  panchangam-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: panchangam-test-runner
+    volumes:
+      # Mount the entire project for access to Go source code
+      - ..:/workspace
+      # Mount test outputs for persistence
+      - ./reports:/app/reports
+      - ./htmlcov:/app/htmlcov
+      - ./logs:/app/logs
+    working_dir: /workspace/test
+    environment:
+      - PANCHANGAM_API_URL=http://localhost:8080
+      - SKIP_SERVER_START=false
+      - PYTHONPATH=/workspace
+      - PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+    networks:
+      - panchangam-network
+    ports:
+      - "8080:8080"  # Gateway port
+      - "50052:50052"  # gRPC port
+    command: tail -f /dev/null  # Keep container running for interactive use
+    
+  # Optional: Standalone test execution service
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: panchangam-test-executor
+    volumes:
+      - ..:/workspace
+      - ./reports:/app/reports
+      - ./htmlcov:/app/htmlcov
+    working_dir: /workspace/test
+    environment:
+      - PANCHANGAM_API_URL=http://localhost:8080
+      - SKIP_SERVER_START=false
+      - PYTHONPATH=/workspace
+    networks:
+      - panchangam-network
+    profiles:
+      - testing
+    command: python run_tests.py --verbose --coverage --html-report
+
+networks:
+  panchangam-network:
+    driver: bridge

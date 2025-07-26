@@ -7,12 +7,18 @@ syntax = "proto3";
 
 package panchangam;
 
+import "google/api/annotations.proto";
+
 option go_package = "./panchangam";
 
 // Panchangam service definition
 service Panchangam {
     // RPC method to retrieve Panchangam data for a specific date
-    rpc Get(GetPanchangamRequest) returns (GetPanchangamResponse);
+    rpc Get(GetPanchangamRequest) returns (GetPanchangamResponse) {
+        option (google.api.http) = {
+            get: "/api/v1/panchangam"
+        };
+    }
 }
 
 // Panchangam data for a specific date
