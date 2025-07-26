@@ -19,8 +19,8 @@ func main() {
 	o, err := observability.NewObserver("localhost:4317")
 	defer o.Shutdown(context.Background())
 
-	// Create a listener on TCP port 50051
-	listener, err := net.Listen("tcp", ":50051")
+	// Create a listener on TCP port 50052 (avoid conflicts)
+	listener, err := net.Listen("tcp", ":50052")
 	if err != nil {
 		logger.With("error", err).Error("Failed to listen:")
 		return
@@ -37,7 +37,7 @@ func main() {
 	pService := ps.NewPanchangamServer()
 	ppb.RegisterPanchangamServer(grpcServer, pService)
 
-	logger.Info("Server started on", "port", "50051")
+	logger.Info("Server started on", "port", "50052")
 	// Start serving requests
 	srvErr := make(chan error, 1)
 	go func() {

@@ -48,19 +48,19 @@ func benchmarkAllPanchangamElements(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Benchmark all 5 Panchangam elements calculation
 		// Target: Combined calculation <100ms
-		
+
 		start := time.Now()
-		
+
 		// This is the actual calculation we can benchmark
 		sunTimes, err := astronomy.CalculateSunTimesWithContext(ctx, location, testDate)
 		require.NoError(b, err)
 		require.NotNil(b, sunTimes)
-		
+
 		// Mock other calculations for timing (these would be real calculations when ephemeris is integrated)
 		mockCalculateAllElements(b, ctx, testDate)
-		
+
 		duration := time.Since(start)
-		
+
 		// Report custom metrics
 		if i == 0 {
 			b.Logf("All Panchangam elements calculation: %v", duration)
@@ -72,7 +72,7 @@ func benchmarkAllPanchangamElements(b *testing.B) {
 func benchmarkServiceLayer(b *testing.B) {
 	server := NewPanchangamServer()
 	ctx := context.Background()
-	
+
 	req := &ppb.GetPanchangamRequest{
 		Date:      "2024-01-15",
 		Latitude:  12.9716,
@@ -87,11 +87,11 @@ func benchmarkServiceLayer(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Benchmark service response time
 		// Target: Service response <500ms
-		
+
 		start := time.Now()
 		resp, err := server.Get(ctx, req)
 		duration := time.Since(start)
-		
+
 		// Only count successful responses (due to random error simulation)
 		if err == nil && resp != nil {
 			if i == 0 {
@@ -119,15 +119,15 @@ func benchmarkAstronomyCalculations(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Benchmark ASTRONOMY_001: Sunrise/sunset calculations
 		// Target: Astronomy calculations <100ms
-		
+
 		start := time.Now()
 		sunTimes, err := astronomy.CalculateSunTimesWithContext(ctx, location, testDate)
 		duration := time.Since(start)
-		
+
 		require.NoError(b, err)
 		require.NotNil(b, sunTimes)
 		require.True(b, sunTimes.Sunrise.Before(sunTimes.Sunset))
-		
+
 		if i == 0 {
 			b.Logf("Astronomy calculation time: %v", duration)
 		}
@@ -145,24 +145,24 @@ func benchmarkObservability(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Benchmark OBSERVABILITY_001: OpenTelemetry overhead
 		// Target: Observability overhead <1ms per operation
-		
+
 		start := time.Now()
-		
+
 		// Create span
 		spanCtx, span := observer.CreateSpan(ctx, "benchmark_span")
 		_ = spanCtx // Use the context to avoid unused variable
-		
+
 		// Add attributes
 		span.SetAttributes(attribute.String("benchmark", "test"))
-		
+
 		// Add event
 		span.AddEvent("benchmark_event")
-		
+
 		// End span
 		span.End()
-		
+
 		duration := time.Since(start)
-		
+
 		if i == 0 {
 			b.Logf("Observability overhead: %v", duration)
 		}
@@ -198,13 +198,13 @@ func benchmarkIndividualCalculatorTarget(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		start := time.Now()
-		
+
 		// Test individual calculator (astronomy is the one we can actually test)
 		_, err := astronomy.CalculateSunTimesWithContext(ctx, location, testDate)
 		require.NoError(b, err)
-		
+
 		duration := time.Since(start)
-		
+
 		// Validate target: <50ms
 		if duration > 50*time.Millisecond {
 			b.Errorf("Individual calculator exceeded 50ms target: %v", duration)
@@ -222,16 +222,16 @@ func benchmarkAllElementsTarget(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		start := time.Now()
-		
+
 		// Calculate all elements (mocked for now)
 		_, err := astronomy.CalculateSunTimesWithContext(ctx, location, testDate)
 		require.NoError(b, err)
-		
+
 		// Mock other calculations
 		mockCalculateAllElements(b, ctx, testDate)
-		
+
 		duration := time.Since(start)
-		
+
 		// Validate target: <100ms
 		if duration > 100*time.Millisecond {
 			b.Errorf("All elements calculation exceeded 100ms target: %v", duration)
@@ -243,7 +243,7 @@ func benchmarkAllElementsTarget(b *testing.B) {
 func benchmarkServiceResponseTarget(b *testing.B) {
 	server := NewPanchangamServer()
 	ctx := context.Background()
-	
+
 	req := &ppb.GetPanchangamRequest{
 		Date:      "2024-01-15",
 		Latitude:  12.9716,
@@ -258,18 +258,18 @@ func benchmarkServiceResponseTarget(b *testing.B) {
 		start := time.Now()
 		resp, err := server.Get(ctx, req)
 		duration := time.Since(start)
-		
+
 		// Only validate successful responses (due to random error simulation)
 		if err == nil && resp != nil {
 			successCount++
-			
+
 			// Validate target: <500ms
 			if duration > 500*time.Millisecond {
 				b.Errorf("Service response exceeded 500ms target: %v", duration)
 			}
 		}
 	}
-	
+
 	if successCount == 0 {
 		b.Skip("No successful responses due to random error simulation")
 	}
@@ -279,15 +279,15 @@ func benchmarkServiceResponseTarget(b *testing.B) {
 func benchmarkEndToEndTarget(b *testing.B) {
 	server := NewPanchangamServer()
 	ctx := context.Background()
-	
+
 	req := &ppb.GetPanchangamRequest{
-		Date:      "2024-01-15",
-		Latitude:  12.9716,
-		Longitude: 77.5946,
-		Timezone:  "Asia/Kolkata",
-		Region:    "India",
+		Date:              "2024-01-15",
+		Latitude:          12.9716,
+		Longitude:         77.5946,
+		Timezone:          "Asia/Kolkata",
+		Region:            "India",
 		CalculationMethod: "traditional",
-		Locale:    "en",
+		Locale:            "en",
 	}
 
 	b.ResetTimer()
@@ -295,10 +295,10 @@ func benchmarkEndToEndTarget(b *testing.B) {
 	successCount := 0
 	for i := 0; i < b.N; i++ {
 		start := time.Now()
-		
+
 		// Complete end-to-end request
 		resp, err := server.Get(ctx, req)
-		
+
 		// Validate response
 		if err == nil && resp != nil && resp.PanchangamData != nil {
 			data := resp.PanchangamData
@@ -310,20 +310,20 @@ func benchmarkEndToEndTarget(b *testing.B) {
 			require.NotEmpty(b, data.SunriseTime)
 			require.NotEmpty(b, data.SunsetTime)
 		}
-		
+
 		duration := time.Since(start)
-		
+
 		// Only validate successful responses
 		if err == nil && resp != nil {
 			successCount++
-			
+
 			// Validate target: <500ms end-to-end
 			if duration > 500*time.Millisecond {
 				b.Errorf("End-to-end response exceeded 500ms target: %v", duration)
 			}
 		}
 	}
-	
+
 	if successCount == 0 {
 		b.Skip("No successful responses due to random error simulation")
 	}
@@ -333,7 +333,7 @@ func benchmarkEndToEndTarget(b *testing.B) {
 func BenchmarkConcurrentFeatureAccess(b *testing.B) {
 	server := NewPanchangamServer()
 	ctx := context.Background()
-	
+
 	req := &ppb.GetPanchangamRequest{
 		Date:      "2024-01-15",
 		Latitude:  12.9716,
@@ -349,7 +349,7 @@ func BenchmarkConcurrentFeatureAccess(b *testing.B) {
 			start := time.Now()
 			resp, err := server.Get(ctx, req)
 			duration := time.Since(start)
-			
+
 			// Only validate successful responses
 			if err == nil && resp != nil {
 				// Validate concurrent performance target: <1s
@@ -365,7 +365,7 @@ func BenchmarkConcurrentFeatureAccess(b *testing.B) {
 func BenchmarkMemoryUsage(b *testing.B) {
 	server := NewPanchangamServer()
 	ctx := context.Background()
-	
+
 	req := &ppb.GetPanchangamRequest{
 		Date:      "2024-01-15",
 		Latitude:  12.9716,
@@ -379,7 +379,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Test memory allocations per request
 		resp, err := server.Get(ctx, req)
-		
+
 		// Prevent optimization
 		if err == nil && resp != nil {
 			_ = resp.PanchangamData
@@ -397,11 +397,11 @@ func BenchmarkCalculationAccuracy(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Test different dates to ensure accuracy consistency
 		testDate := time.Date(2024, 1, 1+i%28, 0, 0, 0, 0, time.UTC)
-		
+
 		sunTimes, err := astronomy.CalculateSunTimesWithContext(ctx, location, testDate)
 		require.NoError(b, err)
 		require.NotNil(b, sunTimes)
-		
+
 		// Validate accuracy constraints
 		require.True(b, sunTimes.Sunrise.Before(sunTimes.Sunset), "Sunrise should be before sunset")
 		require.True(b, sunTimes.Sunrise.Hour() >= 4 && sunTimes.Sunrise.Hour() <= 8, "Sunrise should be reasonable")
@@ -414,7 +414,7 @@ func BenchmarkCalculationAccuracy(b *testing.B) {
 // mockCalculateAllElements simulates calculating all 5 Panchangam elements
 func mockCalculateAllElements(b *testing.B, ctx context.Context, date time.Time) {
 	b.Helper()
-	
+
 	// Simulate time for calculating each element
 	// In real implementation, this would call:
 	// - TithiCalculator.GetTithiForDate()
@@ -422,7 +422,7 @@ func mockCalculateAllElements(b *testing.B, ctx context.Context, date time.Time)
 	// - YogaCalculator.GetYogaForDate()
 	// - KaranaCalculator.GetKaranaForDate()
 	// - VaraCalculator.GetVaraForDate()
-	
+
 	// For now, just simulate some computational work
 	for i := 0; i < 5; i++ {
 		_ = time.Now().Add(time.Microsecond)
@@ -433,11 +433,11 @@ func mockCalculateAllElements(b *testing.B, ctx context.Context, date time.Time)
 func BenchmarkFeatureCoverageReport(b *testing.B) {
 	b.Run("Performance_Report_Generation", func(b *testing.B) {
 		// This benchmark generates a comprehensive performance report
-		
+
 		ctx := context.Background()
 		testDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
 		location := astronomy.Location{Latitude: 12.9716, Longitude: 77.5946}
-		
+
 		server := NewPanchangamServer()
 		req := &ppb.GetPanchangamRequest{
 			Date:      "2024-01-15",
@@ -445,23 +445,23 @@ func BenchmarkFeatureCoverageReport(b *testing.B) {
 			Longitude: 77.5946,
 			Timezone:  "Asia/Kolkata",
 		}
-		
+
 		b.ResetTimer()
-		
+
 		for i := 0; i < b.N; i++ {
 			// Measure astronomy calculation
 			astronomyStart := time.Now()
 			sunTimes, err := astronomy.CalculateSunTimesWithContext(ctx, location, testDate)
 			astronomyDuration := time.Since(astronomyStart)
-			
+
 			require.NoError(b, err)
 			require.NotNil(b, sunTimes)
-			
+
 			// Measure service response
 			serviceStart := time.Now()
 			resp, serviceErr := server.Get(ctx, req)
 			serviceDuration := time.Since(serviceStart)
-			
+
 			// Report performance for successful requests
 			if serviceErr == nil && resp != nil {
 				if i == 0 {
