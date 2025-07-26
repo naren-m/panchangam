@@ -503,15 +503,47 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		"sunrise", sunTimes.Sunrise.Format("15:04:05"),
 		"sunset", sunTimes.Sunset.Format("15:04:05"))
 
+	// Calculate lunar times
+	logger.DebugContext(ctx, "Calculating lunar times")
+	lunarTimes, err := astronomy.CalculateLunarTimesWithContext(ctx, location, date)
+	if err != nil {
+		logger.WarnContext(ctx, "Failed to calculate lunar times", "error", err)
+		// Continue without lunar data rather than failing entirely
+	}
+
+	// Calculate lunar phase
+	lunarPhase, err := astronomy.CalculateLunarPhaseWithContext(ctx, date)
+	if err != nil {
+		logger.WarnContext(ctx, "Failed to calculate lunar phase", "error", err)
+		// Continue without lunar phase data
+	}
+
+	// Calculate traditional periods
+	logger.DebugContext(ctx, "Calculating traditional periods")
+	traditionalPeriods, err := astronomy.CalculateTraditionalPeriodsWithContext(ctx, location, date)
+	if err != nil {
+		logger.WarnContext(ctx, "Failed to calculate traditional periods", "error", err)
+		// Continue without traditional periods data
+	}
+
+	// Calculate festivals
+	logger.DebugContext(ctx, "Calculating festivals for date")
+	festivals, err := astronomy.GetFestivalNamesForDate(ctx, date, tithi.Number)
+	if err != nil {
+		logger.WarnContext(ctx, "Failed to calculate festivals", "error", err)
+		// Continue without festival data
+		festivals = []string{}
+	}
+
 	// Build comprehensive event list with accurate timing
 	events := []*ppb.PanchangamEvent{
 		{
-			Name:      fmt.Sprintf("Sunrise"),
+			Name:      "Sunrise",
 			Time:      sunTimes.Sunrise.Format("15:04:05"),
 			EventType: "SUNRISE",
 		},
 		{
-			Name:      fmt.Sprintf("Sunset"),
+			Name:      "Sunset",
 			Time:      sunTimes.Sunset.Format("15:04:05"),
 			EventType: "SUNSET",
 		},
@@ -540,6 +572,70 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 			Time:      sunTimes.Sunrise.Format("15:04:05"), // Vara starts at sunrise
 			EventType: "VARA",
 		},
+	}
+
+	// Add lunar events if available
+	if lunarTimes != nil && lunarTimes.IsVisible {
+		events = append(events, 
+			&ppb.PanchangamEvent{
+				Name:      "Moonrise",
+				Time:      lunarTimes.Moonrise.Format("15:04:05"),
+				EventType: "MOONRISE",
+			},
+			&ppb.PanchangamEvent{
+				Name:      "Moonset",
+				Time:      lunarTimes.Moonset.Format("15:04:05"),
+				EventType: "MOONSET",
+			},
+		)
+	}
+
+	// Add lunar phase if available
+	if lunarPhase != nil {
+		events = append(events, &ppb.PanchangamEvent{
+			Name:      fmt.Sprintf("Moon Phase: %s (%.1f%% illuminated)", lunarPhase.Name, lunarPhase.Illumination),
+			Time:      "00:00:00", // Phase is for the entire day
+			EventType: "MOON_PHASE",
+		})
+	}
+
+	// Add traditional periods if available
+	if traditionalPeriods != nil {
+		events = append(events,
+			&ppb.PanchangamEvent{
+				Name:      fmt.Sprintf("Rahu Kalam"),
+				Time:      traditionalPeriods.RahuKalam.Start.Format("15:04:05"),
+				EventType: "RAHU_KALAM",
+			},
+			&ppb.PanchangamEvent{
+				Name:      fmt.Sprintf("Yamagandam"),
+				Time:      traditionalPeriods.Yamagandam.Start.Format("15:04:05"),
+				EventType: "YAMAGANDAM",
+			},
+			&ppb.PanchangamEvent{
+				Name:      fmt.Sprintf("Gulika Kalam"),
+				Time:      traditionalPeriods.GulikaKalam.Start.Format("15:04:05"),
+				EventType: "GULIKA_KALAM",
+			},
+		)
+
+		// Add Abhijit Muhurta if it's auspicious
+		if traditionalPeriods.AbhijitMuhurta.Auspicious {
+			events = append(events, &ppb.PanchangamEvent{
+				Name:      "Abhijit Muhurta",
+				Time:      traditionalPeriods.AbhijitMuhurta.Start.Format("15:04:05"),
+				EventType: "ABHIJIT_MUHURTA",
+			})
+		}
+	}
+
+	// Add festivals as events
+	for _, festival := range festivals {
+		events = append(events, &ppb.PanchangamEvent{
+			Name:      fmt.Sprintf("Festival: %s", festival),
+			Time:      "00:00:00", // Festivals are generally all-day events
+			EventType: "FESTIVAL",
+		})
 	}
 
 	data := &ppb.PanchangamData{

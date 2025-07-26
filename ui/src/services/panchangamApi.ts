@@ -1,4 +1,4 @@
-import { PanchangamData, GetPanchangamRequest } from '../types/panchangam';
+import { PanchangamData, GetPanchangamRequest, Event } from '../types/panchangam';
 
 // Configuration for the API endpoint
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -30,6 +30,20 @@ const transformApiResponse = (apiData: ApiPanchangamData, requestDate: string): 
   const rulers = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
   const dayOfWeek = dateObj.getDay();
 
+  // Extract lunar timing from events
+  const moonriseEvent = apiData.events.find(e => e.event_type === 'MOONRISE');
+  const moonsetEvent = apiData.events.find(e => e.event_type === 'MOONSET');
+
+  // Determine event quality based on type
+  const getEventQuality = (eventType: string): 'auspicious' | 'inauspicious' | 'neutral' => {
+    const auspiciousEvents = ['ABHIJIT_MUHURTA', 'BRAHMA_MUHURTA', 'SUNRISE', 'FESTIVAL'];
+    const inauspiciousEvents = ['RAHU_KALAM', 'YAMAGANDAM', 'GULIKA_KALAM'];
+    
+    if (auspiciousEvents.includes(eventType)) return 'auspicious';
+    if (inauspiciousEvents.includes(eventType)) return 'inauspicious';
+    return 'neutral';
+  };
+
   return {
     date: apiData.date,
     tithi: apiData.tithi,
@@ -43,12 +57,12 @@ const transformApiResponse = (apiData: ApiPanchangamData, requestDate: string): 
     events: apiData.events.map(event => ({
       name: event.name,
       time: event.time,
-      event_type: event.event_type as 'RAHU_KALAM' | 'YAMAGANDAM' | 'GULIKA_KALAM' | 'ABHIJIT_MUHURTA' | 'BRAHMA_MUHURTA' | 'SUNRISE' | 'SUNSET' | 'MOONRISE' | 'MOONSET' | 'TITHI' | 'NAKSHATRA' | 'YOGA' | 'KARANA' | 'VARA' | 'MUHURTA',
-      quality: 'neutral' as const // Default quality since API doesn't provide this
+      event_type: event.event_type as Event['event_type'],
+      quality: getEventQuality(event.event_type)
     })),
     festivals: [], // Not provided by current API
-    moonrise_time: undefined, // Not provided by current API
-    moonset_time: undefined, // Not provided by current API
+    moonrise_time: moonriseEvent?.time,
+    moonset_time: moonsetEvent?.time,
   };
 };
 

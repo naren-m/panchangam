@@ -1,7 +1,7 @@
 import React from 'react';
 import { Event, Settings } from '../../types/panchangam';
 import { formatTimeRange } from '../../utils/dateHelpers';
-import { Clock, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { Clock, AlertTriangle, CheckCircle, Info, Sun, Moon, Star, Sunrise, Sunset, Calendar } from 'lucide-react';
 
 interface EventsListProps {
   events: Event[];
@@ -10,27 +10,74 @@ interface EventsListProps {
 
 export const EventsList: React.FC<EventsListProps> = ({ events, settings }) => {
   const getEventIcon = (eventType: string, quality: string) => {
-    switch (quality) {
-      case 'auspicious':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'inauspicious':
+    // Specific icons for different event types
+    switch (eventType) {
+      case 'SUNRISE':
+        return <Sunrise className="w-4 h-4 text-yellow-500" />;
+      case 'SUNSET':
+        return <Sunset className="w-4 h-4 text-orange-500" />;
+      case 'MOONRISE':
+      case 'MOONSET':
+        return <Moon className="w-4 h-4 text-blue-400" />;
+      case 'MOON_PHASE':
+        return <Star className="w-4 h-4 text-purple-400" />;
+      case 'RAHU_KALAM':
+      case 'YAMAGANDAM':
+      case 'GULIKA_KALAM':
         return <AlertTriangle className="w-4 h-4 text-red-600" />;
+      case 'ABHIJIT_MUHURTA':
+      case 'BRAHMA_MUHURTA':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'FESTIVAL':
+        return <Calendar className="w-4 h-4 text-purple-600" />;
       default:
-        return <Info className="w-4 h-4 text-yellow-600" />;
+        // Fall back to quality-based icons
+        switch (quality) {
+          case 'auspicious':
+            return <CheckCircle className="w-4 h-4 text-green-600" />;
+          case 'inauspicious':
+            return <AlertTriangle className="w-4 h-4 text-red-600" />;
+          default:
+            return <Info className="w-4 h-4 text-blue-600" />;
+        }
     }
   };
 
   const getEventDescription = (eventType: string) => {
     const descriptions = {
-      BRAHMA_MUHURTA: 'Ideal time for meditation and spiritual practices',
-      RAHU_KALAM: 'Inauspicious period, avoid starting new activities',
-      YAMAGANDAM: 'Inauspicious time period ruled by Yama',
-      GULIKA_KALAM: 'Period ruled by Gulika, generally avoided',
-      ABHIJIT: 'Most auspicious time, good for all activities',
-      MUHURTA: 'Auspicious time period',
-      GODHULI: 'Twilight period, sacred time for prayers'
+      // Solar events
+      SUNRISE: 'Beginning of the day, time for prayers and new beginnings',
+      SUNSET: 'End of the day, time for reflection and evening prayers',
+      
+      // Lunar events
+      MOONRISE: 'Moon rises above the horizon, influences tides and emotions',
+      MOONSET: 'Moon sets below the horizon, time for rest and introspection',
+      MOON_PHASE: 'Current lunar phase, affects spiritual and material activities',
+      
+      // Traditional inauspicious periods
+      RAHU_KALAM: 'Inauspicious period ruled by Rahu, avoid starting new activities',
+      YAMAGANDAM: 'Inauspicious time period ruled by Yama, Lord of Death',
+      GULIKA_KALAM: 'Period ruled by Gulika (son of Saturn), generally avoided for new ventures',
+      
+      // Auspicious periods
+      ABHIJIT_MUHURTA: 'Most auspicious period of the day, excellent for all activities',
+      BRAHMA_MUHURTA: 'Time of Brahma, ideal for meditation and spiritual practices',
+      
+      // Panchangam elements
+      TITHI: 'Lunar day, influences emotional and spiritual activities',
+      NAKSHATRA: 'Lunar mansion, affects personal characteristics and timing',
+      YOGA: 'Auspicious combination of Sun and Moon positions',
+      KARANA: 'Half of a Tithi, influences daily activities',
+      VARA: 'Day of the week, ruled by specific planetary energy',
+      
+      // General
+      MUHURTA: 'Auspicious time period for specific activities',
+      GODHULI: 'Twilight period, sacred time for prayers and rituals',
+      
+      // Festivals
+      FESTIVAL: 'Traditional festival or observance day, significant in Hindu calendar'
     };
-    return descriptions[eventType as keyof typeof descriptions] || 'Special time period';
+    return descriptions[eventType as keyof typeof descriptions] || 'Special time period with traditional significance';
   };
 
   return (
