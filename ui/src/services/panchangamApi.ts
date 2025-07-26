@@ -1,198 +1,112 @@
 import { PanchangamData, GetPanchangamRequest } from '../types/panchangam';
 
-// Mock data with authentic panchangam information
-const mockPanchangamData: Record<string, PanchangamData> = {
-  "2024-01-15": {
-    date: "2024-01-15",
-    tithi: "Shukla Panchami",
-    nakshatra: "Rohini",
-    yoga: "Siddha",
-    karana: "Bava",
-    sunrise_time: "06:45:30",
-    sunset_time: "18:15:45",
-    moonrise_time: "10:30:00",
-    moonset_time: "23:45:00",
-    vara: "Monday",
-    planetary_ruler: "Moon",
-    festivals: ["Makar Sankranti"],
-    events: [
-      {
-        name: "Brahma Muhurta",
-        time: "05:09:30-05:57:30",
-        event_type: "BRAHMA_MUHURTA",
-        quality: "auspicious"
-      },
-      {
-        name: "Rahu Kalam",
-        time: "07:30:00-09:00:00",
-        event_type: "RAHU_KALAM",
-        quality: "inauspicious"
-      },
-      {
-        name: "Abhijit Muhurta",
-        time: "12:00:00-12:48:00",
-        event_type: "ABHIJIT",
-        quality: "auspicious"
-      },
-      {
-        name: "Godhuli Muhurta",
-        time: "17:45:45-18:15:45",
-        event_type: "GODHULI",
-        quality: "auspicious"
-      }
-    ]
-  },
-  "2024-01-16": {
-    date: "2024-01-16",
-    tithi: "Shukla Shashthi",
-    nakshatra: "Mrigashirsha",
-    yoga: "Sadhya",
-    karana: "Balava",
-    sunrise_time: "06:45:15",
-    sunset_time: "18:16:30",
-    moonrise_time: "11:15:00",
-    moonset_time: "00:30:00",
-    vara: "Tuesday",
-    planetary_ruler: "Mars",
-    festivals: [],
-    events: [
-      {
-        name: "Brahma Muhurta",
-        time: "05:09:15-05:57:15",
-        event_type: "BRAHMA_MUHURTA",
-        quality: "auspicious"
-      },
-      {
-        name: "Rahu Kalam",
-        time: "15:00:00-16:30:00",
-        event_type: "RAHU_KALAM",
-        quality: "inauspicious"
-      },
-      {
-        name: "Abhijit Muhurta",
-        time: "12:00:45-12:48:45",
-        event_type: "ABHIJIT",
-        quality: "auspicious"
-      }
-    ]
-  },
-  "2024-01-17": {
-    date: "2024-01-17",
-    tithi: "Shukla Saptami",
-    nakshatra: "Ardra",
-    yoga: "Shubha",
-    karana: "Kaulava",
-    sunrise_time: "06:45:00",
-    sunset_time: "18:17:15",
-    moonrise_time: "12:00:00",
-    moonset_time: "01:15:00",
-    vara: "Wednesday",
-    planetary_ruler: "Mercury",
-    festivals: [],
-    events: [
-      {
-        name: "Brahma Muhurta",
-        time: "05:09:00-05:57:00",
-        event_type: "BRAHMA_MUHURTA",
-        quality: "auspicious"
-      },
-      {
-        name: "Rahu Kalam",
-        time: "12:00:00-13:30:00",
-        event_type: "RAHU_KALAM",
-        quality: "inauspicious"
-      },
-      {
-        name: "Abhijit Muhurta",
-        time: "12:01:30-12:49:30",
-        event_type: "ABHIJIT",
-        quality: "auspicious"
-      }
-    ]
-  }
-};
+// Configuration for the API endpoint
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_ENDPOINT = `${API_BASE_URL}/api/v1/panchangam`;
 
-// Generate additional mock data for the current month
-const generateMockData = (date: string): PanchangamData => {
-  const tithis = [
-    "Krishna Pratipada", "Krishna Dwitiya", "Krishna Tritiya", "Krishna Chaturthi", "Krishna Panchami",
-    "Krishna Shashthi", "Krishna Saptami", "Krishna Ashtami", "Krishna Navami", "Krishna Dashami",
-    "Krishna Ekadashi", "Krishna Dwadashi", "Krishna Trayodashi", "Krishna Chaturdashi", "Amavasya",
-    "Shukla Pratipada", "Shukla Dwitiya", "Shukla Tritiya", "Shukla Chaturthi", "Shukla Panchami",
-    "Shukla Shashthi", "Shukla Saptami", "Shukla Ashtami", "Shukla Navami", "Shukla Dashami",
-    "Shukla Ekadashi", "Shukla Dwadashi", "Shukla Trayodashi", "Shukla Chaturdashi", "Purnima"
-  ];
+// API Response interface that matches the actual gRPC response
+interface ApiPanchangamEvent {
+  name: string;
+  time: string;
+  event_type: string;
+}
 
-  const nakshatras = [
-    "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashirsha", "Ardra", "Punarvasu",
-    "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta",
-    "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha", "Mula", "Purva Ashadha",
-    "Uttara Ashadha", "Shravana", "Dhanishtha", "Shatabhisha", "Purva Bhadrapada",
-    "Uttara Bhadrapada", "Revati"
-  ];
+interface ApiPanchangamData {
+  date: string;
+  tithi: string;
+  nakshatra: string;
+  yoga: string;
+  karana: string;
+  sunrise_time: string;
+  sunset_time: string;
+  events: ApiPanchangamEvent[];
+}
 
-  const yogas = [
-    "Vishkumbha", "Preeti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda", "Sukarman",
-    "Dhriti", "Shoola", "Ganda", "Vriddhi", "Dhruva", "Vyaghata", "Harshana", "Vajra",
-    "Siddhi", "Vyatipata", "Variyana", "Parigha", "Shiva", "Siddha", "Sadhya", "Shubha",
-    "Shukla", "Brahma", "Indra", "Vaidhriti"
-  ];
-
-  const karanas = [
-    "Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti", "Shakuni",
-    "Chatushpada", "Naga", "Kimstughna"
-  ];
-
+// Transform API response to match UI types
+const transformApiResponse = (apiData: ApiPanchangamData, requestDate: string): PanchangamData => {
+  // Extract day of week for vara calculation
+  const dateObj = new Date(requestDate);
   const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const rulers = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
-
-  const dateObj = new Date(date);
-  const dayIndex = Math.floor(Math.random() * tithis.length);
   const dayOfWeek = dateObj.getDay();
 
   return {
-    date,
-    tithi: tithis[dayIndex],
-    nakshatra: nakshatras[Math.floor(Math.random() * nakshatras.length)],
-    yoga: yogas[Math.floor(Math.random() * yogas.length)],
-    karana: karanas[Math.floor(Math.random() * karanas.length)],
-    sunrise_time: "06:45:00",
-    sunset_time: "18:15:00",
-    moonrise_time: `${10 + Math.floor(Math.random() * 6)}:${Math.floor(Math.random() * 60)}:00`,
-    moonset_time: `${22 + Math.floor(Math.random() * 4)}:${Math.floor(Math.random() * 60)}:00`,
+    date: apiData.date,
+    tithi: apiData.tithi,
+    nakshatra: apiData.nakshatra,
+    yoga: apiData.yoga,
+    karana: apiData.karana,
+    sunrise_time: apiData.sunrise_time,
+    sunset_time: apiData.sunset_time,
     vara: weekdays[dayOfWeek],
     planetary_ruler: rulers[dayOfWeek],
-    festivals: Math.random() > 0.8 ? ["Festival Day"] : [],
-    events: [
-      {
-        name: "Brahma Muhurta",
-        time: "05:09:00-05:57:00",
-        event_type: "BRAHMA_MUHURTA",
-        quality: "auspicious"
-      },
-      {
-        name: "Rahu Kalam",
-        time: `${9 + (dayOfWeek * 1.5)}:00:00-${10 + (dayOfWeek * 1.5)}:30:00`,
-        event_type: "RAHU_KALAM",
-        quality: "inauspicious"
-      },
-      {
-        name: "Abhijit Muhurta",
-        time: "12:00:00-12:48:00",
-        event_type: "ABHIJIT",
-        quality: "auspicious"
-      }
-    ]
+    events: apiData.events.map(event => ({
+      name: event.name,
+      time: event.time,
+      event_type: event.event_type as any, // Type assertion for event types
+      quality: 'neutral' as const // Default quality since API doesn't provide this
+    })),
+    festivals: [], // Not provided by current API
+    moonrise_time: undefined, // Not provided by current API
+    moonset_time: undefined, // Not provided by current API
   };
 };
 
 class PanchangamApiService {
   async getPanchangam(request: GetPanchangamRequest): Promise<PanchangamData> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+    try {
+      // Build query parameters
+      const params = new URLSearchParams({
+        date: request.date,
+        lat: request.latitude.toString(),
+        lng: request.longitude.toString(),
+        tz: request.timezone || 'UTC',
+        region: request.region || '',
+        method: request.calculation_method || 'traditional',
+        locale: request.locale || 'en'
+      });
 
-    // Return mock data or generate it
-    return mockPanchangamData[request.date] || generateMockData(request.date);
+      // Make API call to real HTTP gateway
+      const response = await fetch(`${API_ENDPOINT}?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      });
+
+      if (!response.ok) {
+        // Try to extract error details from response
+        let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error && errorData.error.message) {
+            errorMessage = errorData.error.message;
+          }
+        } catch {
+          // Ignore JSON parsing errors for error response
+        }
+        throw new Error(errorMessage);
+      }
+
+      const apiData: ApiPanchangamData = await response.json();
+      
+      // Transform API response to match UI expectations
+      return transformApiResponse(apiData, request.date);
+      
+    } catch (error) {
+      console.error('Panchangam API error:', error);
+      
+      // Provide fallback data if API fails
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        console.warn('API unavailable, using fallback data');
+        return this.getFallbackData(request.date);
+      }
+      
+      throw error;
+    }
   }
 
   async getPanchangamRange(startDate: string, endDate: string, request: Omit<GetPanchangamRequest, 'date'>): Promise<PanchangamData[]> {
@@ -200,14 +114,88 @@ class PanchangamApiService {
     const end = new Date(endDate);
     const results: PanchangamData[] = [];
 
+    // Process dates in parallel for better performance
+    const datePromises: Promise<PanchangamData>[] = [];
+    
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split('T')[0];
-      const data = await this.getPanchangam({ ...request, date: dateStr });
-      results.push(data);
+      datePromises.push(this.getPanchangam({ ...request, date: dateStr }));
     }
 
+    // Wait for all requests to complete
+    const allResults = await Promise.allSettled(datePromises);
+    
+    // Extract successful results and log failures
+    allResults.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        results.push(result.value);
+      } else {
+        const date = new Date(start);
+        date.setDate(date.getDate() + index);
+        console.error(`Failed to fetch data for ${date.toISOString().split('T')[0]}:`, result.reason);
+      }
+    });
+
     return results;
+  }
+
+  // Fallback data generator for when API is unavailable
+  private getFallbackData(date: string): PanchangamData {
+    const dateObj = new Date(date);
+    const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const rulers = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
+    const dayOfWeek = dateObj.getDay();
+
+    return {
+      date,
+      tithi: "API Unavailable",
+      nakshatra: "Please check connection",
+      yoga: "Offline Mode",
+      karana: "No Data",
+      sunrise_time: "06:30:00",
+      sunset_time: "18:30:00",
+      vara: weekdays[dayOfWeek],
+      planetary_ruler: rulers[dayOfWeek],
+      events: [
+        {
+          name: "API Connection Error",
+          time: "00:00:00",
+          event_type: "MUHURTA" as any,
+          quality: "neutral" as const
+        }
+      ],
+      festivals: [],
+      moonrise_time: undefined,
+      moonset_time: undefined,
+    };
+  }
+
+  // Health check method to test API availability
+  async healthCheck(): Promise<{ status: 'healthy' | 'unhealthy', message: string }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000), // 5 second timeout for health check
+      });
+      
+      if (response.ok) {
+        return { status: 'healthy', message: 'API is accessible' };
+      } else {
+        return { status: 'unhealthy', message: `API returned ${response.status}` };
+      }
+    } catch (error) {
+      return { 
+        status: 'unhealthy', 
+        message: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
   }
 }
 
 export const panchangamApi = new PanchangamApiService();
+
+// Export the API configuration for debugging
+export const apiConfig = {
+  baseUrl: API_BASE_URL,
+  endpoint: API_ENDPOINT,
+};

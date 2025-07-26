@@ -17,7 +17,7 @@ export interface PanchangamData {
 export interface Event {
   name: string;
   time: string;
-  event_type: 'RAHU_KALAM' | 'YAMAGANDAM' | 'GULIKA_KALAM' | 'MUHURTA' | 'ABHIJIT' | 'BRAHMA_MUHURTA' | 'GODHULI';
+  event_type: 'RAHU_KALAM' | 'YAMAGANDAM' | 'GULIKA_KALAM' | 'MUHURTA' | 'ABHIJIT' | 'BRAHMA_MUHURTA' | 'GODHULI' | 'TITHI' | 'NAKSHATRA' | 'YOGA' | 'KARANA' | 'VARA';
   quality: 'auspicious' | 'inauspicious' | 'neutral';
 }
 
