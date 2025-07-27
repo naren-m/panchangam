@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import * as matchers from '@testing-library/jest-dom/matchers';
 import { LoadingSpinner } from '../LoadingSpinner';
+
+expect.extend(matchers);
 
 describe('LoadingSpinner', () => {
   it('renders with default props', () => {
@@ -38,10 +41,10 @@ describe('LoadingSpinner', () => {
   });
 
   it('renders fullscreen overlay when fullScreen is true', () => {
-    render(<LoadingSpinner fullScreen />);
+    const { container } = render(<LoadingSpinner fullScreen />);
     
-    const overlay = screen.getByRole('status').closest('div');
-    expect(overlay).toHaveClass('fixed', 'inset-0', 'z-50');
+    const overlay = container.querySelector('.fixed.inset-0.z-50');
+    expect(overlay).toBeInTheDocument();
   });
 
   it('has spinning animation', () => {

@@ -1,14 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import * as matchers from '@testing-library/jest-dom/matchers';
 import { SkeletonCalendar } from '../SkeletonCalendar';
+
+expect.extend(matchers);
 
 describe('SkeletonCalendar', () => {
   it('renders calendar skeleton structure', () => {
-    render(<SkeletonCalendar />);
+    const { container } = render(<SkeletonCalendar />);
     
     // Check for main container
-    const container = screen.getByRole('generic');
-    expect(container).toHaveClass('bg-white', 'rounded-lg', 'shadow-lg');
+    const mainContainer = container.querySelector('.bg-white.rounded-lg.shadow-lg');
+    expect(mainContainer).toBeInTheDocument();
   });
 
   it('renders 7 weekday headers by default', () => {
