@@ -7,11 +7,16 @@ import { MuhurtaTimeline } from './MuhurtaTimeline';
 import { EventsList } from './EventsList';
 import { LunarTimings } from './LunarTimings';
 import { TraditionalPeriods } from './TraditionalPeriods';
+import { SkeletonDayDetail, LoadingSpinner } from '../common/Loading';
+import { ErrorMessage } from '../common/Error';
 
 interface DayDetailModalProps {
   date: Date;
   data: PanchangamData | null;
   settings: Settings;
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   onClose: () => void;
 }
 
@@ -19,9 +24,11 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
   date,
   data,
   settings,
+  isLoading = false,
+  error = null,
+  onRetry,
   onClose
 }) => {
-  if (!data) return null;
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString(settings.locale === 'hi' ? 'hi-IN' : 'en-IN', {
@@ -62,47 +69,84 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          <div className="space-y-6">
-            {/* Five Angas */}
-            <FiveAngas data={data} settings={settings} />
+          {/* Loading State */}
+          {isLoading && (
+            <SkeletonDayDetail />
+          )}
 
-            {/* Enhanced Lunar & Solar Timings */}
-            <LunarTimings data={data} settings={settings} />
+          {/* Error State */}
+          {error && (
+            <ErrorMessage
+              title="Failed to Load Day Details"
+              message={error}
+              type="error"
+              onRetry={onRetry}
+            />
+          )}
 
-            {/* Traditional Time Periods */}
-            <TraditionalPeriods events={data.events} settings={settings} />
+          {/* Content when data is available */}
+          {!isLoading && !error && data && (
+            <div className="space-y-6">
+              {/* Five Angas */}
+              <FiveAngas data={data} settings={settings} />
 
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Left Column */}
-              <div className="space-y-6">
-                {/* Festivals */}
-                {data.festivals && data.festivals.length > 0 && (
-                  <div className="bg-red-50 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-red-800 mb-3">
-                      Festivals & Observances
-                    </h3>
-                    <div className="space-y-2">
-                      {data.festivals.map((festival, index) => (
-                        <div key={index} className="flex items-center space-x-2">
-                          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                          <span className="text-red-700 font-medium">{festival}</span>
-                        </div>
-                      ))}
+              {/* Enhanced Lunar & Solar Timings */}
+              <LunarTimings data={data} settings={settings} />
+
+              {/* Traditional Time Periods */}
+              <TraditionalPeriods events={data.events} settings={settings} />
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Left Column */}
+                <div className="space-y-6">
+                  {/* Festivals */}
+                  {data.festivals && data.festivals.length > 0 && (
+                    <div className="bg-red-50 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold text-red-800 mb-3">
+                        Festivals & Observances
+                      </h3>
+                      <div className="space-y-2">
+                        {data.festivals.map((festival, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <span className="text-red-700 font-medium">{festival}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Muhurta Timeline */}
-                <MuhurtaTimeline events={data.events} settings={settings} />
-              </div>
+                  {/* Muhurta Timeline */}
+                  <MuhurtaTimeline events={data.events} settings={settings} />
+                </div>
 
-              {/* Right Column */}
-              <div className="space-y-6">
-                {/* Events List */}
-                <EventsList events={data.events} settings={settings} />
+                {/* Right Column */}
+                <div className="space-y-6">
+                  {/* Events List */}
+                  <EventsList events={data.events} settings={settings} />
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* No data state */}
+          {!isLoading && !error && !data && (
+            <div className="text-center py-12">
+              <div className="text-gray-500 mb-4">
+                <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-medium">No data available</h3>
+                <p className="text-sm">Panchangam data for this date is not available.</p>
+              </div>
+              {onRetry && (
+                <button
+                  onClick={onRetry}
+                  className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                >
+                  Try Again
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
