@@ -252,7 +252,7 @@ func (j *JPLProvider) updateHealthStatus(ctx context.Context) {
 
 // calculateSunPosition calculates basic sun position
 func (j *JPLProvider) calculateSunPosition(ctx context.Context, jd JulianDay) Position {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.calculateSunPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.calculateSunPosition")
 	defer span.End()
 
 	// Days since J2000.0
@@ -294,7 +294,7 @@ func (j *JPLProvider) calculateSunPosition(ctx context.Context, jd JulianDay) Po
 
 // calculateMoonPosition calculates basic moon position
 func (j *JPLProvider) calculateMoonPosition(ctx context.Context, jd JulianDay) Position {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.calculateMoonPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.calculateMoonPosition")
 	defer span.End()
 
 	// Days since J2000.0
@@ -344,7 +344,7 @@ func (j *JPLProvider) calculateMoonPosition(ctx context.Context, jd JulianDay) P
 
 // calculatePlanetPosition calculates basic planet position
 func (j *JPLProvider) calculatePlanetPosition(ctx context.Context, jd JulianDay, planet string) Position {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.calculatePlanetPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.calculatePlanetPosition")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("planet", planet))
@@ -428,7 +428,7 @@ func (j *JPLProvider) calculatePlanetPosition(ctx context.Context, jd JulianDay,
 
 // calculateDetailedSunPosition calculates detailed sun position
 func (j *JPLProvider) calculateDetailedSunPosition(ctx context.Context, jd JulianDay) *SolarPosition {
-	ctx, span := j.observer.CreateSpan(ctx, "jpl.calculateDetailedSunPosition")
+	_, span := j.observer.CreateSpan(ctx, "jpl.calculateDetailedSunPosition")
 	defer span.End()
 
 	// Days since J2000.0

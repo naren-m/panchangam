@@ -168,7 +168,7 @@ func CalculateLunarTimesWithContext(ctx context.Context, loc Location, date time
 	lunarNoonSpan.End()
 	
 	// Convert to time objects
-	ctx, conversionSpan := observer.CreateSpan(ctx, "convertToTime")
+	_, conversionSpan := observer.CreateSpan(ctx, "convertToTime")
 	moonriseTime := decimalHoursToTime(moonriseDecimal, year, month, day, date.Location())
 	moonsetTime := decimalHoursToTime(moonsetDecimal, year, month, day, date.Location())
 	
@@ -209,7 +209,7 @@ func CalculateLunarTimesWithContext(ctx context.Context, loc Location, date time
 // calculateLunarPositionJD calculates the moon's position for a given Julian day
 func calculateLunarPositionJD(ctx context.Context, jd float64) *LunarPosition {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "calculateLunarPositionJD")
+	_, span := observer.CreateSpan(ctx, "calculateLunarPositionJD")
 	defer span.End()
 	
 	span.SetAttributes(attribute.Float64("julian_day", jd))
@@ -343,7 +343,7 @@ func CalculateLunarPhase(date time.Time) (*LunarPhase, error) {
 // CalculateLunarPhaseWithContext calculates lunar phase with OpenTelemetry tracing
 func CalculateLunarPhaseWithContext(ctx context.Context, date time.Time) (*LunarPhase, error) {
 	observer := observability.Observer()
-	ctx, span := observer.CreateSpan(ctx, "CalculateLunarPhase")
+	_, span := observer.CreateSpan(ctx, "CalculateLunarPhase")
 	defer span.End()
 	
 	span.SetAttributes(attribute.String("date", date.Format("2006-01-02")))

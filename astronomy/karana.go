@@ -238,7 +238,7 @@ func (kc *KaranaCalculator) calculateKaranaNumber(tithiNumber, halfTithi int) in
 
 // calculateKaranaTimesFromTithi estimates the start and end times of a Karana based on Tithi times
 func (kc *KaranaCalculator) calculateKaranaTimesFromTithi(ctx context.Context, tithi *TithiInfo, halfTithi int) (startTime, endTime time.Time) {
-	ctx, span := kc.observer.CreateSpan(ctx, "KaranaCalculator.calculateKaranaTimesFromTithi")
+	_, span := kc.observer.CreateSpan(ctx, "KaranaCalculator.calculateKaranaTimesFromTithi")
 	defer span.End()
 
 	span.SetAttributes(

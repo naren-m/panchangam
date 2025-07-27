@@ -142,7 +142,7 @@ func validateObservability(t *testing.T) {
 	require.NotNil(t, observer, "E2E: Observer should be available")
 
 	// Test span creation
-	ctx, span := observer.CreateSpan(ctx, "e2e_test_span")
+	_, span := observer.CreateSpan(ctx, "e2e_test_span")
 	assert.NotNil(t, span, "E2E: Span should be created")
 
 	// Test span attributes

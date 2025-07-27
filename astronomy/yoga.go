@@ -241,7 +241,7 @@ func (yc *YogaCalculator) calculateYogaFromLongitudes(ctx context.Context, sunLo
 
 // calculateYogaTimes estimates the start and end times of a Yoga
 func (yc *YogaCalculator) calculateYogaTimes(ctx context.Context, yogaFloat float64, referenceDate time.Time) (startTime, endTime time.Time) {
-	ctx, span := yc.observer.CreateSpan(ctx, "YogaCalculator.calculateYogaTimes")
+	_, span := yc.observer.CreateSpan(ctx, "YogaCalculator.calculateYogaTimes")
 	defer span.End()
 
 	span.SetAttributes(

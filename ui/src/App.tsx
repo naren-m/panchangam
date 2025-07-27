@@ -4,7 +4,10 @@ import { MonthNavigation } from './components/Calendar/MonthNavigation';
 import { DayDetailModal } from './components/DayDetail/DayDetailModal';
 import { LocationSelector } from './components/LocationPicker/LocationSelector';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
+import { SkeletonCalendar, LoadingSpinner } from './components/common/Loading';
+import { ApiError, NetworkError, ErrorBoundary } from './components/common/Error';
 import { usePanchangamRange } from './hooks/usePanchangam';
+import { useDayDetail } from './hooks/useDayDetail';
 import { Settings, PanchangamData } from './types/panchangam';
 import { getCurrentMonthDates } from './utils/dateHelpers';
 import { locationService } from './services/locationService';
@@ -37,7 +40,14 @@ function App() {
   const endDate = monthDates[monthDates.length - 1];
 
   // Fetch panchangam data for the visible month
-  const { data: panchangamData, loading, error } = usePanchangamRange(startDate, endDate, settings);
+  const { 
+    data: panchangamData, 
+    loading, 
+    isRetrying, 
+    error, 
+    errorState, 
+    retry 
+  } = usePanchangamRange(startDate, endDate, settings);
 
   // Initialize location on first load
   useEffect(() => {
@@ -82,15 +92,19 @@ function App() {
     }));
   };
 
-  const getSelectedDateData = (): PanchangamData | null => {
-    if (!selectedDate) return null;
-    const dateStr = selectedDate.toISOString().split('T')[0];
-    return panchangamData[dateStr] || null;
-  };
+  // Get day detail data and loading states
+  const dayDetail = useDayDetail({
+    selectedDate,
+    panchangamData,
+    loading,
+    error,
+    retry,
+  });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+        <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-orange-800 mb-2">
@@ -114,36 +128,53 @@ function App() {
         />
 
         {/* Loading State */}
-        {loading && (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-              <span className="text-orange-700 font-medium">Loading Panchangam data...</span>
-            </div>
+        {loading && !isRetrying && (
+          <div className="mb-6">
+            <SkeletonCalendar />
           </div>
         )}
 
         {/* Error State */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center space-x-2">
-              <div className="text-red-600">⚠️</div>
-              <div>
-                <h3 className="font-semibold text-red-800">Error Loading Data</h3>
-                <p className="text-red-700 text-sm">{error}</p>
-              </div>
-            </div>
+          <div className="mb-6">
+            {errorState.isNetworkError ? (
+              <NetworkError
+                onRetry={retry}
+                isRetrying={isRetrying}
+                customMessage={error}
+              />
+            ) : (
+              <ApiError
+                error={error}
+                onRetry={retry}
+                statusCode={errorState.statusCode}
+                endpoint="/api/v1/panchangam"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Retry Loading Indicator */}
+        {isRetrying && (
+          <div className="mb-6 text-center">
+            <LoadingSpinner
+              size="md"
+              color="orange"
+              message="Retrying..."
+            />
           </div>
         )}
 
         {/* Calendar */}
-        <CalendarGrid
-          year={year}
-          month={month}
-          panchangamData={panchangamData}
-          settings={settings}
-          onDateClick={handleDateClick}
-        />
+        {!loading || isRetrying ? (
+          <CalendarGrid
+            year={year}
+            month={month}
+            panchangamData={panchangamData}
+            settings={settings}
+            onDateClick={handleDateClick}
+          />
+        ) : null}
 
         {/* Footer */}
         <div className="text-center mt-8 text-gray-600">
@@ -160,8 +191,11 @@ function App() {
       {selectedDate && (
         <DayDetailModal
           date={selectedDate}
-          data={getSelectedDateData()}
+          data={dayDetail.data}
           settings={settings}
+          isLoading={dayDetail.isLoading}
+          error={dayDetail.error}
+          onRetry={dayDetail.retry}
           onClose={() => setSelectedDate(null)}
         />
       )}
@@ -181,7 +215,9 @@ function App() {
           onClose={() => setShowSettings(false)}
         />
       )}
-    </div>
+        </div>
+      </div>
+    </ErrorBoundary>
   );
 }
 
