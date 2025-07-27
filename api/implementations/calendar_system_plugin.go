@@ -193,7 +193,7 @@ func (c *CalendarSystemPlugin) calculateAmantaMonth(ctx context.Context, date ti
 		CalendarSystem: api.CalendarAmanta,
 		Region:         region,
 		Year:           date.Year(),
-		IsAdhikaMasa:   false, // TODO: Implement Adhika Masa detection
+		IsAdhikaMasa:   c.isAdhikaMasa(ctx, monthStart, monthEnd),
 		PrevailingTithi: currentTithi,
 	}, nil
 }
@@ -228,7 +228,7 @@ func (c *CalendarSystemPlugin) calculatePurnimantaMonth(ctx context.Context, dat
 		CalendarSystem: api.CalendarPurnimanta,
 		Region:         region,
 		Year:           date.Year(),
-		IsAdhikaMasa:   false, // TODO: Implement Adhika Masa detection
+		IsAdhikaMasa:   c.isAdhikaMasa(ctx, monthStart, monthEnd),
 		PrevailingTithi: currentTithi,
 	}, nil
 }
@@ -532,4 +532,40 @@ func (c *CalendarSystemPlugin) getRegionalPreference(region api.Region) string {
 		api.RegionGlobal:     "Mixed (region-dependent)",
 	}
 	return preferences[region]
+}
+
+// isAdhikaMasa determines if a lunar month is an intercalary month (Adhika Masa)
+// A lunar month is considered Adhika Masa if it doesn't contain a solar month transition (Sankranti)
+func (c *CalendarSystemPlugin) isAdhikaMasa(ctx context.Context, monthStart, monthEnd time.Time) bool {
+	// Get sun's longitude at month start and end
+	startJD := ephemeris.TimeToJulianDay(monthStart)
+	endJD := ephemeris.TimeToJulianDay(monthEnd)
+	
+	startPositions, err := c.ephemerisManager.GetPlanetaryPositions(ctx, startJD)
+	if err != nil {
+		// If we can't get planetary positions, assume it's not Adhika Masa
+		return false
+	}
+	
+	endPositions, err := c.ephemerisManager.GetPlanetaryPositions(ctx, endJD)
+	if err != nil {
+		return false
+	}
+	
+	// Get sun's longitude (in degrees) at start and end of month
+	startSunLong := startPositions.Sun.Longitude
+	endSunLong := endPositions.Sun.Longitude
+	
+	// Handle longitude wraparound (360 degrees)
+	if endSunLong < startSunLong {
+		endSunLong += 360
+	}
+	
+	// Calculate how many zodiac signs (30-degree segments) the sun has traversed
+	startSign := int(startSunLong / 30)
+	endSign := int(endSunLong / 30)
+	
+	// If no solar month transition occurred (no Sankranti), it's an Adhika Masa
+	// This means the sun remained in the same zodiac sign throughout the lunar month
+	return startSign == endSign
 }

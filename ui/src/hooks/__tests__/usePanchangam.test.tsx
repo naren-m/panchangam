@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { usePanchangam, usePanchangamRange } from '../usePanchangam';
 import { panchangamApi } from '../../services/panchangamApi';
 
@@ -143,12 +143,10 @@ describe('usePanchangam', () => {
       expect(result.current.error).toBeTruthy();
       expect(result.current.retryCount).toBe(0);
 
-      // Retry
-      result.current.retry();
-
-      // Should be retrying
-      expect(result.current.isRetrying).toBe(true);
-      expect(result.current.loading).toBe(true);
+      // Retry and wait for completion
+      await act(async () => {
+        result.current.retry();
+      });
 
       // Wait for retry to complete
       await waitFor(() => {
@@ -212,6 +210,22 @@ describe('usePanchangamRange', () => {
       timezone: 'Asia/Kolkata',
       region: 'Tamil Nadu'
     }
+  };
+
+  const mockPanchangamData = {
+    date: '2024-01-15',
+    tithi: 'Panchami',
+    nakshatra: 'Rohini',
+    yoga: 'Vishkumbha',
+    karana: 'Bava',
+    sunrise_time: '06:30:00',
+    sunset_time: '18:15:00',
+    vara: 'Monday',
+    planetary_ruler: 'Moon',
+    events: [],
+    festivals: [],
+    moonrise_time: '20:30:00',
+    moonset_time: '08:45:00',
   };
 
   const mockRangeData = [

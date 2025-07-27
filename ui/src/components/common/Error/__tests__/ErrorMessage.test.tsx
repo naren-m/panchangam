@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import * as matchers from '@testing-library/jest-dom/matchers';
 import { ErrorMessage } from '../ErrorMessage';
+
+expect.extend(matchers);
 
 describe('ErrorMessage', () => {
   it('renders error message with default props', () => {
