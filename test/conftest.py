@@ -22,20 +22,20 @@ def start_servers() -> Generator[None, None, None]:
         yield
         return
     
-    # Build servers
-    subprocess.run(["go", "build", "-o", "grpc-server", "./server/server.go"], check=True)
-    subprocess.run(["go", "build", "-o", "gateway-server", "./cmd/gateway/main.go"], check=True)
+    # Build servers (from parent directory)
+    subprocess.run(["go", "build", "-o", "grpc-server", "../server/server.go"], check=True, cwd="../")
+    subprocess.run(["go", "build", "-o", "gateway-server", "../cmd/gateway/main.go"], check=True, cwd="../")
     
     # Start gRPC server
-    grpc_proc = subprocess.Popen(["./grpc-server"])
+    grpc_proc = subprocess.Popen(["../grpc-server"], cwd="../")
     time.sleep(2)
     
     # Start Gateway server
     gateway_proc = subprocess.Popen([
-        "./gateway-server",
+        "../gateway-server",
         "--grpc-endpoint=localhost:50052",
         "--http-port=8080"
-    ])
+    ], cwd="../")
     time.sleep(3)
     
     # Verify servers are running
