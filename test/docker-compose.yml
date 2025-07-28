@@ -1,4 +1,4 @@
-version: '3.8'
+# Docker Compose configuration for Panchangam API testing
 
 services:
   # Test framework service
@@ -20,11 +20,7 @@ services:
       - SKIP_SERVER_START=false
       - PYTHONPATH=/workspace
       - PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
-    networks:
-      - panchangam-network
-    ports:
-      - "8080:8080"  # Gateway port
-      - "50052:50052"  # gRPC port
+    network_mode: host  # Use host network to access running servers
     command: tail -f /dev/null  # Keep container running for interactive use
     
   # Optional: Standalone test execution service
@@ -42,12 +38,7 @@ services:
       - PANCHANGAM_API_URL=http://localhost:8080
       - SKIP_SERVER_START=false
       - PYTHONPATH=/workspace
-    networks:
-      - panchangam-network
+    network_mode: host  # Use host network to access running servers
     profiles:
       - testing
     command: python run_tests.py --verbose --coverage --html-report
-
-networks:
-  panchangam-network:
-    driver: bridge
