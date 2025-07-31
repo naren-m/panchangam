@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/naren-m/panchangam/log"
@@ -59,25 +61,39 @@ func (g *GatewayServer) Start(ctx context.Context) error {
 	// Add health check endpoint
 	handler = addHealthCheck(handler)
 
-	// Configure CORS
+	// Configure CORS with dynamic origins
+	allowedOrigins := []string{
+		"http://localhost:5173", // Vite dev server
+		"http://localhost:3000", // React dev server
+		"http://localhost:8086", // Docker frontend container
+		"https://panchangam.app", // Production domain
+	}
+	
+	// Add CORS origins from environment variable for remote deployment
+	if corsOrigins := os.Getenv("CORS_ORIGINS"); corsOrigins != "" {
+		envOrigins := strings.Split(corsOrigins, ",")
+		for _, origin := range envOrigins {
+			origin = strings.TrimSpace(origin)
+			if origin != "" {
+				allowedOrigins = append(allowedOrigins, origin)
+			}
+		}
+	}
+	
+	// For remote deployment, allow all origins if ALLOW_ALL_ORIGINS is set
+	if os.Getenv("ALLOW_ALL_ORIGINS") == "true" {
+		allowedOrigins = []string{"*"}
+	}
+	
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{
-			"http://localhost:5173", // Vite dev server
-			"http://localhost:3000", // React dev server
-			"https://panchangam.app", // Production domain
-		},
+		AllowedOrigins: allowedOrigins,
 		AllowedMethods: []string{
 			http.MethodGet,
 			http.MethodPost,
 			http.MethodOptions,
 		},
 		AllowedHeaders: []string{
-			"Content-Type",
-			"Authorization",
-			"X-Request-Id",
-			"Accept",
-			"Origin",
-			"X-Requested-With",
+			"*", // Allow all headers for debugging
 		},
 		ExposedHeaders: []string{
 			"X-Request-Id",
@@ -85,6 +101,7 @@ func (g *GatewayServer) Start(ctx context.Context) error {
 		},
 		AllowCredentials: false,
 		MaxAge:           300,
+		Debug: true, // Enable CORS debugging
 	})
 
 	// Apply CORS middleware

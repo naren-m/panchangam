@@ -416,8 +416,14 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		"sunrise", sunTimes.Sunrise.Format("15:04:05"),
 		"sunset", sunTimes.Sunset.Format("15:04:05"))
 
-	// Calculate Tithi
-	tithi, err := s.tithiCalc.GetTithiForDate(ctx, date)
+	// Determine calendar system based on region
+	calendarSystem := "Purnimanta" // Default to Purnimanta
+	if req.Region == "Tamil Nadu" || req.Region == "Kerala" || req.Region == "Karnataka" || req.Region == "Andhra Pradesh" || req.Region == "Telangana" {
+		calendarSystem = "Amanta" // South Indian states typically use Amanta
+	}
+
+	// Calculate Tithi with calendar system
+	tithi, err := s.tithiCalc.GetTithiForDateWithCalendarSystem(ctx, date, calendarSystem)
 	if err != nil {
 		grpcErr := status.Error(codes.Internal, fmt.Sprintf("failed to calculate tithi: %v", err))
 		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
@@ -535,20 +541,24 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		festivals = []string{}
 	}
 
+	// Convert sunrise/sunset times to local timezone for events
+	localSunrise := sunTimes.Sunrise.In(loc)
+	localSunset := sunTimes.Sunset.In(loc)
+	
 	// Build comprehensive event list with accurate timing
 	events := []*ppb.PanchangamEvent{
 		{
 			Name:      "Sunrise",
-			Time:      sunTimes.Sunrise.Format("15:04:05"),
+			Time:      localSunrise.Format("15:04:05"),
 			EventType: "SUNRISE",
 		},
 		{
 			Name:      "Sunset",
-			Time:      sunTimes.Sunset.Format("15:04:05"),
+			Time:      localSunset.Format("15:04:05"),
 			EventType: "SUNSET",
 		},
 		{
-			Name:      fmt.Sprintf("Tithi: %s", tithi.Name),
+			Name:      fmt.Sprintf("Tithi: %s (%s Paksha)", tithi.TraditionalName, tithi.Paksha),
 			Time:      tithi.StartTime.Format("15:04:05"),
 			EventType: "TITHI",
 		},
@@ -569,7 +579,7 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		},
 		{
 			Name:      fmt.Sprintf("Vara: %s", vara.Name),
-			Time:      sunTimes.Sunrise.Format("15:04:05"), // Vara starts at sunrise
+			Time:      localSunrise.Format("15:04:05"), // Vara starts at sunrise
 			EventType: "VARA",
 		},
 	}
@@ -638,14 +648,31 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		})
 	}
 
+	logger.DebugContext(ctx, "Sun times converted to local timezone",
+		"utc_sunrise", sunTimes.Sunrise.Format("15:04:05 MST"),
+		"utc_sunset", sunTimes.Sunset.Format("15:04:05 MST"),
+		"local_sunrise", localSunrise.Format("15:04:05 MST"),
+		"local_sunset", localSunset.Format("15:04:05 MST"),
+		"timezone", loc.String())
+
+	// Format tithi with traditional names and paksha information
+	var tithiDisplay string
+	if calendarSystem == "Amanta" && !tithi.IsShukla {
+		// For Amanta Krishna paksha, show adjusted day number
+		tithiDisplay = fmt.Sprintf("%s - %s Paksha Day %d (%s)", tithi.TraditionalName, tithi.Paksha, tithi.PakshaDay, calendarSystem)
+	} else {
+		// For Shukla paksha or Purnimanta system
+		tithiDisplay = fmt.Sprintf("%s - %s Paksha Day %d (%s)", tithi.TraditionalName, tithi.Paksha, tithi.PakshaDay, calendarSystem)
+	}
+
 	data := &ppb.PanchangamData{
 		Date:        req.Date,
-		Tithi:       fmt.Sprintf("%s (%d)", tithi.Name, tithi.Number),
+		Tithi:       tithiDisplay,
 		Nakshatra:   fmt.Sprintf("%s (%d)", nakshatra.Name, nakshatra.Number),
 		Yoga:        fmt.Sprintf("%s (%d)", yoga.Name, yoga.Number),
 		Karana:      fmt.Sprintf("%s (%d)", karana.Name, karana.Number),
-		SunriseTime: sunTimes.Sunrise.Format("15:04:05"),
-		SunsetTime:  sunTimes.Sunset.Format("15:04:05"),
+		SunriseTime: localSunrise.Format("15:04:05"),
+		SunsetTime:  localSunset.Format("15:04:05"),
 		Events:      events,
 	}
 
