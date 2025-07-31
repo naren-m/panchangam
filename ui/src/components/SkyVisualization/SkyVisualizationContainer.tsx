@@ -8,6 +8,8 @@ import {
   CelestialObject,
   SkySphereConfig 
 } from '../../types/skyVisualization';
+import { getNakshatraInfo, calculateNakshatraFromLongitude } from '../../utils/astronomy/nakshatraCalculator';
+import { getZodiacInfo, calculateZodiacFromLongitude } from '../../utils/astronomy/zodiacCalculator';
 
 interface SkyVisualizationContainerProps {
   latitude: number;
@@ -27,6 +29,8 @@ export const SkyVisualizationContainer: React.FC<SkyVisualizationContainerProps>
   const [celestialObjects, setCelestialObjects] = useState<CelestialObject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentNakshatra, setCurrentNakshatra] = useState<number | undefined>();
+  const [currentRashi, setCurrentRashi] = useState<number | undefined>();
   
   const [timeConfig, setTimeConfig] = useState<TimeConfig>({
     date: date,
@@ -67,8 +71,25 @@ export const SkyVisualizationContainer: React.FC<SkyVisualizationContainerProps>
         setLoading(true);
         setError(null);
 
-        // For now, we'll create some sample celestial objects
-        // In the actual implementation, this would fetch from the backend API
+        // Calculate approximate Moon position based on date
+        // This is a simplified calculation - in a real implementation, 
+        // this would use precise ephemeris data from the backend
+        const daysSinceJ2000 = (timeConfig.date.getTime() - new Date('2000-01-01T12:00:00Z').getTime()) / (1000 * 60 * 60 * 24);
+        
+        // Rough approximation of lunar longitude (Moon moves ~13.2 degrees per day)
+        const moonLongitude = (218.316 + 13.176396 * daysSinceJ2000) % 360;
+        
+        // Calculate current nakshatra from moon position
+        const nakshatraNumber = calculateNakshatraFromLongitude(moonLongitude);
+        setCurrentNakshatra(nakshatraNumber);
+        
+        // Rough approximation of solar longitude (Sun moves ~1 degree per day)
+        const sunLongitude = (280.459 + 0.98564736 * daysSinceJ2000) % 360;
+        
+        // Calculate current rashi (zodiac sign) from sun position
+        const rashiNumber = calculateZodiacFromLongitude(sunLongitude);
+        setCurrentRashi(rashiNumber);
+        
         const sampleObjects: CelestialObject[] = [
           {
             id: 'sun',
@@ -76,14 +97,18 @@ export const SkyVisualizationContainer: React.FC<SkyVisualizationContainerProps>
             type: 'sun',
             coordinates: {
               ecliptic: {
-                longitude: 0, // This would be calculated based on date
+                longitude: sunLongitude,
                 latitude: 0,
                 distance: 1
               }
             },
             magnitude: -26.7,
             color: '#ffee00',
-            size: 5
+            size: 5,
+            metadata: {
+              rashi: rashiNumber,
+              rashiInfo: getZodiacInfo(sunLongitude)
+            }
           },
           {
             id: 'moon',
@@ -91,14 +116,18 @@ export const SkyVisualizationContainer: React.FC<SkyVisualizationContainerProps>
             type: 'moon',
             coordinates: {
               ecliptic: {
-                longitude: 30, // This would be calculated based on date
-                latitude: 5,
+                longitude: moonLongitude,
+                latitude: (Math.sin(daysSinceJ2000 * 0.1) * 5), // Approximate lunar latitude variation
                 distance: 0.00257
               }
             },
             magnitude: -12.6,
             color: '#ffffff',
-            size: 4
+            size: 4,
+            metadata: {
+              nakshatra: nakshatraNumber,
+              nakshatraInfo: getNakshatraInfo(moonLongitude)
+            }
           },
           // Add some bright stars
           {
@@ -203,6 +232,8 @@ export const SkyVisualizationContainer: React.FC<SkyVisualizationContainerProps>
         observer={observer}
         timeConfig={timeConfig}
         renderOptions={renderOptions}
+        currentNakshatra={currentNakshatra}
+        currentRashi={currentRashi}
         className="w-full h-full"
       />
 
@@ -293,9 +324,40 @@ export const SkyVisualizationContainer: React.FC<SkyVisualizationContainerProps>
       </button>
 
       {/* Info Panel */}
-      <div className="absolute bottom-4 left-4 bg-gray-800 bg-opacity-90 rounded-lg p-3 text-white text-sm">
+      <div className="absolute bottom-4 left-4 bg-gray-800 bg-opacity-90 rounded-lg p-3 text-white text-sm max-w-xs">
         <div>Location: {latitude.toFixed(2)}°, {longitude.toFixed(2)}°</div>
-        <div className="text-xs text-gray-400 mt-1">
+        
+        {currentRashi && (
+          <div className="mt-2 border-t border-gray-600 pt-2">
+            <div className="font-medium">Current Rashi: {getZodiacInfo(
+              celestialObjects.find(obj => obj.id === 'sun')?.coordinates.ecliptic?.longitude || 0
+            ).sanskritName}</div>
+            <div className="text-xs text-gray-400">
+              {getZodiacInfo(
+                celestialObjects.find(obj => obj.id === 'sun')?.coordinates.ecliptic?.longitude || 0
+              ).symbol} {getZodiacInfo(
+                celestialObjects.find(obj => obj.id === 'sun')?.coordinates.ecliptic?.longitude || 0
+              ).westernName} • {getZodiacInfo(
+                celestialObjects.find(obj => obj.id === 'sun')?.coordinates.ecliptic?.longitude || 0
+              ).element}
+            </div>
+          </div>
+        )}
+        
+        {currentNakshatra && (
+          <div className="mt-2 border-t border-gray-600 pt-2">
+            <div className="font-medium">Current Nakshatra: {getNakshatraInfo(
+              celestialObjects.find(obj => obj.id === 'moon')?.coordinates.ecliptic?.longitude || 0
+            ).name}</div>
+            <div className="text-xs text-gray-400">#{currentNakshatra} • {
+              getNakshatraInfo(
+                celestialObjects.find(obj => obj.id === 'moon')?.coordinates.ecliptic?.longitude || 0
+              ).deity
+            }</div>
+          </div>
+        )}
+        
+        <div className="text-xs text-gray-400 mt-2">
           Drag to rotate • Scroll to zoom
         </div>
       </div>

@@ -9,6 +9,8 @@ import {
   TimeConfig 
 } from '../../types/skyVisualization';
 import { eclipticToScreen } from '../../utils/astronomy/coordinateTransforms';
+import NakshatraVisualization from './NakshatraVisualization';
+import ZodiacVisualization from './ZodiacVisualization';
 
 interface SkySphereProps {
   config?: Partial<SkySphereConfig>;
@@ -16,6 +18,8 @@ interface SkySphereProps {
   observer: Observer;
   timeConfig?: TimeConfig;
   renderOptions?: Partial<RenderOptions>;
+  currentNakshatra?: number; // 1-27, current nakshatra to highlight
+  currentRashi?: number; // 1-12, current zodiac sign to highlight
   onError?: (error: Error) => void;
   className?: string;
 }
@@ -50,6 +54,8 @@ export const SkySphere: React.FC<SkySphereProps> = ({
   observer,
   timeConfig = { date: new Date(), speed: 1, paused: false },
   renderOptions = {},
+  currentNakshatra,
+  currentRashi,
   onError,
   className
 }) => {
@@ -291,6 +297,28 @@ export const SkySphere: React.FC<SkySphereProps> = ({
         </div>
       )}
       <div ref={mountRef} className="w-full h-full" />
+      
+      {/* Nakshatra Visualization */}
+      {sceneRef.current && mergedRenderOptions.showNakshatras && (
+        <NakshatraVisualization
+          scene={sceneRef.current}
+          radius={mergedConfig.radius}
+          showLabels={mergedRenderOptions.showLabels}
+          showBoundaries={true}
+          currentNakshatra={currentNakshatra}
+        />
+      )}
+      
+      {/* Zodiac Visualization */}
+      {sceneRef.current && mergedRenderOptions.showZodiac && (
+        <ZodiacVisualization
+          scene={sceneRef.current}
+          radius={mergedConfig.radius + 2} // Slightly larger radius than nakshatras
+          showLabels={mergedRenderOptions.showLabels}
+          showBoundaries={true}
+          currentRashi={currentRashi}
+        />
+      )}
     </div>
   );
 };
