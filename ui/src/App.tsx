@@ -1,17 +1,14 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { CalendarGrid } from './components/Calendar/CalendarGrid';
+import React, { useState, useMemo, useRef } from 'react';
 import { CalendarDisplayManager } from './components/Calendar/CalendarDisplayManager';
 import { MonthNavigation } from './components/Calendar/MonthNavigation';
 import { DayDetailModal } from './components/DayDetail/DayDetailModal';
 import { LocationSelector } from './components/LocationPicker/LocationSelector';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
-import { SkeletonCalendar, LoadingSpinner } from './components/common/Loading';
-import { ApiError, NetworkError, ErrorBoundary } from './components/common/Error';
+import { ErrorBoundary } from './components/common/Error';
 import { useProgressivePanchangam } from './hooks/useProgressivePanchangam';
 import { useDayDetail } from './hooks/useDayDetail';
 import { Settings, PanchangamData } from './types/panchangam';
 import { getCurrentMonthDates } from './utils/dateHelpers';
-import { locationService } from './services/locationService';
 import { SkyVisualizationContainer } from './components/SkyVisualization';
 
 function App() {
