@@ -23,3 +23,23 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Test and Debug Files
+*.spec.js
+*test*.png
+*debug*.png
+*debug*.spec.js
+*validation*.png
+*validation*.spec.js
+*diagnosis*.png
+*diagnosis*.spec.js
+*cache*.png
+*cache*.spec.js
+test-results/
+coverage/
+playwright-report/
+
+# Temporary files
+*-minimal.*
+*-temp.*
+*-backup.*

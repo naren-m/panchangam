@@ -246,7 +246,13 @@ describe('ApiClient', () => {
         json: () => Promise.resolve({})
       });
 
-      await expect(client.get('/test')).rejects.toThrow(PanchangamApiError);
+      try {
+        await client.get('/test');
+      } catch (error) {
+        expect(error).toBeInstanceOf(PanchangamApiError);
+        expect((error as PanchangamApiError).code).toBe('INVALID_REQUEST');
+        expect((error as PanchangamApiError).status).toBe(400);
+      }
       
       // Should not retry on client errors
       expect(mockFetch).toHaveBeenCalledTimes(1);

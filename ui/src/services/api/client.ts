@@ -27,6 +27,7 @@ function delay(ms: number): Promise<void> {
  * Transforms API errors to standardized format
  */
 function transformApiError(error: any, requestId: string, path: string): PanchangamApiError {
+  // Handle abort/timeout errors first
   if (error.name === 'AbortError' || error.name === 'TimeoutError') {
     return new PanchangamApiError(
       'Request timed out. Please check your connection and try again.',
@@ -36,6 +37,7 @@ function transformApiError(error: any, requestId: string, path: string): Panchan
     );
   }
 
+  // Handle fetch/network errors
   if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
     return new PanchangamApiError(
       'Network error. Please check your internet connection.',
@@ -45,7 +47,10 @@ function transformApiError(error: any, requestId: string, path: string): Panchan
     );
   }
 
-  if (error.status) {
+  // Handle HTTP status errors - check for status on error object directly or nested response
+  const status = error.status || (error.response && error.response.status);
+  
+  if (status) {
     const errorMessages: Record<number, { code: string; message: string }> = {
       400: { code: 'INVALID_REQUEST', message: 'Invalid request parameters.' },
       401: { code: 'UNAUTHORIZED', message: 'Authentication required.' },
@@ -58,12 +63,33 @@ function transformApiError(error: any, requestId: string, path: string): Panchan
       504: { code: 'GATEWAY_TIMEOUT', message: 'Request timed out at gateway.' }
     };
 
-    const errorInfo = errorMessages[error.status] || {
+    const errorInfo = errorMessages[status] || {
       code: 'HTTP_ERROR',
-      message: `HTTP ${error.status}: ${error.statusText}`
+      message: `HTTP ${status}: ${error.statusText || 'Unknown error'}`
     };
 
-    return new PanchangamApiError(errorInfo.message, errorInfo.code, requestId, error.status);
+    return new PanchangamApiError(errorInfo.message, errorInfo.code, requestId, status);
+  }
+
+  // Check for other error patterns in the message
+  if (error.message) {
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      return new PanchangamApiError(
+        'Network error. Please check your internet connection.',
+        'NETWORK_ERROR',
+        requestId,
+        0
+      );
+    }
+    
+    if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+      return new PanchangamApiError(
+        'Request timed out. Please check your connection and try again.',
+        'REQUEST_TIMEOUT',
+        requestId,
+        408
+      );
+    }
   }
 
   return new PanchangamApiError(
@@ -84,7 +110,7 @@ export class ApiClient {
 
   constructor(config: Partial<ApiClientConfig> = {}) {
     this.config = {
-      baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+      baseURL: import.meta.env.VITE_API_BASE_URL || 'https://api.panchangam.app', // Will be overridden by runtime config
       timeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
       retries: parseInt(import.meta.env.VITE_API_RETRIES) || 3,
       retryDelay: parseInt(import.meta.env.VITE_API_RETRY_DELAY) || 1000,
@@ -148,20 +174,29 @@ export class ApiClient {
    */
   private async executeRequest<T>(request: ApiRequest): Promise<ApiResponse<T>> {
     let lastError: any;
+    let actualAttempts = 0;
     
     for (let attempt = 0; attempt <= this.config.retries; attempt++) {
+      actualAttempts++;
       try {
         return await this.makeRequest<T>(request);
       } catch (error) {
         lastError = error;
         
-        // Don't retry on client errors (4xx) - errors come pre-transformed from makeRequest
-        if (error instanceof PanchangamApiError) {
-          const isClientError = error.status && error.status >= 400 && error.status < 500;
-          
-          if (isClientError) {
-            break; // Don't retry client errors
+        // Don't retry on client errors (4xx) or specific error types
+        const shouldNotRetry = error instanceof PanchangamApiError && (
+          (error.status && error.status >= 400 && error.status < 500) ||
+          error.code === 'INVALID_REQUEST' ||
+          error.code === 'UNAUTHORIZED' ||
+          error.code === 'FORBIDDEN' ||
+          error.code === 'NOT_FOUND'
+        );
+        
+        if (shouldNotRetry) {
+          if (import.meta.env.VITE_LOG_LEVEL === 'debug') {
+            console.log(`Not retrying client error [${error.code}]:`, error.message);
           }
+          break;
         }
 
         // If this is the last attempt, don't delay
@@ -180,6 +215,11 @@ export class ApiClient {
       }
     }
 
+    // Enhance error with retry information
+    if (lastError instanceof PanchangamApiError) {
+      lastError.retryCount = actualAttempts - 1;
+    }
+
     throw lastError;
   }
 
@@ -196,8 +236,8 @@ export class ApiClient {
         processedRequest = await interceptor(processedRequest);
       }
 
-      // Build URL
-      const url = new URL(processedRequest.url, this.config.baseURL);
+      // Build URL with runtime configuration
+      const url = new URL(processedRequest.url, this.getRuntimeBaseURL());
       
       // Add query parameters
       if (processedRequest.params) {
@@ -329,10 +369,24 @@ export class ApiClient {
   }
 
   /**
+   * Get current base URL with runtime configuration
+   */
+  private getRuntimeBaseURL(): string {
+    // Check for runtime configuration first
+    const runtimeConfig = (window as any).__RUNTIME_CONFIG__;
+    return runtimeConfig?.API_ENDPOINT || 
+           import.meta.env.VITE_API_BASE_URL || 
+           this.config.baseURL;
+  }
+
+  /**
    * Get current configuration
    */
   getConfig(): ApiClientConfig {
-    return { ...this.config };
+    return { 
+      ...this.config,
+      baseURL: this.getRuntimeBaseURL()
+    };
   }
 
   /**
@@ -346,9 +400,18 @@ export class ApiClient {
 // Create and export default client instance
 export const apiClient = new ApiClient();
 
-// Export configuration for debugging
+// Export configuration for debugging - make it dynamic
 export const apiConfig = {
-  baseUrl: apiClient.getConfig().baseURL,
-  timeout: apiClient.getConfig().timeout,
-  retries: apiClient.getConfig().retries
+  get baseUrl() {
+    return apiClient.getConfig().baseURL;
+  },
+  get endpoint() {
+    return apiClient.getConfig().baseURL;
+  },
+  get timeout() {
+    return apiClient.getConfig().timeout;
+  },
+  get retries() {
+    return apiClient.getConfig().retries;
+  }
 };

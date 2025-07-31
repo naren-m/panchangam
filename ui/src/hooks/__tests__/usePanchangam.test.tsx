@@ -3,15 +3,17 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { usePanchangam, usePanchangamRange } from '../usePanchangam';
 import { panchangamApi } from '../../services/panchangamApi';
 
-// Mock the API service
-vi.mock('../../services/panchangamApi', () => ({
-  panchangamApi: {
+// Mock the API service - mocking the actual client
+vi.mock('../../services/api/panchangamApiClient', () => ({
+  panchangamApiClient: {
     getPanchangam: vi.fn(),
     getPanchangamRange: vi.fn(),
   },
 }));
 
-const mockPanchangamApi = panchangamApi as any;
+// Import the panchangamApi from the actual service
+import * as panchangamApiModule from '../../services/panchangamApi';
+const mockPanchangamApi = panchangamApiModule.panchangamApi as any;
 
 describe('usePanchangam', () => {
   const mockDate = new Date('2024-01-15');
