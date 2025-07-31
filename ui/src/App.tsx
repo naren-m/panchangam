@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CalendarGrid } from './components/Calendar/CalendarGrid';
+import { CalendarDisplayManager } from './components/Calendar/CalendarDisplayManager';
 import { MonthNavigation } from './components/Calendar/MonthNavigation';
 import { DayDetailModal } from './components/DayDetail/DayDetailModal';
 import { LocationSelector } from './components/LocationPicker/LocationSelector';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { SkeletonCalendar, LoadingSpinner } from './components/common/Loading';
 import { ApiError, NetworkError, ErrorBoundary } from './components/common/Error';
-import { usePanchangamRange } from './hooks/usePanchangam';
+import { useProgressivePanchangam } from './hooks/useProgressivePanchangam';
 import { useDayDetail } from './hooks/useDayDetail';
 import { Settings, PanchangamData } from './types/panchangam';
 import { getCurrentMonthDates } from './utils/dateHelpers';
@@ -17,19 +18,57 @@ function App() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showLocationSelector, setShowLocationSelector] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [settings, setSettings] = useState<Settings>({
+  const [settingsState, setSettingsState] = useState({
     calculation_method: 'Drik',
     locale: 'en',
-    region: 'Tamil Nadu',
+    region: 'California',
     time_format: '12',
     location: {
-      name: 'Chennai, Tamil Nadu',
-      latitude: 13.0827,
-      longitude: 80.2707,
-      timezone: 'Asia/Kolkata',
-      region: 'Tamil Nadu'
+      name: 'Milpitas, California',
+      latitude: 37.4323,
+      longitude: -121.9066,
+      timezone: 'America/Los_Angeles',
+      region: 'California'
     }
   });
+
+  // Use ref to break infinite loop completely
+  const settingsRef = useRef(null);
+  
+  // Update ref when settings change
+  const settings = useMemo(() => {
+    const newSettings = {
+      calculation_method: settingsState.calculation_method,
+      locale: settingsState.locale,
+      region: settingsState.region,
+      time_format: settingsState.time_format,
+      location: {
+        name: settingsState.location.name,
+        latitude: settingsState.location.latitude,
+        longitude: settingsState.location.longitude,
+        timezone: settingsState.location.timezone,
+        region: settingsState.location.region
+      }
+    };
+    
+    // Only update if actually different
+    if (!settingsRef.current || JSON.stringify(settingsRef.current) !== JSON.stringify(newSettings)) {
+      console.log('📝 Settings actually changed, updating...');
+      settingsRef.current = newSettings;
+    }
+    
+    return settingsRef.current;
+  }, [
+    settingsState.calculation_method,
+    settingsState.locale,
+    settingsState.region,
+    settingsState.time_format,
+    settingsState.location.name,
+    settingsState.location.latitude,
+    settingsState.location.longitude,
+    settingsState.location.timezone,
+    settingsState.location.region
+  ]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -39,34 +78,22 @@ function App() {
   const startDate = monthDates[0];
   const endDate = monthDates[monthDates.length - 1];
 
-  // Fetch panchangam data for the visible month
+  // Fetch panchangam data progressively for the visible month
   const { 
     data: panchangamData, 
     loading, 
-    isRetrying, 
+    isProgressiveLoading,
+    progress,
+    todayLoaded,
+    loadedCount,
+    totalCount,
     error, 
     errorState, 
     retry 
-  } = usePanchangamRange(startDate, endDate, settings);
+  } = useProgressivePanchangam(startDate, endDate, settings);
 
-  // Initialize location on first load
-  useEffect(() => {
-    const initializeLocation = async () => {
-      try {
-        const location = await locationService.getCurrentLocation();
-        setSettings(prev => ({
-          ...prev,
-          location,
-          region: location.region
-        }));
-      } catch (error) {
-        console.error('Failed to get initial location:', error);
-        // Keep default location (Chennai)
-      }
-    };
-
-    initializeLocation();
-  }, []);
+  // Note: Removed automatic location initialization to prevent infinite re-renders
+  // Default location is already set to Milpitas, CA
 
   const handlePrevMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1));
@@ -85,7 +112,7 @@ function App() {
   };
 
   const handleLocationSelect = (location: any) => {
-    setSettings(prev => ({
+    setSettingsState(prev => ({
       ...prev,
       location,
       region: location.region
@@ -127,54 +154,25 @@ function App() {
           onSettingsClick={() => setShowSettings(true)}
         />
 
-        {/* Loading State */}
-        {loading && !isRetrying && (
-          <div className="mb-6">
-            <SkeletonCalendar />
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="mb-6">
-            {errorState.isNetworkError ? (
-              <NetworkError
-                onRetry={retry}
-                isRetrying={isRetrying}
-                customMessage={error}
-              />
-            ) : (
-              <ApiError
-                error={error}
-                onRetry={retry}
-                statusCode={errorState.statusCode}
-                endpoint="/api/v1/panchangam"
-              />
-            )}
-          </div>
-        )}
-
-        {/* Retry Loading Indicator */}
-        {isRetrying && (
-          <div className="mb-6 text-center">
-            <LoadingSpinner
-              size="md"
-              color="orange"
-              message="Retrying..."
-            />
-          </div>
-        )}
-
-        {/* Calendar */}
-        {!loading || isRetrying ? (
-          <CalendarGrid
-            year={year}
-            month={month}
-            panchangamData={panchangamData}
-            settings={settings}
-            onDateClick={handleDateClick}
-          />
-        ) : null}
+        {/* Calendar Display Logic - Ensures only ONE calendar renders at a time */}
+        <CalendarDisplayManager
+          loading={loading}
+          hasData={Object.keys(panchangamData).length > 0}
+          error={error}
+          errorState={errorState}
+          isProgressiveLoading={isProgressiveLoading}
+          progress={progress}
+          loadedCount={loadedCount}
+          totalCount={totalCount}
+          retry={retry}
+          calendarProps={{
+            year,
+            month,
+            panchangamData,
+            settings,
+            onDateClick: handleDateClick
+          }}
+        />
 
         {/* Footer */}
         <div className="text-center mt-8 text-gray-600">
@@ -211,11 +209,10 @@ function App() {
       {showSettings && (
         <SettingsPanel
           settings={settings}
-          onSettingsChange={setSettings}
+          onSettingsChange={setSettingsState}
           onClose={() => setShowSettings(false)}
         />
       )}
-        </div>
       </div>
     </ErrorBoundary>
   );
