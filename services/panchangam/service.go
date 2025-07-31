@@ -19,6 +19,37 @@ import (
 
 var logger = log.Logger()
 
+// calendarSystemByRegion maps regions to their traditional calendar systems
+var calendarSystemByRegion = map[string]string{
+	// South Indian states typically use Amanta system
+	"Tamil Nadu":      "Amanta",
+	"Kerala":          "Amanta",
+	"Karnataka":       "Amanta",
+	"Andhra Pradesh":  "Amanta",
+	"Telangana":       "Amanta",
+	
+	// North Indian states typically use Purnimanta system
+	"Maharashtra":     "Purnimanta",
+	"Gujarat":         "Purnimanta",
+	"Rajasthan":       "Purnimanta",
+	"Uttar Pradesh":   "Purnimanta",
+	"Madhya Pradesh":  "Purnimanta",
+	"Bihar":           "Purnimanta",
+	"West Bengal":     "Purnimanta",
+	"Odisha":          "Purnimanta",
+	"Punjab":          "Purnimanta",
+	"Haryana":         "Purnimanta",
+	"Himachal Pradesh": "Purnimanta",
+	"Uttarakhand":     "Purnimanta",
+	"Delhi":           "Purnimanta",
+	
+	// Default for other regions
+	"California":      "Purnimanta",
+	"New York":        "Purnimanta",
+	"Texas":           "Purnimanta",
+	"New Jersey":      "Purnimanta",
+}
+
 type PanchangamServer struct {
 	observer         observability.ObserverInterface
 	ephemerisManager *ephemeris.Manager
@@ -417,10 +448,7 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		"sunset", sunTimes.Sunset.Format("15:04:05"))
 
 	// Determine calendar system based on region
-	calendarSystem := "Purnimanta" // Default to Purnimanta
-	if req.Region == "Tamil Nadu" || req.Region == "Kerala" || req.Region == "Karnataka" || req.Region == "Andhra Pradesh" || req.Region == "Telangana" {
-		calendarSystem = "Amanta" // South Indian states typically use Amanta
-	}
+	calendarSystem := getCalendarSystemForRegion(req.Region)
 
 	// Calculate Tithi with calendar system
 	tithi, err := s.tithiCalc.GetTithiForDateWithCalendarSystem(ctx, date, calendarSystem)
@@ -689,4 +717,15 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 	)...)
 
 	return data, nil
+}
+
+// getCalendarSystemForRegion returns the appropriate calendar system for a given region
+func getCalendarSystemForRegion(region string) string {
+	// Check if the region has a specific calendar system mapping
+	if system, exists := calendarSystemByRegion[region]; exists {
+		return system
+	}
+	
+	// Default to Purnimanta if region is not found
+	return "Purnimanta"
 }

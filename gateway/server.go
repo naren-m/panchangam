@@ -61,29 +61,11 @@ func (g *GatewayServer) Start(ctx context.Context) error {
 	// Add health check endpoint
 	handler = addHealthCheck(handler)
 
-	// Configure CORS with dynamic origins
-	allowedOrigins := []string{
-		"http://localhost:5173", // Vite dev server
-		"http://localhost:3000", // React dev server
-		"http://localhost:8086", // Docker frontend container
-		"https://panchangam.app", // Production domain
-	}
+	// Configure CORS with dynamic origins from environment
+	allowedOrigins := getCORSOrigins()
 	
-	// Add CORS origins from environment variable for remote deployment
-	if corsOrigins := os.Getenv("CORS_ORIGINS"); corsOrigins != "" {
-		envOrigins := strings.Split(corsOrigins, ",")
-		for _, origin := range envOrigins {
-			origin = strings.TrimSpace(origin)
-			if origin != "" {
-				allowedOrigins = append(allowedOrigins, origin)
-			}
-		}
-	}
-	
-	// For remote deployment, allow all origins if ALLOW_ALL_ORIGINS is set
-	if os.Getenv("ALLOW_ALL_ORIGINS") == "true" {
-		allowedOrigins = []string{"*"}
-	}
+	// Log configured origins for debugging
+	logger.Info("CORS configuration", "allowed_origins", allowedOrigins)
 	
 	c := cors.New(cors.Options{
 		AllowedOrigins: allowedOrigins,
@@ -354,4 +336,40 @@ func (rw *responseWriter) WriteHeader(code int) {
 // generateRequestID generates a simple request ID
 func generateRequestID() string {
 	return fmt.Sprintf("req_%d", time.Now().UnixNano())
+}
+
+// getCORSOrigins returns the list of allowed CORS origins from environment configuration
+func getCORSOrigins() []string {
+	// Default origins for development
+	defaultOrigins := []string{
+		"http://localhost:5173", // Vite dev server
+		"http://localhost:3000", // React dev server
+		"http://localhost:8086", // Docker frontend container
+	}
+	
+	// Get origins from environment variable
+	corsOriginsEnv := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if corsOriginsEnv == "" {
+		// If not set, return default origins for backward compatibility
+		return defaultOrigins
+	}
+	
+	// Parse comma-separated origins
+	envOrigins := strings.Split(corsOriginsEnv, ",")
+	origins := make([]string, 0, len(envOrigins))
+	
+	for _, origin := range envOrigins {
+		origin = strings.TrimSpace(origin)
+		if origin != "" {
+			origins = append(origins, origin)
+		}
+	}
+	
+	// If no valid origins were provided, return defaults
+	if len(origins) == 0 {
+		logger.Warn("No valid CORS origins found in CORS_ALLOWED_ORIGINS, using defaults")
+		return defaultOrigins
+	}
+	
+	return origins
 }
