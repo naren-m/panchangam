@@ -24,6 +24,22 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
+ * Get API base URL from runtime configuration or environment variables
+ */
+function getApiBaseUrl(): string {
+  // Check for runtime configuration first (for Docker deployments)
+  if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__) {
+    const runtimeConfig = (window as any).__RUNTIME_CONFIG__;
+    if (runtimeConfig.API_ENDPOINT) {
+      return runtimeConfig.API_ENDPOINT;
+    }
+  }
+  
+  // Fallback to build-time environment variables
+  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+}
+
+/**
  * Transforms API errors to standardized format
  */
 function transformApiError(error: any, requestId: string, path: string): PanchangamApiError {
@@ -84,7 +100,7 @@ export class ApiClient {
 
   constructor(config: Partial<ApiClientConfig> = {}) {
     this.config = {
-      baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+      baseURL: getApiBaseUrl(),
       timeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
       retries: parseInt(import.meta.env.VITE_API_RETRIES) || 3,
       retryDelay: parseInt(import.meta.env.VITE_API_RETRY_DELAY) || 1000,

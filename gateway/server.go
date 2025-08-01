@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/naren-m/panchangam/cache"
 	"github.com/naren-m/panchangam/log"
 	ppb "github.com/naren-m/panchangam/proto/panchangam"
 	"github.com/rs/cors"
@@ -24,6 +25,7 @@ type GatewayServer struct {
 	grpcEndpoint string
 	httpPort     string
 	server       *http.Server
+	cache        *cache.RedisCache
 }
 
 // NewGatewayServer creates a new HTTP gateway server
@@ -31,6 +33,15 @@ func NewGatewayServer(grpcEndpoint, httpPort string) *GatewayServer {
 	return &GatewayServer{
 		grpcEndpoint: grpcEndpoint,
 		httpPort:     httpPort,
+	}
+}
+
+// NewGatewayServerWithCache creates a new HTTP gateway server with Redis cache
+func NewGatewayServerWithCache(grpcEndpoint, httpPort string, redisCache *cache.RedisCache) *GatewayServer {
+	return &GatewayServer{
+		grpcEndpoint: grpcEndpoint,
+		httpPort:     httpPort,
+		cache:        redisCache,
 	}
 }
 
@@ -54,6 +65,12 @@ func (g *GatewayServer) Start(ctx context.Context) error {
 
 	// Add panchangam endpoint
 	mux.HandleFunc("/api/v1/panchangam", g.handlePanchangam(client))
+	
+	// Add cache health endpoint
+	if g.cache != nil {
+		mux.HandleFunc("/api/v1/cache/health", g.handleCacheHealth())
+		mux.HandleFunc("/api/v1/cache/stats", g.handleCacheStats())
+	}
 
 	// Add custom middleware for logging and monitoring
 	handler := loggingMiddleware(mux)
@@ -120,7 +137,7 @@ func (g *GatewayServer) Stop(ctx context.Context) error {
 	return g.server.Shutdown(ctx)
 }
 
-// handlePanchangam handles HTTP requests to the panchangam endpoint
+// handlePanchangam handles HTTP requests to the panchangam endpoint with caching
 func (g *GatewayServer) handlePanchangam(client ppb.PanchangamClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Only allow GET requests
@@ -180,40 +197,89 @@ func (g *GatewayServer) handlePanchangam(client ppb.PanchangamClient) http.Handl
 		}
 
 		region := query.Get("region")
+		if region == "" {
+			region = "global" // Default region
+		}
+		
 		calculationMethod := query.Get("method")
+		if calculationMethod == "" {
+			calculationMethod = "traditional" // Default method
+		}
+		
 		locale := query.Get("locale")
 		if locale == "" {
 			locale = "en" // Default locale
 		}
 
-		// Create gRPC request
-		req := &ppb.GetPanchangamRequest{
-			Date:              date,
-			Latitude:          lat,
-			Longitude:         lng,
-			Timezone:          timezone,
-			Region:            region,
-			CalculationMethod: calculationMethod,
-			Locale:            locale,
-		}
-
-		// Set timeout for gRPC call
+		// Set timeout for operations
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 
-		// Make gRPC call
-		resp, err := client.Get(ctx, req)
-		if err != nil {
-			handleGRPCError(w, r, err)
-			return
+		var responseData interface{}
+		cacheHit := false
+
+		// Try cache first if available
+		if g.cache != nil {
+			cacheKey := g.cache.GenerateCacheKey(date, region, calculationMethod, lat, lng)
+			
+			cachedData, err := g.cache.Get(ctx, cacheKey)
+			if err != nil {
+				logger.Error("Cache get error", "error", err, "key", cacheKey)
+			} else if cachedData != nil {
+				// Cache hit - convert to response format
+				responseData = convertCacheToResponse(cachedData)
+				cacheHit = true
+				logger.Debug("Cache hit", "key", cacheKey, "date", date)
+			}
+		}
+
+		// If cache miss, fetch from gRPC service
+		if !cacheHit {
+			// Create gRPC request
+			req := &ppb.GetPanchangamRequest{
+				Date:              date,
+				Latitude:          lat,
+				Longitude:         lng,
+				Timezone:          timezone,
+				Region:            region,
+				CalculationMethod: calculationMethod,
+				Locale:            locale,
+			}
+
+			// Make gRPC call
+			resp, err := client.Get(ctx, req)
+			if err != nil {
+				handleGRPCError(w, r, err)
+				return
+			}
+
+			responseData = resp.PanchangamData
+
+			// Store in cache if available
+			if g.cache != nil && resp.PanchangamData != nil {
+				cacheData := convertResponseToCache(resp.PanchangamData)
+				cacheKey := g.cache.GenerateCacheKey(date, region, calculationMethod, lat, lng)
+				
+				if err := g.cache.Set(ctx, cacheKey, cacheData); err != nil {
+					logger.Error("Cache set error", "error", err, "key", cacheKey)
+				} else {
+					logger.Debug("Cache set", "key", cacheKey, "date", date)
+				}
+			}
 		}
 
 		// Set response headers
 		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Cache-Control", "public, max-age=300") // Cache for 5 minutes
+		if cacheHit {
+			w.Header().Set("X-Cache", "HIT")
+			w.Header().Set("Cache-Control", "public, max-age=1800") // 30 minutes for cached data
+		} else {
+			w.Header().Set("X-Cache", "MISS")
+			w.Header().Set("Cache-Control", "public, max-age=300") // 5 minutes for fresh data
+		}
 
 		// Write successful response
-		if err := json.NewEncoder(w).Encode(resp.PanchangamData); err != nil {
+		if err := json.NewEncoder(w).Encode(responseData); err != nil {
 			logger.Error("Failed to encode response", "error", err)
 			writeErrorResponse(w, r, http.StatusInternalServerError, "ENCODING_ERROR", "Failed to encode response", nil)
 			return
@@ -372,4 +438,148 @@ func getCORSOrigins() []string {
 	}
 	
 	return origins
+}
+
+// convertResponseToCache converts gRPC response to cache format
+func convertResponseToCache(data interface{}) *cache.PanchangamCacheData {
+	// This is a simplified conversion - you may need to adjust based on your actual gRPC response structure
+	responseMap, ok := data.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	cacheData := &cache.PanchangamCacheData{}
+	
+	if date, ok := responseMap["date"].(string); ok {
+		cacheData.Date = date
+	}
+	if tithi, ok := responseMap["tithi"].(string); ok {
+		cacheData.Tithi = tithi
+	}
+	if nakshatra, ok := responseMap["nakshatra"].(string); ok {
+		cacheData.Nakshatra = nakshatra
+	}
+	if yoga, ok := responseMap["yoga"].(string); ok {
+		cacheData.Yoga = yoga
+	}
+	if karana, ok := responseMap["karana"].(string); ok {
+		cacheData.Karana = karana
+	}
+	if sunriseTime, ok := responseMap["sunrise_time"].(string); ok {
+		cacheData.SunriseTime = sunriseTime
+	}
+	if sunsetTime, ok := responseMap["sunset_time"].(string); ok {
+		cacheData.SunsetTime = sunsetTime
+	}
+
+	// Convert events if present
+	if events, ok := responseMap["events"].([]interface{}); ok {
+		cacheData.Events = make([]cache.Event, len(events))
+		for i, event := range events {
+			if eventMap, ok := event.(map[string]interface{}); ok {
+				cacheEvent := cache.Event{}
+				if name, ok := eventMap["name"].(string); ok {
+					cacheEvent.Name = name
+				}
+				if time, ok := eventMap["time"].(string); ok {
+					cacheEvent.Time = time
+				}
+				if eventType, ok := eventMap["event_type"].(string); ok {
+					cacheEvent.EventType = eventType
+				}
+				cacheData.Events[i] = cacheEvent
+			}
+		}
+	}
+
+	return cacheData
+}
+
+// convertCacheToResponse converts cache format to response format
+func convertCacheToResponse(data *cache.PanchangamCacheData) interface{} {
+	response := map[string]interface{}{
+		"date":         data.Date,
+		"tithi":        data.Tithi,
+		"nakshatra":    data.Nakshatra,
+		"yoga":         data.Yoga,
+		"karana":       data.Karana,
+		"sunrise_time": data.SunriseTime,
+		"sunset_time":  data.SunsetTime,
+		"events":       make([]map[string]interface{}, len(data.Events)),
+	}
+
+	for i, event := range data.Events {
+		response["events"].([]map[string]interface{})[i] = map[string]interface{}{
+			"name":       event.Name,
+			"time":       event.Time,
+			"event_type": event.EventType,
+		}
+	}
+
+	return response
+}
+
+// handleCacheHealth handles cache health check requests
+func (g *GatewayServer) handleCacheHealth() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		if g.cache == nil {
+			writeErrorResponse(w, r, http.StatusServiceUnavailable, "CACHE_DISABLED", "Cache is not enabled", nil)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		if err := g.cache.HealthCheck(ctx); err != nil {
+			writeErrorResponse(w, r, http.StatusServiceUnavailable, "CACHE_UNHEALTHY", "Cache health check failed", map[string]interface{}{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{
+			"status": "healthy",
+			"timestamp": "%s",
+			"service": "redis-cache"
+		}`, time.Now().UTC().Format(time.RFC3339))
+	}
+}
+
+// handleCacheStats handles cache statistics requests
+func (g *GatewayServer) handleCacheStats() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		if g.cache == nil {
+			writeErrorResponse(w, r, http.StatusServiceUnavailable, "CACHE_DISABLED", "Cache is not enabled", nil)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+
+		stats, err := g.cache.GetStats(ctx)
+		if err != nil {
+			writeErrorResponse(w, r, http.StatusInternalServerError, "STATS_ERROR", "Failed to get cache statistics", map[string]interface{}{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(stats); err != nil {
+			logger.Error("Failed to encode cache stats", "error", err)
+			writeErrorResponse(w, r, http.StatusInternalServerError, "ENCODING_ERROR", "Failed to encode stats", nil)
+		}
+	}
 }
