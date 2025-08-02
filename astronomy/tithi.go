@@ -25,14 +25,18 @@ const (
 
 // TithiInfo represents a Tithi with its properties
 type TithiInfo struct {
-	Number      int       `json:"number"`        // 1-15 for Shukla Paksha, 16-30 for Krishna Paksha
-	Name        string    `json:"name"`          // Sanskrit name of the Tithi
-	Type        TithiType `json:"type"`          // Category (Nanda, Bhadra, Jaya, Rikta, Purna)
-	StartTime   time.Time `json:"start_time"`    // When this Tithi begins
-	EndTime     time.Time `json:"end_time"`      // When this Tithi ends
-	Duration    float64   `json:"duration"`      // Duration in hours
-	IsShukla    bool      `json:"is_shukla"`     // true for Shukla Paksha, false for Krishna Paksha
-	MoonSunDiff float64   `json:"moon_sun_diff"` // Moon longitude - Sun longitude in degrees
+	Number           int       `json:"number"`             // 1-30 (Purnimanta) or adjusted (Amanta)
+	Name             string    `json:"name"`               // Traditional Sanskrit name of the Tithi
+	Type             TithiType `json:"type"`               // Category (Nanda, Bhadra, Jaya, Rikta, Purna)
+	StartTime        time.Time `json:"start_time"`         // When this Tithi begins
+	EndTime          time.Time `json:"end_time"`           // When this Tithi ends
+	Duration         float64   `json:"duration"`           // Duration in hours
+	IsShukla         bool      `json:"is_shukla"`          // true for Shukla Paksha, false for Krishna Paksha
+	Paksha           string    `json:"paksha"`             // "Shukla" or "Krishna"
+	PakshaDay        int       `json:"paksha_day"`         // 1-15 within the paksha
+	TraditionalName  string    `json:"traditional_name"`   // Traditional Sanskrit name (Dvithiya, Thuthiya, etc.)
+	MoonSunDiff      float64   `json:"moon_sun_diff"`      // Moon longitude - Sun longitude in degrees
+	CalendarSystem   string    `json:"calendar_system"`    // "Purnimanta" or "Amanta"
 }
 
 // TithiCalculator handles Tithi calculations
@@ -49,7 +53,7 @@ func NewTithiCalculator(ephemerisManager *ephemeris.Manager) *TithiCalculator {
 	}
 }
 
-// TithiNames maps Tithi numbers to their Sanskrit names
+// TithiNames maps Tithi numbers to their standard Sanskrit names
 var TithiNames = map[int]string{
 	1: "Pratipada", 2: "Dwitiya", 3: "Tritiya", 4: "Chaturthi", 5: "Panchami",
 	6: "Shashthi", 7: "Saptami", 8: "Ashtami", 9: "Navami", 10: "Dashami",
@@ -59,14 +63,37 @@ var TithiNames = map[int]string{
 	26: "Ekadashi", 27: "Dwadashi", 28: "Trayodashi", 29: "Chaturdashi", 30: "Amavasya",
 }
 
-// GetTithiForDate calculates the Tithi for a given date
+// TraditionalTithiNames maps Tithi numbers to traditional Sanskrit names with preferred spellings
+var TraditionalTithiNames = map[int]string{
+	1: "Pratipada", 2: "Dvithiya", 3: "Thuthiya", 4: "Chathurthi", 5: "Panchami",
+	6: "Shashthi", 7: "Sapthami", 8: "Ashtami", 9: "Navami", 10: "Dashami",
+	11: "Ekadashi", 12: "Dvadashi", 13: "Thrayodashi", 14: "Chathurdashi", 15: "Pournima",
+	16: "Pratipada", 17: "Dvithiya", 18: "Thuthiya", 19: "Chathurthi", 20: "Panchami",
+	21: "Shashthi", 22: "Sapthami", 23: "Ashtami", 24: "Navami", 25: "Dashami",
+	26: "Ekadashi", 27: "Dvadashi", 28: "Thrayodashi", 29: "Chathurdashi", 30: "Amavasya",
+}
+
+// PakshaNames maps paksha day numbers (1-15) to their traditional names
+var PakshaNames = map[int]string{
+	1: "Pratipada", 2: "Dvithiya", 3: "Thuthiya", 4: "Chathurthi", 5: "Panchami",
+	6: "Shashthi", 7: "Sapthami", 8: "Ashtami", 9: "Navami", 10: "Dashami",
+	11: "Ekadashi", 12: "Dvadashi", 13: "Thrayodashi", 14: "Chathurdashi", 15: "Pournima",
+}
+
+// GetTithiForDate calculates the Tithi for a given date with default Purnimanta system
 func (tc *TithiCalculator) GetTithiForDate(ctx context.Context, date time.Time) (*TithiInfo, error) {
-	ctx, span := tc.observer.CreateSpan(ctx, "TithiCalculator.GetTithiForDate")
+	return tc.GetTithiForDateWithCalendarSystem(ctx, date, "Purnimanta")
+}
+
+// GetTithiForDateWithCalendarSystem calculates the Tithi for a given date with specified calendar system
+func (tc *TithiCalculator) GetTithiForDateWithCalendarSystem(ctx context.Context, date time.Time, calendarSystem string) (*TithiInfo, error) {
+	ctx, span := tc.observer.CreateSpan(ctx, "TithiCalculator.GetTithiForDateWithCalendarSystem")
 	defer span.End()
 
 	span.SetAttributes(
 		attribute.String("date", date.Format("2006-01-02")),
 		attribute.String("timezone", date.Location().String()),
+		attribute.String("calendar_system", calendarSystem),
 	)
 
 	// Convert to Julian day (using noon for calculation)
@@ -95,7 +122,7 @@ func (tc *TithiCalculator) GetTithiForDate(ctx context.Context, date time.Time) 
 	posSpan.End()
 
 	// Calculate Tithi
-	tithi, err := tc.calculateTithiFromLongitudes(ctx, sunLong, moonLong, date)
+	tithi, err := tc.calculateTithiFromLongitudes(ctx, sunLong, moonLong, date, calendarSystem)
 	if err != nil {
 		span.RecordError(err)
 		return nil, err
@@ -104,14 +131,20 @@ func (tc *TithiCalculator) GetTithiForDate(ctx context.Context, date time.Time) 
 	span.SetAttributes(
 		attribute.Int("tithi_number", tithi.Number),
 		attribute.String("tithi_name", tithi.Name),
+		attribute.String("paksha", tithi.Paksha),
+		attribute.Int("paksha_day", tithi.PakshaDay),
+		attribute.String("traditional_name", tithi.TraditionalName),
 		attribute.String("tithi_type", string(tithi.Type)),
 		attribute.Bool("is_shukla", tithi.IsShukla),
 		attribute.Float64("moon_sun_diff", tithi.MoonSunDiff),
+		attribute.String("calendar_system", tithi.CalendarSystem),
 	)
 
 	span.AddEvent("Tithi calculated", trace.WithAttributes(
 		attribute.Int("tithi_number", tithi.Number),
 		attribute.String("tithi_name", tithi.Name),
+		attribute.String("paksha", tithi.Paksha),
+		attribute.String("traditional_name", tithi.TraditionalName),
 		attribute.String("tithi_type", string(tithi.Type)),
 	))
 
@@ -119,13 +152,14 @@ func (tc *TithiCalculator) GetTithiForDate(ctx context.Context, date time.Time) 
 }
 
 // calculateTithiFromLongitudes calculates Tithi from Sun and Moon longitudes
-func (tc *TithiCalculator) calculateTithiFromLongitudes(ctx context.Context, sunLong, moonLong float64, referenceDate time.Time) (*TithiInfo, error) {
+func (tc *TithiCalculator) calculateTithiFromLongitudes(ctx context.Context, sunLong, moonLong float64, referenceDate time.Time, calendarSystem string) (*TithiInfo, error) {
 	ctx, span := tc.observer.CreateSpan(ctx, "TithiCalculator.calculateTithiFromLongitudes")
 	defer span.End()
 
 	span.SetAttributes(
 		attribute.Float64("sun_longitude", sunLong),
 		attribute.Float64("moon_longitude", moonLong),
+		attribute.String("calendar_system", calendarSystem),
 	)
 
 	// Calculate the difference (Moon longitude - Sun longitude)
@@ -143,36 +177,82 @@ func (tc *TithiCalculator) calculateTithiFromLongitudes(ctx context.Context, sun
 
 	// Calculate Tithi number (each Tithi is 12 degrees)
 	tithiFloat := moonSunDiff / 12.0
-	tithiNumber := int(tithiFloat) + 1
+	baseTithiNumber := int(tithiFloat) + 1
 
-	// Ensure Tithi number is in valid range (1-30)
-	if tithiNumber > 30 {
-		tithiNumber = 30
+	// Ensure base Tithi number is in valid range (1-30)
+	if baseTithiNumber > 30 {
+		baseTithiNumber = 30
 	}
-	if tithiNumber < 1 {
-		tithiNumber = 1
+	if baseTithiNumber < 1 {
+		baseTithiNumber = 1
 	}
 
 	span.SetAttributes(
 		attribute.Float64("tithi_float", tithiFloat),
-		attribute.Int("tithi_number", tithiNumber),
+		attribute.Int("base_tithi_number", baseTithiNumber),
 	)
 
-	// Determine if it's Shukla Paksha (waxing) or Krishna Paksha (waning)
-	isShukla := tithiNumber <= 15
+	// Calculate paksha information and adjust for calendar system
+	var tithiNumber, pakshaDay int
+	var paksha string
+	var isShukla bool
+	var traditionalName string
 
-	// Get Tithi name
-	tithiName := TithiNames[tithiNumber]
+	if calendarSystem == "Amanta" {
+		// In Amanta system, Krishna paksha comes first (1-15), then Shukla paksha (1-15)
+		// But astronomically, we still use 1-30 numbering where 1-15 is Shukla, 16-30 is Krishna
+		
+		if baseTithiNumber <= 15 {
+			// Shukla Paksha (waxing moon)
+			isShukla = true
+			paksha = "Shukla"
+			pakshaDay = baseTithiNumber
+			tithiNumber = baseTithiNumber  // Keep original numbering for internal calculations
+		} else {
+			// Krishna Paksha (waning moon) - adjust numbering for Amanta
+			isShukla = false
+			paksha = "Krishna"
+			pakshaDay = baseTithiNumber - 15  // 16 becomes 1, 17 becomes 2, etc.
+			tithiNumber = baseTithiNumber     // Keep original for internal calculations
+		}
+		
+		// Get traditional name based on paksha day
+		if pakshaDay == 15 && !isShukla {
+			traditionalName = "Amavasya"  // Special case for new moon
+		} else {
+			traditionalName = PakshaNames[pakshaDay]
+		}
+	} else {
+		// Purnimanta system (standard)
+		if baseTithiNumber <= 15 {
+			// Shukla Paksha (waxing moon)
+			isShukla = true
+			paksha = "Shukla"
+			pakshaDay = baseTithiNumber
+		} else {
+			// Krishna Paksha (waning moon)
+			isShukla = false
+			paksha = "Krishna"
+			pakshaDay = baseTithiNumber - 15  // 16 becomes 1, 17 becomes 2, etc.
+		}
+		tithiNumber = baseTithiNumber
+		traditionalName = TraditionalTithiNames[baseTithiNumber]
+	}
 
-	// Determine Tithi type
-	tithiType := getTithiType(tithiNumber)
+	// Get standard name and traditional name
+	tithiName := TithiNames[baseTithiNumber]
+
+	// Determine Tithi type based on paksha day
+	tithiType := getTithiType(pakshaDay)
 
 	// Calculate approximate start and end times
-	// Each Tithi spans 12 degrees, so we can estimate timing
 	startTime, endTime := tc.calculateTithiTimes(ctx, tithiFloat, referenceDate)
 
 	span.SetAttributes(
 		attribute.String("tithi_name", tithiName),
+		attribute.String("traditional_name", traditionalName),
+		attribute.String("paksha", paksha),
+		attribute.Int("paksha_day", pakshaDay),
 		attribute.String("tithi_type", string(tithiType)),
 		attribute.Bool("is_shukla", isShukla),
 		attribute.String("start_time", startTime.Format("15:04:05")),
@@ -182,19 +262,26 @@ func (tc *TithiCalculator) calculateTithiFromLongitudes(ctx context.Context, sun
 	duration := endTime.Sub(startTime).Hours()
 
 	tithi := &TithiInfo{
-		Number:      tithiNumber,
-		Name:        tithiName,
-		Type:        tithiType,
-		StartTime:   startTime,
-		EndTime:     endTime,
-		Duration:    duration,
-		IsShukla:    isShukla,
-		MoonSunDiff: moonSunDiff,
+		Number:          tithiNumber,
+		Name:            tithiName,
+		Type:            tithiType,
+		StartTime:       startTime,
+		EndTime:         endTime,
+		Duration:        duration,
+		IsShukla:        isShukla,
+		Paksha:          paksha,
+		PakshaDay:       pakshaDay,
+		TraditionalName: traditionalName,
+		MoonSunDiff:     moonSunDiff,
+		CalendarSystem:  calendarSystem,
 	}
 
 	span.AddEvent("Tithi calculation completed", trace.WithAttributes(
 		attribute.Int("tithi_number", tithiNumber),
 		attribute.String("tithi_name", tithiName),
+		attribute.String("traditional_name", traditionalName),
+		attribute.String("paksha", paksha),
+		attribute.Int("paksha_day", pakshaDay),
 		attribute.Float64("duration_hours", duration),
 	))
 
@@ -266,18 +353,24 @@ func getTithiType(tithiNumber int) TithiType {
 	}
 }
 
-// GetTithiFromLongitudes is a convenience function for direct longitude input
+// GetTithiFromLongitudes is a convenience function for direct longitude input with default Purnimanta system
 func (tc *TithiCalculator) GetTithiFromLongitudes(ctx context.Context, sunLong, moonLong float64, date time.Time) (*TithiInfo, error) {
-	ctx, span := tc.observer.CreateSpan(ctx, "TithiCalculator.GetTithiFromLongitudes")
+	return tc.GetTithiFromLongitudesWithCalendarSystem(ctx, sunLong, moonLong, date, "Purnimanta")
+}
+
+// GetTithiFromLongitudesWithCalendarSystem is a convenience function for direct longitude input with specified calendar system
+func (tc *TithiCalculator) GetTithiFromLongitudesWithCalendarSystem(ctx context.Context, sunLong, moonLong float64, date time.Time, calendarSystem string) (*TithiInfo, error) {
+	ctx, span := tc.observer.CreateSpan(ctx, "TithiCalculator.GetTithiFromLongitudesWithCalendarSystem")
 	defer span.End()
 
 	span.SetAttributes(
 		attribute.Float64("sun_longitude", sunLong),
 		attribute.Float64("moon_longitude", moonLong),
 		attribute.String("date", date.Format("2006-01-02")),
+		attribute.String("calendar_system", calendarSystem),
 	)
 
-	return tc.calculateTithiFromLongitudes(ctx, sunLong, moonLong, date)
+	return tc.calculateTithiFromLongitudes(ctx, sunLong, moonLong, date, calendarSystem)
 }
 
 // GetTithiTypeDescription returns a description of the Tithi type
@@ -308,6 +401,18 @@ func ValidateTithiCalculation(tithi *TithiInfo) error {
 		return fmt.Errorf("invalid tithi number: %d, must be between 1 and 30", tithi.Number)
 	}
 
+	if tithi.PakshaDay < 1 || tithi.PakshaDay > 15 {
+		return fmt.Errorf("invalid paksha day: %d, must be between 1 and 15", tithi.PakshaDay)
+	}
+
+	if tithi.Paksha != "Shukla" && tithi.Paksha != "Krishna" {
+		return fmt.Errorf("invalid paksha: %s, must be Shukla or Krishna", tithi.Paksha)
+	}
+
+	if tithi.CalendarSystem != "Purnimanta" && tithi.CalendarSystem != "Amanta" {
+		return fmt.Errorf("invalid calendar system: %s, must be Purnimanta or Amanta", tithi.CalendarSystem)
+	}
+
 	if tithi.MoonSunDiff < 0 || tithi.MoonSunDiff >= 360 {
 		return fmt.Errorf("invalid moon-sun difference: %f, must be between 0 and 360 degrees", tithi.MoonSunDiff)
 	}
@@ -318,6 +423,10 @@ func ValidateTithiCalculation(tithi *TithiInfo) error {
 
 	if tithi.EndTime.Before(tithi.StartTime) {
 		return fmt.Errorf("tithi end time cannot be before start time")
+	}
+
+	if tithi.Name == "" || tithi.TraditionalName == "" {
+		return fmt.Errorf("tithi names cannot be empty")
 	}
 
 	return nil

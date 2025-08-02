@@ -86,6 +86,7 @@ function App() {
     todayLoaded,
     loadedCount,
     totalCount,
+    loadingPhase,
     error, 
     errorState, 
     retry 
@@ -164,6 +165,8 @@ function App() {
           progress={progress}
           loadedCount={loadedCount}
           totalCount={totalCount}
+          loadingPhase={loadingPhase}
+          todayLoaded={todayLoaded}
           retry={retry}
           calendarProps={{
             year,
