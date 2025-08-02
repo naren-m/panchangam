@@ -9,7 +9,7 @@
 // - protoc             v5.29.3
 // source: proto/panchangam.proto
 
-package panchangam
+package proto
 
 import (
 	context "context"

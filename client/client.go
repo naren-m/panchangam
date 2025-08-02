@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	ppb "github.com/naren-m/panchangam/proto/panchangam"
+	ppb "github.com/naren-m/panchangam/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

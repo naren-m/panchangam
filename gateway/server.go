@@ -12,7 +12,7 @@ import (
 
 	"github.com/naren-m/panchangam/cache"
 	"github.com/naren-m/panchangam/log"
-	ppb "github.com/naren-m/panchangam/proto/panchangam"
+	ppb "github.com/naren-m/panchangam/proto"
 	"github.com/rs/cors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

@@ -7,7 +7,7 @@ syntax = "proto3";
 
 package panchangam;
 
-option go_package = "./panchangam";
+option go_package = "github.com/naren-m/panchangam/proto";
 
 // Panchangam service definition
 service Panchangam {

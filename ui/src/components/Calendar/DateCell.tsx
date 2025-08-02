@@ -50,8 +50,12 @@ export const DateCell: React.FC<DateCellProps> = ({
           {/* Tithi */}
           <div className="flex items-center space-x-1">
             <Moon className="w-3 h-3 text-blue-600" />
-            <span className="text-blue-700 font-medium truncate">
-              {data.tithi.split(' ')[1] || data.tithi}
+            <span className="text-blue-700 font-medium truncate" title={data.tithi || 'Loading...'}>
+              {data.tithi ? (
+                data.tithi.includes(' - ') ? data.tithi.split(' - ')[0] : data.tithi.split(' ')[0]
+              ) : (
+                'Loading...'
+              )}
             </span>
           </div>
 

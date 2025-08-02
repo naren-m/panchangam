@@ -10,7 +10,7 @@
 
 # Variables
 DOCKER_COMPOSE = docker-compose
-CONTAINER_NAME = panchangam-test-runner
+CONTAINER_NAME = panchangam-tests
 PROJECT_NAME = panchangam
 
 # Colors for output

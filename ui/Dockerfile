@@ -30,12 +30,12 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Create nginx user directories
+# Create nginx user directories and set permissions  
 RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run \
-    && chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run /usr/share/nginx/html
+    && chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run /usr/share/nginx/html \
+    && chmod 755 /var/run
 
-# Switch to nginx user
-USER nginx
+# Don't switch to nginx user - run as root for nginx to start properly
 
 # Expose port
 EXPOSE 80

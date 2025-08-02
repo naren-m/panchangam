@@ -1,23 +1,22 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { CalendarGrid } from './components/Calendar/CalendarGrid';
+import React, { useState, useMemo, useRef } from 'react';
 import { CalendarDisplayManager } from './components/Calendar/CalendarDisplayManager';
 import { MonthNavigation } from './components/Calendar/MonthNavigation';
 import { DayDetailModal } from './components/DayDetail/DayDetailModal';
 import { LocationSelector } from './components/LocationPicker/LocationSelector';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
-import { SkeletonCalendar, LoadingSpinner } from './components/common/Loading';
-import { ApiError, NetworkError, ErrorBoundary } from './components/common/Error';
+import { ErrorBoundary } from './components/common/Error';
 import { useProgressivePanchangam } from './hooks/useProgressivePanchangam';
 import { useDayDetail } from './hooks/useDayDetail';
 import { Settings, PanchangamData } from './types/panchangam';
 import { getCurrentMonthDates } from './utils/dateHelpers';
-import { locationService } from './services/locationService';
+import { SkyVisualizationContainer } from './components/SkyVisualization';
 
 function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showLocationSelector, setShowLocationSelector] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSkyVisualization, setShowSkyVisualization] = useState(false);
   const [settingsState, setSettingsState] = useState({
     calculation_method: 'Drik',
     locale: 'en',
@@ -153,6 +152,7 @@ function App() {
           onToday={handleToday}
           onLocationClick={() => setShowLocationSelector(true)}
           onSettingsClick={() => setShowSettings(true)}
+          onSkyViewClick={() => setShowSkyVisualization(true)}
         />
 
         {/* Calendar Display Logic - Ensures only ONE calendar renders at a time */}
@@ -215,6 +215,27 @@ function App() {
           onSettingsChange={setSettingsState}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {showSkyVisualization && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center">
+          <div className="relative w-full h-full max-w-7xl max-h-full p-4">
+            <button
+              onClick={() => setShowSkyVisualization(false)}
+              className="absolute top-6 right-6 z-10 bg-gray-800 bg-opacity-90 text-white rounded-full p-2 hover:bg-gray-700 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <SkyVisualizationContainer
+              latitude={settings.location.latitude}
+              longitude={settings.location.longitude}
+              date={currentDate}
+              className="w-full h-full rounded-lg overflow-hidden"
+            />
+          </div>
+        </div>
       )}
       </div>
     </ErrorBoundary>

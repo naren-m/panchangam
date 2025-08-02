@@ -1,0 +1,5 @@
+window.__RUNTIME_CONFIG__ = {
+  API_ENDPOINT: "http://192.168.68.138:8085",
+  BUILD_TIME: "2025-07-30T21:35:00Z",
+  VERSION: "dev"
+};
