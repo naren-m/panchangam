@@ -153,51 +153,14 @@ Display as timeline with color coding:
 **Date Handling**: date-fns or Day.js for timezone-aware operations
 
 ### Backend Integration
-Since the actual Go gRPC API may not be running, create a mock API service:
+The application integrates with the Go-based gRPC API through HTTP endpoints. The API client handles:
+- Request validation (date format, coordinates, timezone)
+- Response validation and transformation
+- Caching for performance optimization
+- Error handling with graceful degradation
+- Progressive loading for date ranges
 
-```typescript
-// Mock API service
-interface PanchangamData {
-  date: string;
-  tithi: string;
-  nakshatra: string;
-  yoga: string;
-  karana: string;
-  sunrise_time: string;
-  sunset_time: string;
-  events: Array<{
-    name: string;
-    time: string;
-    event_type: string;
-  }>;
-}
-
-// Sample mock data with authentic panchangam information
-const mockPanchangamData: Record<string, PanchangamData> = {
-  "2024-01-15": {
-    date: "2024-01-15",
-    tithi: "Shukla Panchami",
-    nakshatra: "Rohini", 
-    yoga: "Siddha",
-    karana: "Bava",
-    sunrise_time: "06:45:30",
-    sunset_time: "18:15:45",
-    events: [
-      {
-        name: "Rahu Kalam",
-        time: "09:30:00-11:00:00", 
-        event_type: "RAHU_KALAM"
-      },
-      {
-        name: "Abhijit Muhurta",
-        time: "12:00:00-12:48:00",
-        event_type: "MUHURTA"
-      }
-    ]
-  }
-  // Add more sample dates
-};
-```
+See `ui/src/services/api/panchangamApiClient.ts` for the complete implementation.
 
 ### Component Architecture
 ```
