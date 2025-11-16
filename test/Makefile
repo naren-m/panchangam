@@ -4,6 +4,7 @@
 .PHONY: help build test test-smoke test-integration test-performance test-security
 .PHONY: test-all test-verbose test-coverage test-html shell logs clean
 .PHONY: install-deps check-deps lint format security-scan
+.PHONY: test-data-validation test-cache test-e2e test-issue-81 test-load
 
 # Default target
 .DEFAULT_GOAL := help
@@ -72,6 +73,43 @@ test-performance: build ## Run performance tests only
 test-security: build ## Run security tests only
 	@echo "$(BLUE)Running security tests...$(NC)"
 	./run-docker-tests.sh security
+
+test-data-validation: build ## Run data validation tests (Issue #81)
+	@echo "$(BLUE)Running data validation tests...$(NC)"
+	$(DOCKER_COMPOSE) run --rm $(CONTAINER_NAME) pytest -v -m data_validation
+
+test-cache: build ## Run cache integration tests (Issue #81)
+	@echo "$(BLUE)Running cache integration tests...$(NC)"
+	$(DOCKER_COMPOSE) run --rm $(CONTAINER_NAME) pytest -v -m cache test_cache_integration.py
+
+test-e2e: build ## Run end-to-end integration tests (Issue #81)
+	@echo "$(BLUE)Running end-to-end integration tests...$(NC)"
+	$(DOCKER_COMPOSE) run --rm $(CONTAINER_NAME) pytest -v -m e2e test_e2e_integration.py
+
+test-issue-81: build ## Run all Issue #81 specific tests
+	@echo "$(BLUE)Running Issue #81 comprehensive test suite...$(NC)"
+	@echo "$(YELLOW)1. Data Validation Tests$(NC)"
+	$(DOCKER_COMPOSE) run --rm $(CONTAINER_NAME) pytest -v test_data_validation.py
+	@echo "$(YELLOW)2. Performance Tests$(NC)"
+	$(DOCKER_COMPOSE) run --rm $(CONTAINER_NAME) pytest -v test_performance.py
+	@echo "$(YELLOW)3. Cache Integration Tests$(NC)"
+	$(DOCKER_COMPOSE) run --rm $(CONTAINER_NAME) pytest -v test_cache_integration.py
+	@echo "$(YELLOW)4. End-to-End Tests$(NC)"
+	$(DOCKER_COMPOSE) run --rm $(CONTAINER_NAME) pytest -v test_e2e_integration.py
+	@echo "$(GREEN)Issue #81 test suite completed!$(NC)"
+
+test-load: build ## Run load tests with Locust (Issue #81)
+	@echo "$(BLUE)Running load tests with Locust...$(NC)"
+	@echo "$(YELLOW)Starting Locust web interface on http://localhost:8089$(NC)"
+	@echo "$(YELLOW)Use Ctrl+C to stop$(NC)"
+	$(DOCKER_COMPOSE) run --rm -p 8089:8089 $(CONTAINER_NAME) \
+		locust -f locustfile.py --host=http://localhost:8080 --web-host=0.0.0.0
+
+test-load-headless: build ## Run load tests headless with 50 users (Issue #81 requirement)
+	@echo "$(BLUE)Running headless load test (50 concurrent users)...$(NC)"
+	$(DOCKER_COMPOSE) run --rm $(CONTAINER_NAME) \
+		locust -f locustfile.py --host=http://localhost:8080 \
+		--headless --users 50 --spawn-rate 10 --run-time 60s
 
 test-all: build ## Run all tests with verbose output
 	@echo "$(BLUE)Running all tests with verbose output...$(NC)"
