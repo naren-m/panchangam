@@ -1,20 +1,21 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import { CalendarDisplayManager } from '../CalendarDisplayManager';
 import '@testing-library/jest-dom';
 
 // Mock child components
-jest.mock('../CalendarGrid', () => ({
+vi.mock('../CalendarGrid', () => ({
   CalendarGrid: ({ year, month }: { year: number; month: number }) => (
     <div data-testid="calendar-grid">Calendar {year}-{month}</div>
   ),
 }));
 
-jest.mock('../../common/Loading/SkeletonCalendar', () => ({
+vi.mock('../../common/Loading/SkeletonCalendar', () => ({
   SkeletonCalendar: () => <div data-testid="skeleton-calendar">Loading...</div>,
 }));
 
-jest.mock('../../common/Error', () => ({
+vi.mock('../../common/Error', () => ({
   NetworkError: ({ customMessage }: { customMessage: string }) => (
     <div data-testid="network-error">{customMessage}</div>
   ),
@@ -40,7 +41,7 @@ const mockCalendarProps = {
       region: 'California'
     }
   },
-  onDateClick: jest.fn()
+  onDateClick: vi.fn()
 };
 
 const mockErrorState = {
@@ -61,7 +62,7 @@ describe('CalendarDisplayManager', () => {
         progress={0}
         loadedCount={0}
         totalCount={35}
-        retry={jest.fn()}
+        retry={vi.fn()}
         calendarProps={mockCalendarProps}
       />
     );
@@ -81,7 +82,7 @@ describe('CalendarDisplayManager', () => {
         progress={100}
         loadedCount={35}
         totalCount={35}
-        retry={jest.fn()}
+        retry={vi.fn()}
         calendarProps={mockCalendarProps}
       />
     );
@@ -107,7 +108,7 @@ describe('CalendarDisplayManager', () => {
         progress={0}
         loadedCount={0}
         totalCount={35}
-        retry={jest.fn()}
+        retry={vi.fn()}
         calendarProps={mockCalendarProps}
       />
     );
@@ -135,7 +136,7 @@ describe('CalendarDisplayManager', () => {
         progress={0}
         loadedCount={0}
         totalCount={35}
-        retry={jest.fn()}
+        retry={vi.fn()}
         calendarProps={mockCalendarProps}
       />
     );
@@ -156,7 +157,7 @@ describe('CalendarDisplayManager', () => {
         progress={60}
         loadedCount={21}
         totalCount={35}
-        retry={jest.fn()}
+        retry={vi.fn()}
         calendarProps={mockCalendarProps}
       />
     );
@@ -178,7 +179,7 @@ describe('CalendarDisplayManager', () => {
         progress={0}
         loadedCount={0}
         totalCount={35}
-        retry={jest.fn()}
+        retry={vi.fn()}
         calendarProps={mockCalendarProps}
       />
     );
@@ -198,7 +199,7 @@ describe('CalendarDisplayManager', () => {
         progress={100}
         loadedCount={35}
         totalCount={35}
-        retry={jest.fn()}
+        retry={vi.fn()}
         calendarProps={mockCalendarProps}
       />
     );
@@ -218,7 +219,7 @@ describe('CalendarDisplayManager', () => {
         progress={75}
         loadedCount={26}
         totalCount={35}
-        retry={jest.fn()}
+        retry={vi.fn()}
         calendarProps={mockCalendarProps}
       />
     );
