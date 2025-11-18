@@ -1,15 +1,21 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, Suspense, lazy } from 'react';
 import { CalendarDisplayManager } from './components/Calendar/CalendarDisplayManager';
 import { MonthNavigation } from './components/Calendar/MonthNavigation';
-import { DayDetailModal } from './components/DayDetail/DayDetailModal';
-import { LocationSelector } from './components/LocationPicker/LocationSelector';
-import { SettingsPanel } from './components/Settings/SettingsPanel';
+import { ViewSwitcher, ViewMode } from './components/ViewSwitcher';
 import { ErrorBoundary } from './components/common/Error';
 import { useProgressivePanchangam } from './hooks/useProgressivePanchangam';
 import { useDayDetail } from './hooks/useDayDetail';
 import { Settings, PanchangamData } from './types/panchangam';
 import { getCurrentMonthDates } from './utils/dateHelpers';
-import { SkyVisualizationContainer } from './components/SkyVisualization';
+import { exportToCSV, exportToJSON } from './utils/exportHelpers';
+
+// Lazy load heavy components to improve initial load performance
+const DayDetailModal = lazy(() => import('./components/DayDetail/DayDetailModal').then(module => ({ default: module.DayDetailModal })));
+const LocationSelector = lazy(() => import('./components/LocationPicker/LocationSelector').then(module => ({ default: module.LocationSelector })));
+const SettingsPanel = lazy(() => import('./components/Settings/SettingsPanel').then(module => ({ default: module.SettingsPanel })));
+const SkyVisualizationContainer = lazy(() => import('./components/SkyVisualization').then(module => ({ default: module.SkyVisualizationContainer })));
+const TableView = lazy(() => import('./components/TableView').then(module => ({ default: module.TableView })));
+const GraphView = lazy(() => import('./components/GraphView').then(module => ({ default: module.GraphView })));
 
 function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -17,6 +23,7 @@ function App() {
   const [showLocationSelector, setShowLocationSelector] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSkyVisualization, setShowSkyVisualization] = useState(false);
+  const [currentView, setCurrentView] = useState<ViewMode>('calendar');
   const [settingsState, setSettingsState] = useState({
     calculation_method: 'Drik',
     locale: 'en',
@@ -128,6 +135,15 @@ function App() {
     retry,
   });
 
+  // Export handlers
+  const handleExport = (format: 'csv' | 'json') => {
+    if (format === 'csv') {
+      exportToCSV(panchangamData, settings, year, month);
+    } else {
+      exportToJSON(panchangamData, settings, year, month);
+    }
+  };
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -155,27 +171,73 @@ function App() {
           onSkyViewClick={() => setShowSkyVisualization(true)}
         />
 
-        {/* Calendar Display Logic - Ensures only ONE calendar renders at a time */}
-        <CalendarDisplayManager
-          loading={loading}
-          hasData={Object.keys(panchangamData).length > 0}
-          error={error}
-          errorState={errorState}
-          isProgressiveLoading={isProgressiveLoading}
-          progress={progress}
-          loadedCount={loadedCount}
-          totalCount={totalCount}
-          loadingPhase={loadingPhase}
-          todayLoaded={todayLoaded}
-          retry={retry}
-          calendarProps={{
-            year,
-            month,
-            panchangamData,
-            settings,
-            onDateClick: handleDateClick
-          }}
-        />
+        {/* View Switcher */}
+        <div className="mb-6 flex justify-center">
+          <ViewSwitcher
+            currentView={currentView}
+            onViewChange={setCurrentView}
+          />
+        </div>
+
+        {/* View Display - Shows Calendar, Table, or Graph based on currentView */}
+        {currentView === 'calendar' && (
+          <CalendarDisplayManager
+            loading={loading}
+            hasData={Object.keys(panchangamData).length > 0}
+            error={error}
+            errorState={errorState}
+            isProgressiveLoading={isProgressiveLoading}
+            progress={progress}
+            loadedCount={loadedCount}
+            totalCount={totalCount}
+            loadingPhase={loadingPhase}
+            todayLoaded={todayLoaded}
+            retry={retry}
+            calendarProps={{
+              year,
+              month,
+              panchangamData,
+              settings,
+              onDateClick: handleDateClick
+            }}
+          />
+        )}
+
+        {currentView === 'table' && (
+          <Suspense fallback={
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading table view...</p>
+            </div>
+          }>
+            <TableView
+              year={year}
+              month={month}
+              panchangamData={panchangamData}
+              settings={settings}
+              onDateClick={handleDateClick}
+              onExport={handleExport}
+            />
+          </Suspense>
+        )}
+
+        {currentView === 'graph' && (
+          <Suspense fallback={
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading analytics...</p>
+            </div>
+          }>
+            <GraphView
+              year={year}
+              month={month}
+              panchangamData={panchangamData}
+              settings={settings}
+              onDateClick={handleDateClick}
+              onExport={handleExport}
+            />
+          </Suspense>
+        )}
 
         {/* Footer */}
         <div className="text-center mt-8 text-gray-600">
@@ -188,55 +250,64 @@ function App() {
         </div>
       </div>
 
-      {/* Modals */}
-      {selectedDate && (
-        <DayDetailModal
-          date={selectedDate}
-          data={dayDetail.data}
-          settings={settings}
-          isLoading={dayDetail.isLoading}
-          error={dayDetail.error}
-          onRetry={dayDetail.retry}
-          onClose={() => setSelectedDate(null)}
-        />
-      )}
-
-      {showLocationSelector && (
-        <LocationSelector
-          currentLocation={settings.location}
-          onLocationSelect={handleLocationSelect}
-          onClose={() => setShowLocationSelector(false)}
-        />
-      )}
-
-      {showSettings && (
-        <SettingsPanel
-          settings={settings}
-          onSettingsChange={setSettingsState}
-          onClose={() => setShowSettings(false)}
-        />
-      )}
-
-      {showSkyVisualization && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center">
-          <div className="relative w-full h-full max-w-7xl max-h-full p-4">
-            <button
-              onClick={() => setShowSkyVisualization(false)}
-              className="absolute top-6 right-6 z-10 bg-gray-800 bg-opacity-90 text-white rounded-full p-2 hover:bg-gray-700 transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <SkyVisualizationContainer
-              latitude={settings.location.latitude}
-              longitude={settings.location.longitude}
-              date={currentDate}
-              className="w-full h-full rounded-lg overflow-hidden"
-            />
+      {/* Modals - Wrapped in Suspense for lazy loading */}
+      <Suspense fallback={
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 shadow-xl">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
           </div>
         </div>
-      )}
+      }>
+        {selectedDate && (
+          <DayDetailModal
+            date={selectedDate}
+            data={dayDetail.data}
+            settings={settings}
+            isLoading={dayDetail.isLoading}
+            error={dayDetail.error}
+            onRetry={dayDetail.retry}
+            onClose={() => setSelectedDate(null)}
+          />
+        )}
+
+        {showLocationSelector && (
+          <LocationSelector
+            currentLocation={settings.location}
+            onLocationSelect={handleLocationSelect}
+            onClose={() => setShowLocationSelector(false)}
+          />
+        )}
+
+        {showSettings && (
+          <SettingsPanel
+            settings={settings}
+            onSettingsChange={setSettingsState}
+            onClose={() => setShowSettings(false)}
+          />
+        )}
+
+        {showSkyVisualization && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center">
+            <div className="relative w-full h-full max-w-7xl max-h-full p-4">
+              <button
+                onClick={() => setShowSkyVisualization(false)}
+                className="absolute top-6 right-6 z-10 bg-gray-800 bg-opacity-90 text-white rounded-full p-2 hover:bg-gray-700 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <SkyVisualizationContainer
+                latitude={settings.location.latitude}
+                longitude={settings.location.longitude}
+                date={currentDate}
+                className="w-full h-full rounded-lg overflow-hidden"
+              />
+            </div>
+          </div>
+        )}
+      </Suspense>
       </div>
     </ErrorBoundary>
   );
