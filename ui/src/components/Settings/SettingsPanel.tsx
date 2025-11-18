@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Globe, Calculator, Clock, Map } from 'lucide-react';
+import { X, Globe, Calculator, Clock, Map, Calendar } from 'lucide-react';
 import { Settings } from '../../types/panchangam';
 import { ApiHealthCheck } from './ApiHealthCheck';
 
@@ -94,6 +94,28 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <option value="en">English</option>
               <option value="hi">हिन्दी (Hindi)</option>
               <option value="ta">தமிழ் (Tamil)</option>
+              <option value="ml">മലയാളം (Malayalam)</option>
+              <option value="bn">বাংলা (Bengali)</option>
+              <option value="gu">ગુજરાતી (Gujarati)</option>
+              <option value="mr">मराठी (Marathi)</option>
+            </select>
+          </div>
+
+          {/* Calendar System */}
+          <div>
+            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-3">
+              <Calendar className="w-4 h-4" />
+              <span>Calendar System</span>
+            </label>
+            <select
+              value={settings.calendar_system || 'purnimanta'}
+              onChange={(e) => handleChange('calendar_system', e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            >
+              <option value="purnimanta">Purnimanta (North India - Month ends on Full Moon)</option>
+              <option value="amanta">Amanta (South India - Month ends on New Moon)</option>
+              <option value="solar">Solar Calendar</option>
+              <option value="lunar">Lunar Calendar</option>
             </select>
           </div>
 
@@ -140,16 +162,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               onChange={(e) => handleChange('region', e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             >
-              <option value="Tamil Nadu">Tamil Nadu</option>
-              <option value="Karnataka">Karnataka</option>
-              <option value="Andhra Pradesh">Andhra Pradesh</option>
-              <option value="Kerala">Kerala</option>
-              <option value="Maharashtra">Maharashtra</option>
-              <option value="Gujarat">Gujarat</option>
-              <option value="Rajasthan">Rajasthan</option>
-              <option value="Uttar Pradesh">Uttar Pradesh</option>
-              <option value="West Bengal">West Bengal</option>
-              <option value="Delhi">Delhi</option>
+              <option value="global">Global</option>
+              <option value="tamil_nadu">Tamil Nadu</option>
+              <option value="kerala">Kerala</option>
+              <option value="bengal">West Bengal</option>
+              <option value="gujarat">Gujarat</option>
+              <option value="maharashtra">Maharashtra</option>
+              <option value="north_india">North India</option>
+              <option value="south_india">South India</option>
             </select>
           </div>
         </div>
