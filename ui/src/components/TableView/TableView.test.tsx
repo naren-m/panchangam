@@ -214,7 +214,14 @@ describe('TableView', () => {
       />
     );
 
-    expect(screen.getByText('Today')).toBeInTheDocument();
+    // Check for the "Today" badge in the date cell (not the legend)
+    const todayBadges = screen.getAllByText('Today');
+    expect(todayBadges.length).toBeGreaterThan(0);
+    // Verify at least one is the badge with the specific styling
+    const todayBadge = todayBadges.find(el =>
+      el.className.includes('bg-orange-500') && el.className.includes('rounded-full')
+    );
+    expect(todayBadge).toBeTruthy();
   });
 
   it('formats time in 12-hour format when setting is 12', () => {

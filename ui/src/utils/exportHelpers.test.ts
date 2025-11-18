@@ -96,9 +96,9 @@ describe('exportHelpers', () => {
     });
 
     it('sets correct filename for CSV export', () => {
-      const mockLink = createElementSpy.mock.results[0].value;
       exportToCSV(mockPanchangamData, mockSettings, 2024, 0);
 
+      const mockLink = createElementSpy.mock.results[0].value;
       const setAttributeCalls = mockLink.setAttribute.mock.calls;
       const downloadCall = setAttributeCalls.find((call: any) => call[0] === 'download');
       expect(downloadCall).toBeDefined();
@@ -136,9 +136,9 @@ describe('exportHelpers', () => {
     });
 
     it('sets correct filename for JSON export', () => {
-      const mockLink = createElementSpy.mock.results[0].value;
       exportToJSON(mockPanchangamData, mockSettings, 2024, 0);
 
+      const mockLink = createElementSpy.mock.results[0].value;
       const setAttributeCalls = mockLink.setAttribute.mock.calls;
       const downloadCall = setAttributeCalls.find((call: any) => call[0] === 'download');
       expect(downloadCall).toBeDefined();
@@ -179,9 +179,8 @@ describe('exportHelpers', () => {
     });
 
     it('creates appropriate file based on format parameter', () => {
-      const mockLink = createElementSpy.mock.results[0].value;
-
       exportAnalyticsData(mockPanchangamData, mockSettings, 2024, 0, 'csv');
+      const mockLink = createElementSpy.mock.results[0].value;
       let downloadCall = mockLink.setAttribute.mock.calls.find((call: any) => call[0] === 'download');
       expect(downloadCall[1]).toContain('.csv');
 
@@ -217,8 +216,8 @@ describe('exportHelpers', () => {
         }
       };
 
-      const mockLink = createElementSpy.mock.results[0].value;
       exportToCSV(mockPanchangamData, settingsWithSpecialChars, 2024, 0);
+      const mockLink = createElementSpy.mock.results[0].value;
 
       const setAttributeCalls = mockLink.setAttribute.mock.calls;
       const downloadCall = setAttributeCalls.find((call: any) => call[0] === 'download');
@@ -226,8 +225,8 @@ describe('exportHelpers', () => {
     });
 
     it('formats month with leading zero', () => {
-      const mockLink = createElementSpy.mock.results[0].value;
       exportToCSV(mockPanchangamData, mockSettings, 2024, 0);
+      const mockLink = createElementSpy.mock.results[0].value;
 
       const setAttributeCalls = mockLink.setAttribute.mock.calls;
       const downloadCall = setAttributeCalls.find((call: any) => call[0] === 'download');
