@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { panchangamApiClient } from '../panchangamApiClient';
 import { PanchangamApiError } from '../types';
+import { requestCache } from '../requestCache';
 import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
@@ -19,6 +20,7 @@ const mockApiClient = apiClient as any;
 describe('PanchangamApiClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    requestCache.clear(); // Clear cache before each test
   });
 
   afterEach(() => {

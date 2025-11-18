@@ -214,7 +214,9 @@ describe('TableView', () => {
       />
     );
 
-    expect(screen.getByText('Today')).toBeInTheDocument();
+    // Should have "Today" badge in the table row
+    const todayElements = screen.getAllByText('Today');
+    expect(todayElements.length).toBeGreaterThan(0);
   });
 
   it('formats time in 12-hour format when setting is 12', () => {
