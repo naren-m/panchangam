@@ -1,0 +1,39 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: panchangam-staging
+
+bases:
+  - ../../base
+
+namePrefix: staging-
+
+commonLabels:
+  environment: staging
+
+replicas:
+  - name: panchangam-grpc
+    count: 2
+  - name: panchangam-gateway
+    count: 2
+  - name: panchangam-frontend
+    count: 1
+
+images:
+  - name: ghcr.io/naren-m/panchangam-backend
+    newTag: staging
+  - name: ghcr.io/naren-m/panchangam-frontend
+    newTag: staging
+
+configMapGenerator:
+  - name: panchangam-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging
+      - LOG_LEVEL=debug
+
+secretGenerator:
+  - name: panchangam-secrets
+    behavior: merge
+    envs:
+      - secrets.env
