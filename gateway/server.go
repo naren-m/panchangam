@@ -10,9 +10,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/naren-m/panchangam/astronomy/ephemeris"
 	"github.com/naren-m/panchangam/cache"
 	"github.com/naren-m/panchangam/log"
 	ppb "github.com/naren-m/panchangam/proto"
+	"github.com/naren-m/panchangam/services/skyview"
 	"github.com/rs/cors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -22,10 +24,11 @@ var logger = log.Logger()
 
 // GatewayServer represents the HTTP gateway server
 type GatewayServer struct {
-	grpcEndpoint string
-	httpPort     string
-	server       *http.Server
-	cache        *cache.RedisCache
+	grpcEndpoint      string
+	httpPort          string
+	server            *http.Server
+	cache             *cache.RedisCache
+	ephemerisProvider ephemeris.EphemerisProvider
 }
 
 // NewGatewayServer creates a new HTTP gateway server
@@ -43,6 +46,11 @@ func NewGatewayServerWithCache(grpcEndpoint, httpPort string, redisCache *cache.
 		httpPort:     httpPort,
 		cache:        redisCache,
 	}
+}
+
+// SetEphemerisProvider sets the ephemeris provider for sky view functionality
+func (g *GatewayServer) SetEphemerisProvider(provider ephemeris.EphemerisProvider) {
+	g.ephemerisProvider = provider
 }
 
 // Start starts the HTTP gateway server
@@ -65,7 +73,10 @@ func (g *GatewayServer) Start(ctx context.Context) error {
 
 	// Add panchangam endpoint
 	mux.HandleFunc("/api/v1/panchangam", g.handlePanchangam(client))
-	
+
+	// Add sky-view endpoint
+	mux.HandleFunc("/api/v1/sky-view", g.handleSkyView())
+
 	// Add cache health endpoint
 	if g.cache != nil {
 		mux.HandleFunc("/api/v1/cache/health", g.handleCacheHealth())
@@ -581,5 +592,162 @@ func (g *GatewayServer) handleCacheStats() http.HandlerFunc {
 			logger.Error("Failed to encode cache stats", "error", err)
 			writeErrorResponse(w, r, http.StatusInternalServerError, "ENCODING_ERROR", "Failed to encode stats", nil)
 		}
+	}
+}
+
+// handleSkyView handles requests for sky visualization data
+func (g *GatewayServer) handleSkyView() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Only allow GET requests
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Check if ephemeris provider is available
+		if g.ephemerisProvider == nil {
+			writeErrorResponse(w, r, http.StatusServiceUnavailable, "EPHEMERIS_UNAVAILABLE",
+				"Ephemeris data provider is not available", nil)
+			return
+		}
+
+		// Extract query parameters
+		query := r.URL.Query()
+
+		// Parse date/time (optional, defaults to now)
+		var observationTime time.Time
+		dateStr := query.Get("date")
+		timeStr := query.Get("time")
+
+		if dateStr != "" {
+			if timeStr != "" {
+				// Parse date and time
+				dateTimeStr := dateStr + "T" + timeStr
+				var err error
+				observationTime, err = time.Parse("2006-01-02T15:04:05", dateTimeStr)
+				if err != nil {
+					writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_DATETIME",
+						"Invalid date/time format. Expected: date=YYYY-MM-DD&time=HH:MM:SS", map[string]interface{}{
+						"date": dateStr,
+						"time": timeStr,
+					})
+					return
+				}
+			} else {
+				// Parse date only, time defaults to midnight
+				var err error
+				observationTime, err = time.Parse("2006-01-02", dateStr)
+				if err != nil {
+					writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_DATE",
+						"Invalid date format. Expected: YYYY-MM-DD", map[string]interface{}{
+						"date": dateStr,
+					})
+					return
+				}
+			}
+		} else {
+			// Default to current time
+			observationTime = time.Now().UTC()
+		}
+
+		// Parse required parameters
+		latStr := query.Get("lat")
+		if latStr == "" {
+			writeErrorResponse(w, r, http.StatusBadRequest, "MISSING_PARAMETER",
+				"Missing required parameter: lat", nil)
+			return
+		}
+
+		lngStr := query.Get("lng")
+		if lngStr == "" {
+			writeErrorResponse(w, r, http.StatusBadRequest, "MISSING_PARAMETER",
+				"Missing required parameter: lng", nil)
+			return
+		}
+
+		// Parse latitude
+		lat, err := strconv.ParseFloat(latStr, 64)
+		if err != nil || lat < -90 || lat > 90 {
+			writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER",
+				"Invalid latitude. Must be between -90 and 90", map[string]interface{}{
+				"parameter": "lat",
+				"value":     latStr,
+			})
+			return
+		}
+
+		// Parse longitude
+		lng, err := strconv.ParseFloat(lngStr, 64)
+		if err != nil || lng < -180 || lng > 180 {
+			writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER",
+				"Invalid longitude. Must be between -180 and 180", map[string]interface{}{
+				"parameter": "lng",
+				"value":     lngStr,
+			})
+			return
+		}
+
+		// Parse optional altitude
+		altitude := 0.0
+		if altStr := query.Get("alt"); altStr != "" {
+			altitude, err = strconv.ParseFloat(altStr, 64)
+			if err != nil {
+				writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER",
+					"Invalid altitude format", map[string]interface{}{
+					"parameter": "alt",
+					"value":     altStr,
+				})
+				return
+			}
+		}
+
+		// Parse optional timezone
+		timezone := query.Get("tz")
+		if timezone == "" {
+			timezone = "UTC"
+		}
+
+		// Create observer
+		observer := skyview.Observer{
+			Latitude:  lat,
+			Longitude: lng,
+			Altitude:  altitude,
+			Timezone:  timezone,
+		}
+
+		// Set timeout for operations
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		// Create sky view service
+		service := skyview.NewSkyViewService(g.ephemerisProvider)
+
+		// Get sky view data
+		skyViewData, err := service.GetSkyView(ctx, observer, observationTime)
+		if err != nil {
+			logger.Error("Failed to get sky view", "error", err,
+				"lat", lat, "lng", lng, "time", observationTime)
+			writeErrorResponse(w, r, http.StatusInternalServerError, "SKYVIEW_ERROR",
+				"Failed to calculate sky view data", map[string]interface{}{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		// Set response headers
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "public, max-age=300") // Cache for 5 minutes
+
+		// Write successful response
+		if err := json.NewEncoder(w).Encode(skyViewData); err != nil {
+			logger.Error("Failed to encode sky view response", "error", err)
+			writeErrorResponse(w, r, http.StatusInternalServerError, "ENCODING_ERROR",
+				"Failed to encode response", nil)
+			return
+		}
+
+		logger.Debug("Sky view request completed",
+			"lat", lat, "lng", lng, "time", observationTime,
+			"visible_bodies", len(skyViewData.VisibleBodies))
 	}
 }
