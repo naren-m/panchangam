@@ -40,6 +40,15 @@ message PanchangamData {
 
     // Additional Panchangam details or events for the given date
     repeated PanchangamEvent events = 8;
+
+    // Timezone used for calculations (e.g., "Asia/Kolkata", "UTC+05:30")
+    string timezone = 9;
+
+    // Timezone offset from UTC (e.g., "+05:30", "-08:00")
+    string timezone_offset = 10;
+
+    // Whether daylight saving time is active
+    bool is_dst = 11;
 }
 
 // Represents an event or special occurrence in the Panchangam
