@@ -240,7 +240,7 @@ func TestCalculateTithiFromLongitudes(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tithi, err := calculator.calculateTithiFromLongitudes(ctx, test.sunLong, test.moonLong, referenceDate)
+			tithi, err := calculator.calculateTithiFromLongitudes(ctx, test.sunLong, test.moonLong, referenceDate, "traditional")
 
 			require.NoError(t, err)
 			require.NotNil(t, tithi)
@@ -539,7 +539,7 @@ func BenchmarkCalculateTithiFromLongitudes(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := calculator.calculateTithiFromLongitudes(ctx, 100.0, 190.0, referenceDate)
+		_, err := calculator.calculateTithiFromLongitudes(ctx, 100.0, 190.0, referenceDate, "traditional")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -583,7 +583,7 @@ func TestTithiCalculation_EdgeCases(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tithi, err := calculator.calculateTithiFromLongitudes(ctx, test.sunLong, test.moonLong, referenceDate)
+			tithi, err := calculator.calculateTithiFromLongitudes(ctx, test.sunLong, test.moonLong, referenceDate, "traditional")
 
 			require.NoError(t, err)
 			require.NotNil(t, tithi)
