@@ -416,14 +416,16 @@ func TestPanchangamServer_LongTimezone(t *testing.T) {
 		Timezone:  "This/Is/A/Very/Long/Invalid/Timezone/String/That/Should/Cause/An/Error",
 	}
 
-	// This should still work but fallback to local timezone
+	// This should now return an InvalidArgument error due to timezone validation
 	resp, err := server.Get(context.Background(), req)
-	if err != nil && status.Code(err) == codes.Internal {
-		// Random error occurred, which is expected
-		t.Skip("Random error occurred, skipping validation")
+	if err != nil {
+		// With enhanced timezone validation, invalid timezones now return proper errors
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+		assert.Contains(t, err.Error(), "invalid timezone")
+		assert.Nil(t, resp)
 	} else {
-		require.NoError(t, err)
-		assert.NotNil(t, resp)
+		// If somehow it succeeded (shouldn't happen), fail the test
+		t.Fatal("Expected error for invalid timezone, but got success")
 	}
 }
 

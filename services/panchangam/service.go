@@ -334,26 +334,57 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 	}
 	logger.DebugContext(ctx, "Date parsed successfully", "parsed_date", date.Format("2006-01-02"))
 
-	// Handle timezone configuration
-	loc := time.Local // default to local timezone
-	logger.DebugContext(ctx, "Processing timezone", "timezone", req.Timezone)
-	if req.Timezone != "" {
-		parsedLoc, err := time.LoadLocation(req.Timezone)
-		if err != nil {
-			logger.WarnContext(ctx, "Failed to load timezone, falling back to local",
-				"requested_timezone", req.Timezone,
-				"error", err,
-				"fallback_timezone", "local")
-			span.AddEvent("Timezone fallback", traceAttributes(
-				"requested_timezone", req.Timezone,
-				"fallback_timezone", "local",
-			)...)
-		} else {
-			loc = parsedLoc
-			logger.DebugContext(ctx, "Timezone loaded successfully", "timezone", req.Timezone)
-		}
-	} else {
-		logger.DebugContext(ctx, "No timezone specified, using local timezone")
+	// Handle timezone configuration with enhanced parsing and validation
+	tzParser := NewTimezoneParser()
+	loc := time.UTC // default to UTC for consistency
+	tzString := req.Timezone
+	if tzString == "" {
+		tzString = "UTC"
+		logger.DebugContext(ctx, "No timezone specified, using UTC default")
+	}
+
+	logger.DebugContext(ctx, "Processing timezone", "timezone", tzString)
+	parsedLoc, err := tzParser.ParseTimezone(tzString)
+	if err != nil {
+		// Return error instead of falling back silently
+		grpcErr := status.Error(codes.InvalidArgument, fmt.Sprintf("invalid timezone: %v", err))
+
+		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
+			Severity:    observability.SeverityMedium,
+			Category:    observability.CategoryValidation,
+			Operation:   "timezone_parsing",
+			Component:   "panchangam_service",
+			Additional: map[string]interface{}{
+				"timezone_input": tzString,
+				"parse_error":    err.Error(),
+			},
+			Retryable:   false,
+			ExpectedErr: true,
+		})
+
+		logger.WarnContext(ctx, "Timezone parsing failed",
+			"timezone", tzString,
+			"error", grpcErr)
+		span.RecordError(grpcErr)
+		return nil, grpcErr
+	}
+
+	loc = parsedLoc
+	logger.DebugContext(ctx, "Timezone parsed successfully",
+		"timezone", tzString,
+		"location", loc.String())
+
+	// Validate timezone against location coordinates
+	isValid, warning := tzParser.ValidateTimezoneForLocation(loc, req.Latitude, req.Longitude)
+	if !isValid {
+		logger.WarnContext(ctx, "Timezone validation warning",
+			"timezone", tzString,
+			"latitude", req.Latitude,
+			"longitude", req.Longitude,
+			"warning", warning)
+		span.AddEvent("Timezone validation warning", traceAttributes(
+			"warning", warning,
+		)...)
 	}
 
 	// Adjust date to the requested timezone
@@ -693,15 +724,21 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		tithiDisplay = fmt.Sprintf("%s - %s Paksha Day %d (%s)", tithi.TraditionalName, tithi.Paksha, tithi.PakshaDay, calendarSystem)
 	}
 
+	// Get timezone information for the response
+	tzInfo := tzParser.GetTimezoneInfo(loc, date)
+
 	data := &ppb.PanchangamData{
-		Date:        req.Date,
-		Tithi:       tithiDisplay,
-		Nakshatra:   fmt.Sprintf("%s (%d)", nakshatra.Name, nakshatra.Number),
-		Yoga:        fmt.Sprintf("%s (%d)", yoga.Name, yoga.Number),
-		Karana:      fmt.Sprintf("%s (%d)", karana.Name, karana.Number),
-		SunriseTime: localSunrise.Format("15:04:05"),
-		SunsetTime:  localSunset.Format("15:04:05"),
-		Events:      events,
+		Date:           req.Date,
+		Tithi:          tithiDisplay,
+		Nakshatra:      fmt.Sprintf("%s (%d)", nakshatra.Name, nakshatra.Number),
+		Yoga:           fmt.Sprintf("%s (%d)", yoga.Name, yoga.Number),
+		Karana:         fmt.Sprintf("%s (%d)", karana.Name, karana.Number),
+		SunriseTime:    localSunrise.Format("15:04:05"),
+		SunsetTime:     localSunset.Format("15:04:05"),
+		Events:         events,
+		Timezone:       loc.String(),
+		TimezoneOffset: tzInfo.Formatted,
+		IsDst:          tzInfo.IsDST,
 	}
 
 	logger.InfoContext(ctx, "Panchangam data fetched successfully",

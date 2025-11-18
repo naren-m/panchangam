@@ -44,7 +44,13 @@ type PanchangamData struct {
 	// Sunset time for the given date (in ISO 8601 format: HH:MM:SS)
 	SunsetTime string `protobuf:"bytes,7,opt,name=sunset_time,json=sunsetTime,proto3" json:"sunset_time,omitempty"`
 	// Additional Panchangam details or events for the given date
-	Events        []*PanchangamEvent `protobuf:"bytes,8,rep,name=events,proto3" json:"events,omitempty"`
+	Events []*PanchangamEvent `protobuf:"bytes,8,rep,name=events,proto3" json:"events,omitempty"`
+	// Timezone used for calculations (e.g., "Asia/Kolkata", "UTC+05:30")
+	Timezone string `protobuf:"bytes,9,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	// Timezone offset from UTC (e.g., "+05:30", "-08:00")
+	TimezoneOffset string `protobuf:"bytes,10,opt,name=timezone_offset,json=timezoneOffset,proto3" json:"timezone_offset,omitempty"`
+	// Whether daylight saving time is active
+	IsDst         bool `protobuf:"varint,11,opt,name=is_dst,json=isDst,proto3" json:"is_dst,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -133,6 +139,27 @@ func (x *PanchangamData) GetEvents() []*PanchangamEvent {
 		return x.Events
 	}
 	return nil
+}
+
+func (x *PanchangamData) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *PanchangamData) GetTimezoneOffset() string {
+	if x != nil {
+		return x.TimezoneOffset
+	}
+	return ""
+}
+
+func (x *PanchangamData) GetIsDst() bool {
+	if x != nil {
+		return x.IsDst
+	}
+	return false
 }
 
 // Represents an event or special occurrence in the Panchangam
