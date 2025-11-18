@@ -145,7 +145,7 @@ export class ApiService {
      * Transform settings to API request parameters
      */
     settingsToApiParams: (
-      date: Date, 
+      date: Date,
       settings: Settings
     ): GetPanchangamRequest => ({
       date: date.toISOString().split('T')[0],
@@ -154,6 +154,7 @@ export class ApiService {
       timezone: settings.location.timezone,
       region: settings.region,
       calculation_method: settings.calculation_method,
+      calendar_system: settings.calendar_system,
       locale: settings.locale
     }),
 
