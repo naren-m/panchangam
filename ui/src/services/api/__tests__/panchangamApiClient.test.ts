@@ -20,7 +20,8 @@ const mockApiClient = apiClient as any;
 describe('PanchangamApiClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    requestCache.clear(); // Clear cache before each test
+    // Clear request cache to prevent test pollution
+    requestCache.clear();
   });
 
   afterEach(() => {
@@ -240,12 +241,19 @@ describe('PanchangamApiClient', () => {
         status: 200, statusText: 'OK', headers: {}, requestId: 'req1'
       };
 
+      const apiError = new PanchangamApiError(
+        'Server error',
+        'SERVER_ERROR',
+        'req2',
+        500
+      );
+
       mockApiClient.get.mockResolvedValueOnce(successResponse);
-      mockApiClient.get.mockRejectedValueOnce(new Error('API Error'));
+      mockApiClient.get.mockRejectedValueOnce(apiError);
 
       const result = await panchangamApiClient.getPanchangamRange('2024-01-01', '2024-01-02', baseRequest);
 
-      // Should return only successful results
+      // Should return only successful results (second request failed and should not use fallback for range queries)
       expect(result).toHaveLength(1);
       expect(result[0].date).toBe('2024-01-01');
     });

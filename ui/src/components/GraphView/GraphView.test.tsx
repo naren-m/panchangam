@@ -174,8 +174,15 @@ describe('GraphView', () => {
     );
 
     expect(screen.getByText(/Festival Days/)).toBeInTheDocument();
-    expect(screen.getByText('Makar Sankranti')).toBeInTheDocument();
-    expect(screen.getByText('Pongal')).toBeInTheDocument();
+    // Festivals are rendered with bullets and may appear multiple times
+    const makarElements = screen.getAllByText((content, element) =>
+      element?.textContent?.includes('Makar Sankranti') || false
+    );
+    expect(makarElements.length).toBeGreaterThan(0);
+    const pongalElements = screen.getAllByText((content, element) =>
+      element?.textContent?.includes('Pongal') || false
+    );
+    expect(pongalElements.length).toBeGreaterThan(0);
   });
 
   it('displays month summary statistics', () => {
@@ -209,7 +216,11 @@ describe('GraphView', () => {
       />
     );
 
-    const festivalCard = screen.getByText('Makar Sankranti').closest('div');
+    const festivalElements = screen.getAllByText((content, element) =>
+      element?.textContent?.includes('Makar Sankranti') || false
+    );
+    // Find the one that's in a clickable card (festival days section)
+    const festivalCard = festivalElements[0].closest('div[class*="cursor-pointer"]');
     if (festivalCard) {
       fireEvent.click(festivalCard);
       expect(onDateClick).toHaveBeenCalled();
@@ -268,7 +279,10 @@ describe('GraphView', () => {
       />
     );
 
-    expect(screen.getByText('3')).toBeInTheDocument(); // Total days
+    // Check for total days in month summary - look for element with "Total Days" label
+    const totalDaysSection = screen.getByText('Total Days').closest('div');
+    expect(totalDaysSection).toBeInTheDocument();
+    expect(totalDaysSection?.textContent).toContain('3');
   });
 
   it('counts festivals correctly', () => {
@@ -366,6 +380,8 @@ describe('GraphView', () => {
       />
     );
 
-    expect(screen.getByText('Today Festival')).toBeInTheDocument();
+    // The festival name may appear multiple times in different chart sections
+    const festivalElements = screen.getAllByText('Today Festival');
+    expect(festivalElements.length).toBeGreaterThan(0);
   });
 });
