@@ -1,0 +1,631 @@
+#!/usr/bin/env groovy
+import groovy.transform.Field
+
+/**
+ * Panchangam - CI/CD Pipeline with Test Gates & Slack Notifications
+ *
+ * Full test-gate-build-deploy pipeline:
+ * - PR Workflow: Run tests, update GitHub status, gate merge
+ * - Main Branch: Test → Build Multi-Arch → Deploy → Verify → Auto-rollback
+ *
+ * Uses homelab shared pipeline library for:
+ * - notifyGitHub: GitHub Commit Status API
+ * - notifySlack: Slack notifications (#prs-panchangam)
+ * - runTests: Test orchestration via SSH
+ * - collectTestArtifacts: Test result collection
+ * - rollbackDeployment: Auto-rollback on failure
+ * - buildMultiArchImage: Multi-arch Docker builds
+ */
+
+@Library('homelab-pipeline') _
+
+@Field def config = [
+    appName: 'panchangam',
+    appType: 'fullstack',  // Go backend (gRPC + Gateway) + React frontend
+    namespace: 'panchangam',
+    localRegistry: '192.168.68.138:5002',
+    kubeconfigId: 'homelab-kubeconfig',
+    platforms: 'linux/amd64,linux/arm64',
+    builderName: 'multiarch-builder',
+    testHost: 'macmini',
+    homelabRepo: '/Users/narenmudivarthy/Projects/homelab',
+    enableE2E: false,  // E2E tests disabled - enable when Playwright tests are ready
+    deployTimeout: 300,
+    // Slack configuration
+    slackChannel: '#prs-panchangam',
+    appUrl: 'https://panchangam.naren.me'
+]
+
+@Field def imageTag = ''
+@Field def testResults = [:]  // Store test results for Slack notification
+
+pipeline {
+    agent any
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+        timeout(time: 45, unit: 'MINUTES')
+        timestamps()
+    }
+
+    environment {
+        APP_NAME = "${config.appName}"
+        NAMESPACE = "${config.namespace}"
+        LOCAL_REGISTRY = "${config.localRegistry}"
+        FULL_IMAGE_NAME = "${config.localRegistry}/${config.appName}"
+        DOCKER_BUILDKIT = '1'
+        DOCKER_CLI_EXPERIMENTAL = 'enabled'
+        // PR detection - CHANGE_ID is set by Multibranch Pipeline for PRs
+        IS_PR = "${env.CHANGE_ID ? 'true' : 'false'}"
+        IS_MAIN = "${env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master' ? 'true' : 'false'}"
+        PREVIOUS_TAG = ''
+    }
+
+    stages {
+        stage('Initialize') {
+            steps {
+                script {
+                    echo "╔══════════════════════════════════════════════════════════════╗"
+                    echo "║           PANCHANGAM CI/CD PIPELINE STARTED                  ║"
+                    echo "╠══════════════════════════════════════════════════════════════╣"
+                    echo "║  Application: ${config.appName.padRight(47)}║"
+                    echo "║  Branch:      ${env.BRANCH_NAME?.padRight(47) ?: 'N/A'.padRight(47)}║"
+                    echo "║  Is PR:       ${env.IS_PR.padRight(47)}║"
+                    echo "║  Is Main:     ${env.IS_MAIN.padRight(47)}║"
+                    echo "║  Registry:    ${config.localRegistry.padRight(47)}║"
+                    echo "╚══════════════════════════════════════════════════════════════╝"
+
+                    // Generate image tag: HHmmss-ddMMMyy-githash
+                    def ts = new Date().format("HHmmss-ddMMMyy")
+                    def gitHash = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    imageTag = "${ts}-${gitHash}"
+                    echo "Image tag: ${imageTag}"
+
+                    // Set GitHub status to pending for PR builds
+                    if (env.IS_PR == 'true') {
+                        notifyGitHub(
+                            state: 'pending',
+                            context: 'ci/jenkins/pipeline',
+                            description: 'Pipeline started...'
+                        )
+
+                        // Notify Slack: PR opened/updated
+                        notifySlack.prOpened(
+                            repo: config.appName,
+                            prNumber: env.CHANGE_ID,
+                            title: env.CHANGE_TITLE,
+                            author: env.CHANGE_AUTHOR,
+                            branch: env.CHANGE_BRANCH,
+                            prUrl: env.CHANGE_URL
+                        )
+                    }
+
+                    // Notify Slack: Merge to main
+                    if (env.IS_MAIN == 'true') {
+                        notifySlack.prMerged(
+                            repo: config.appName,
+                            prNumber: env.CHANGE_ID ?: 'N/A',
+                            title: sh(script: 'git log -1 --pretty=%s', returnStdout: true).trim(),
+                            author: sh(script: 'git log -1 --pretty=%an', returnStdout: true).trim()
+                        )
+                    }
+                }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // TEST STAGES (PR and Main Branch)
+        // ═══════════════════════════════════════════════════════════════
+
+        stage('Run Tests') {
+            parallel {
+                stage('Go Backend Tests') {
+                    steps {
+                        script {
+                            if (env.IS_PR == 'true') {
+                                notifyGitHub(
+                                    state: 'pending',
+                                    context: 'ci/jenkins/backend-tests',
+                                    description: 'Running Go tests...'
+                                )
+                            }
+
+                            def results = runTests(
+                                appType: 'go',
+                                testType: 'unit',
+                                projectPath: env.WORKSPACE,
+                                host: config.testHost,
+                                testCommand: 'go test -v -race -coverprofile=/tmp/test-results/coverage.out -json ./... 2>&1 | tee /tmp/test-results/go-test.json | go-junit-report > /tmp/test-results/go-test.xml'
+                            )
+
+                            env.BACKEND_UNIT_PASSED = results.success ? 'true' : 'false'
+                            testResults.backend = [
+                                passed: results.passed ?: 0,
+                                failed: results.failed ?: 0,
+                                total: (results.passed ?: 0) + (results.failed ?: 0),
+                                success: results.success
+                            ]
+
+                            if (env.IS_PR == 'true') {
+                                notifyGitHub(
+                                    state: results.success ? 'success' : 'failure',
+                                    context: 'ci/jenkins/backend-tests',
+                                    description: results.success
+                                        ? "Passed: ${results.passed} tests"
+                                        : "Failed: ${results.failed} of ${results.passed + results.failed} tests"
+                                )
+                            }
+
+                            if (!results.success) {
+                                error "Go backend tests failed"
+                            }
+                        }
+                    }
+                }
+
+                stage('Frontend Unit Tests') {
+                    steps {
+                        script {
+                            if (env.IS_PR == 'true') {
+                                notifyGitHub(
+                                    state: 'pending',
+                                    context: 'ci/jenkins/frontend-tests',
+                                    description: 'Running Vitest...'
+                                )
+                            }
+
+                            def results = runTests(
+                                appType: 'node',
+                                testType: 'unit',
+                                projectPath: env.WORKSPACE,
+                                host: config.testHost,
+                                testCommand: 'cd ui && npm ci && npm run test:coverage -- --reporter=junit --outputFile=/tmp/test-results/vitest-results.xml'
+                            )
+
+                            env.FRONTEND_UNIT_PASSED = results.success ? 'true' : 'false'
+                            testResults.frontend = [
+                                passed: results.passed ?: 0,
+                                failed: results.failed ?: 0,
+                                total: (results.passed ?: 0) + (results.failed ?: 0),
+                                success: results.success
+                            ]
+
+                            if (env.IS_PR == 'true') {
+                                notifyGitHub(
+                                    state: results.success ? 'success' : 'failure',
+                                    context: 'ci/jenkins/frontend-tests',
+                                    description: results.success
+                                        ? "Passed: ${results.passed} tests"
+                                        : "Failed: ${results.failed} of ${results.passed + results.failed} tests"
+                                )
+                            }
+
+                            if (!results.success) {
+                                error "Frontend unit tests failed"
+                            }
+                        }
+                    }
+                }
+
+                stage('Go Lint & Vet') {
+                    steps {
+                        script {
+                            if (env.IS_PR == 'true') {
+                                notifyGitHub(
+                                    state: 'pending',
+                                    context: 'ci/jenkins/lint',
+                                    description: 'Running linters...'
+                                )
+                            }
+
+                            def lintResult = sh(
+                                script: '''
+                                    ssh ${config.testHost} "cd ${WORKSPACE} && go vet ./... && go fmt ./... && git diff --exit-code"
+                                ''',
+                                returnStatus: true
+                            )
+
+                            def lintSuccess = (lintResult == 0)
+
+                            if (env.IS_PR == 'true') {
+                                notifyGitHub(
+                                    state: lintSuccess ? 'success' : 'failure',
+                                    context: 'ci/jenkins/lint',
+                                    description: lintSuccess ? 'Lint checks passed' : 'Lint checks failed'
+                                )
+                            }
+
+                            if (!lintSuccess) {
+                                error "Lint checks failed"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('E2E Tests') {
+            when {
+                expression { config.enableE2E }
+            }
+            steps {
+                script {
+                    if (env.IS_PR == 'true') {
+                        notifyGitHub(
+                            state: 'pending',
+                            context: 'ci/jenkins/e2e-tests',
+                            description: 'Running Playwright E2E tests...'
+                        )
+                    }
+
+                    def results = runTests(
+                        appType: 'node',
+                        testType: 'e2e',
+                        projectPath: env.WORKSPACE,
+                        host: config.testHost,
+                        testCommand: 'cd ui && npx playwright install --with-deps && npx playwright test --reporter=junit'
+                    )
+
+                    env.E2E_PASSED = results.success ? 'true' : 'false'
+                    testResults.e2e = [
+                        passed: results.passed ?: 0,
+                        failed: results.failed ?: 0,
+                        total: (results.passed ?: 0) + (results.failed ?: 0),
+                        success: results.success
+                    ]
+
+                    if (env.IS_PR == 'true') {
+                        notifyGitHub(
+                            state: results.success ? 'success' : 'failure',
+                            context: 'ci/jenkins/e2e-tests',
+                            description: results.success
+                                ? "Passed: ${results.passed} tests"
+                                : "Failed: ${results.failed} of ${results.passed + results.failed} tests"
+                        )
+                    }
+
+                    if (!results.success) {
+                        error "E2E tests failed"
+                    }
+                }
+            }
+        }
+
+        stage('Collect Test Artifacts') {
+            steps {
+                script {
+                    collectTestArtifacts(
+                        host: config.testHost,
+                        remotePath: '/tmp/test-results',
+                        artifactTypes: ['junit', 'coverage', 'playwright', 'go']
+                    )
+                }
+            }
+        }
+
+        stage('Mark Tests Passed') {
+            steps {
+                script {
+                    echo "✅ All tests passed!"
+
+                    if (env.IS_PR == 'true') {
+                        notifyGitHub(
+                            state: 'success',
+                            context: 'ci/jenkins/pipeline',
+                            description: 'All tests passed - Ready to merge'
+                        )
+
+                        // Notify Slack: All tests passed
+                        notifySlack.testsPassed(
+                            repo: config.appName,
+                            prNumber: env.CHANGE_ID,
+                            backendPassed: testResults.backend?.passed ?: '?',
+                            backendTotal: testResults.backend?.total ?: '?',
+                            frontendPassed: testResults.frontend?.passed ?: '?',
+                            frontendTotal: testResults.frontend?.total ?: '?'
+                        )
+                    }
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // DEPLOYMENT STAGES (Main Branch Only)
+        // ═══════════════════════════════════════════════════════════════
+
+        stage('Store Previous Tag') {
+            when {
+                expression { env.IS_MAIN == 'true' }
+            }
+            steps {
+                script {
+                    def previousTag = rollbackDeployment.storePreviousTag(
+                        appName: config.appName,
+                        namespace: config.namespace
+                    )
+                    env.PREVIOUS_TAG = previousTag ?: ''
+                    echo "Previous deployment tag: ${env.PREVIOUS_TAG}"
+                }
+            }
+        }
+
+        stage('Setup Buildx') {
+            when {
+                expression { env.IS_MAIN == 'true' }
+            }
+            steps {
+                script {
+                    sh """
+                        set -e
+                        echo "🔧 Setting up Docker Buildx for local insecure registry..."
+
+                        # Create buildkitd config to allow insecure (HTTP) registry
+                        mkdir -p /tmp/buildkit
+                        cat > /tmp/buildkit/buildkitd.toml << 'TOML'
+# BuildKit configuration for homelab local registry
+[registry."192.168.68.138:5002"]
+  http = true
+  insecure = true
+TOML
+
+                        echo "📋 BuildKit config:"
+                        cat /tmp/buildkit/buildkitd.toml
+
+                        # Remove existing builder to apply new config
+                        docker buildx rm ${config.builderName} 2>/dev/null || true
+
+                        # Create new builder with insecure registry config
+                        echo "Creating buildx builder with insecure registry support: ${config.builderName}"
+                        docker buildx create --name ${config.builderName} \\
+                            --driver docker-container \\
+                            --config /tmp/buildkit/buildkitd.toml \\
+                            --bootstrap
+
+                        # Use the builder
+                        docker buildx use ${config.builderName}
+
+                        # Verify builder is ready
+                        docker buildx inspect --bootstrap
+                        echo "✅ Buildx builder ready with insecure registry: ${config.localRegistry}"
+                    """
+                }
+            }
+        }
+
+        stage('Build & Push Multi-Arch') {
+            when {
+                expression { env.IS_MAIN == 'true' }
+            }
+            steps {
+                script {
+                    echo "🏗️ Building multi-arch image: ${FULL_IMAGE_NAME}:${imageTag}"
+
+                    sh """
+                        set -e
+
+                        # Verify registry is accessible before building
+                        echo "🔍 Verifying local registry is accessible..."
+                        if curl -sf http://${config.localRegistry}/v2/ > /dev/null; then
+                            echo "✅ Registry ${config.localRegistry} is accessible"
+                        else
+                            echo "❌ ERROR: Cannot reach registry ${config.localRegistry}"
+                            echo "   Make sure the registry is running and accessible"
+                            exit 1
+                        fi
+
+                        echo "🏗️ Building and pushing multi-arch image to LOCAL registry..."
+                        echo "   Image: ${FULL_IMAGE_NAME}:${imageTag}"
+                        echo "   Platforms: ${config.platforms}"
+                        echo "   Registry: ${config.localRegistry}"
+
+                        # Build and push multi-arch image to local registry
+                        docker buildx build \\
+                            --platform ${config.platforms} \\
+                            --tag ${FULL_IMAGE_NAME}:${imageTag} \\
+                            --push \\
+                            --progress=plain \\
+                            .
+
+                        echo "✅ Multi-arch build and push completed!"
+
+                        # Verify the image was pushed to local registry
+                        echo "📋 Verifying image in local registry..."
+                        curl -sf "http://${config.localRegistry}/v2/${config.appName}/tags/list" || echo "Warning: Could not verify tags"
+
+                        # Verify the manifest
+                        echo "📋 Verifying multi-arch manifest..."
+                        docker buildx imagetools inspect ${FULL_IMAGE_NAME}:${imageTag}
+                    """
+
+                    echo "✅ Multi-arch images built and pushed to ${config.localRegistry}"
+                }
+            }
+        }
+
+        stage('Deploy via GitOps') {
+            when {
+                expression { env.IS_MAIN == 'true' }
+            }
+            steps {
+                script {
+                    // Update GitOps manifest in homelab repo (using SSH for reliability)
+                    def gitopsResult = updateGitOpsManifest(
+                        appName: config.appName,
+                        imageTag: imageTag,
+                        registry: config.localRegistry,
+                        previousTag: env.PREVIOUS_TAG,
+                        gitCredentialsId: 'github-ssh-key'
+                    )
+
+                    if (!gitopsResult.success) {
+                        error "Failed to update GitOps manifest"
+                    }
+
+                    env.GITOPS_COMMIT = gitopsResult.commitSha
+                    echo "✅ GitOps manifest updated (${gitopsResult.method})"
+                    echo "   Commit: ${gitopsResult.commitSha}"
+
+                    // Trigger ArgoCD sync
+                    def syncResult = triggerArgoSync(
+                        appName: 'homelab-applications',
+                        waitForSync: true,
+                        timeout: config.deployTimeout,
+                        triggerMethod: 'kubectl'
+                    )
+
+                    if (!syncResult.success) {
+                        echo "WARNING: ArgoCD sync did not complete within timeout"
+                        echo "         Status: ${syncResult.status}, Health: ${syncResult.health}"
+                        echo "         ArgoCD will continue syncing in background"
+                    } else {
+                        echo "✅ ArgoCD sync completed"
+                        echo "   Status: ${syncResult.status}"
+                        echo "   Health: ${syncResult.health}"
+                    }
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            when {
+                expression { env.IS_MAIN == 'true' }
+            }
+            steps {
+                script {
+                    def verification = rollbackDeployment.checkAndRollback(
+                        appName: config.appName,
+                        namespace: config.namespace,
+                        timeout: config.deployTimeout,
+                        previousTag: env.PREVIOUS_TAG,
+                        healthCheckUrl: "http://panchangam.hanuma.com/health"
+                    )
+
+                    if (verification.rollbackTriggered) {
+                        // Notify Slack: Rollback occurred
+                        notifySlack.rolledBack(
+                            repo: config.appName,
+                            fromVersion: imageTag,
+                            toVersion: env.PREVIOUS_TAG,
+                            reason: verification.reason ?: 'Deployment verification failed'
+                        )
+                        error "Deployment failed and was rolled back"
+                    }
+
+                    echo "✅ Deployment verified successfully"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                // Archive test results
+                junit(
+                    testResults: '**/test-results/**/*.xml',
+                    allowEmptyResults: true
+                )
+
+                // Archive artifacts
+                archiveArtifacts(
+                    artifacts: 'test-results/**/*',
+                    allowEmptyArchive: true,
+                    fingerprint: false
+                )
+            }
+        }
+
+        failure {
+            script {
+                if (env.IS_PR == 'true') {
+                    notifyGitHub(
+                        state: 'failure',
+                        context: 'ci/jenkins/pipeline',
+                        description: 'Pipeline failed - See Jenkins for details'
+                    )
+
+                    // Collect failed test names for Slack notification
+                    def failedTests = []
+                    if (testResults.backend?.success == false) {
+                        failedTests.add("Go backend tests")
+                    }
+                    if (testResults.frontend?.success == false) {
+                        failedTests.add("Frontend unit tests")
+                    }
+                    if (testResults.e2e?.success == false) {
+                        failedTests.add("E2E tests")
+                    }
+
+                    // Notify Slack: Tests failed
+                    notifySlack.testsFailed(
+                        repo: config.appName,
+                        prNumber: env.CHANGE_ID,
+                        summary: "Tests failed for PR #${env.CHANGE_ID}",
+                        failedTests: failedTests.isEmpty() ? ['Pipeline error - see logs'] : failedTests,
+                        logsUrl: env.BUILD_URL
+                    )
+                }
+
+                // If we were deploying and it failed, trigger rollback
+                if (env.IS_MAIN == 'true' && env.PREVIOUS_TAG) {
+                    echo "Deployment failed, initiating rollback..."
+                    rollbackDeployment(
+                        appName: config.appName,
+                        namespace: config.namespace,
+                        previousTag: env.PREVIOUS_TAG,
+                        homelabRepo: config.homelabRepo,
+                        reason: "Pipeline failed during deployment"
+                    )
+
+                    // Notify Slack: Deploy failed
+                    notifySlack.deployFailed(
+                        repo: config.appName,
+                        version: imageTag,
+                        reason: 'Pipeline failed during deployment',
+                        logsUrl: env.BUILD_URL
+                    )
+                }
+            }
+        }
+
+        success {
+            script {
+                if (env.IS_MAIN == 'true') {
+                    echo "╔══════════════════════════════════════════════════════════════╗"
+                    echo "║          🎉 DEPLOYMENT COMPLETED SUCCESSFULLY                ║"
+                    echo "╠══════════════════════════════════════════════════════════════╣"
+                    echo "║  Application: ${config.appName.padRight(47)}║"
+                    echo "║  Tag:         ${imageTag?.padRight(47) ?: 'N/A'.padRight(47)}║"
+                    echo "║  Namespace:   ${config.namespace.padRight(47)}║"
+                    echo "║  Registry:    ${config.localRegistry.padRight(47)}║"
+                    echo "║  URL:         https://panchangam.naren.me                    ║"
+                    echo "╚══════════════════════════════════════════════════════════════╝"
+
+                    // Notify Slack: Deployment successful
+                    def commitMsg = sh(script: 'git log -1 --pretty=%s', returnStdout: true).trim()
+                    def author = sh(script: 'git log -1 --pretty=%an', returnStdout: true).trim()
+
+                    notifySlack.deployed(
+                        repo: config.appName,
+                        version: imageTag,
+                        commitMessage: commitMsg,
+                        author: author,
+                        url: config.appUrl
+                    )
+                }
+            }
+        }
+
+        cleanup {
+            sh "docker logout || true"
+            cleanWs()
+        }
+    }
+}
