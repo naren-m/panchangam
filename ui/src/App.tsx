@@ -79,10 +79,15 @@ function App() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // Get the date range for the current month view
-  const monthDates = getCurrentMonthDates(year, month);
-  const startDate = monthDates[0];
-  const endDate = monthDates[monthDates.length - 1];
+  // Memoize date range to prevent infinite re-renders
+  // getCurrentMonthDates creates new Date objects, so we memoize to keep stable references
+  const { startDate, endDate } = useMemo(() => {
+    const monthDates = getCurrentMonthDates(year, month);
+    return {
+      startDate: monthDates[0],
+      endDate: monthDates[monthDates.length - 1]
+    };
+  }, [year, month]);
 
   // Fetch panchangam data progressively for the visible month
   const { 
