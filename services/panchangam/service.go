@@ -19,38 +19,37 @@ import (
 
 var logger = log.Logger()
 
-// calendarSystemByRegion maps regions to their traditional calendar systems
+// calendarSystemByRegion maps regions to their traditional calendar system
+// Amanta: Month starts from new moon (solar-based, used in Tamil Nadu, Kerala, Gujarat)
+// Purnimanta: Month starts from full moon (lunar-based, used in most of North India)
 var calendarSystemByRegion = map[string]string{
-	// South Indian states typically use Amanta system
 	"Tamil Nadu":      "Amanta",
 	"Kerala":          "Amanta",
+	"Gujarat":         "Amanta",
 	"Karnataka":       "Amanta",
-	"Andhra Pradesh":  "Amanta",
-	"Telangana":       "Amanta",
-	
-	// North Indian states typically use Purnimanta system
+	"Andhra Pradesh":  "Purnimanta",
+	"Telangana":       "Purnimanta",
 	"Maharashtra":     "Purnimanta",
-	"Gujarat":         "Purnimanta",
-	"Rajasthan":       "Purnimanta",
 	"Uttar Pradesh":   "Purnimanta",
-	"Madhya Pradesh":  "Purnimanta",
 	"Bihar":           "Purnimanta",
 	"West Bengal":     "Purnimanta",
-	"Odisha":          "Purnimanta",
+	"Rajasthan":       "Purnimanta",
+	"Madhya Pradesh":  "Purnimanta",
 	"Punjab":          "Purnimanta",
-	"Haryana":         "Purnimanta",
-	"Himachal Pradesh": "Purnimanta",
-	"Uttarakhand":     "Purnimanta",
+	"Odisha":          "Purnimanta",
+	"Hyderabad":       "Purnimanta",
+	"Chennai":         "Amanta",
+	"Bangalore":       "Amanta",
+	"Mumbai":          "Purnimanta",
 	"Delhi":           "Purnimanta",
-	
-	// Default for other regions
-	"California":      "Purnimanta",
 	"New York":        "Purnimanta",
 	"Texas":           "Purnimanta",
 	"New Jersey":      "Purnimanta",
+	"California":      "Purnimanta",
 }
 
 type PanchangamServer struct {
+	config           Config
 	observer         observability.ObserverInterface
 	ephemerisManager *ephemeris.Manager
 	tithiCalc        *astronomy.TithiCalculator
@@ -61,25 +60,19 @@ type PanchangamServer struct {
 	ppb.UnimplementedPanchangamServer
 }
 
-func NewPanchangamServer() *PanchangamServer {
-	// Initialize ephemeris providers and cache
-	jplProvider := ephemeris.NewJPLProvider()
-	swissProvider := ephemeris.NewSwissProvider()
-	cache := ephemeris.NewMemoryCache(1000, 24*time.Hour) // 1000 entries, 24h TTL
-
-	// Create ephemeris manager
-	ephemerisManager := ephemeris.NewManager(jplProvider, swissProvider, cache)
-
+// NewPanchangamServer creates a new server instance with the provided dependencies
+func NewPanchangamServer(manager *ephemeris.Manager, config Config) *PanchangamServer {
 	// Initialize calculators
-	tithiCalc := astronomy.NewTithiCalculator(ephemerisManager)
-	nakshatraCalc := astronomy.NewNakshatraCalculator(ephemerisManager)
-	yogaCalc := astronomy.NewYogaCalculator(ephemerisManager)
-	karanaCalc := astronomy.NewKaranaCalculator(ephemerisManager)
+	tithiCalc := astronomy.NewTithiCalculator(manager)
+	nakshatraCalc := astronomy.NewNakshatraCalculator(manager)
+	yogaCalc := astronomy.NewYogaCalculator(manager)
+	karanaCalc := astronomy.NewKaranaCalculator(manager)
 	varaCalc := astronomy.NewVaraCalculator()
 
 	return &PanchangamServer{
+		config:           config,
 		observer:         observability.Observer(),
-		ephemerisManager: ephemerisManager,
+		ephemerisManager: manager,
 		tithiCalc:        tithiCalc,
 		nakshatraCalc:    nakshatraCalc,
 		yogaCalc:         yogaCalc,
@@ -106,8 +99,7 @@ func traceAttributes(keyValues ...string) []trace.EventOption {
 	return []trace.EventOption{trace.WithAttributes(attrs...)}
 }
 
-func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
-	ctx, span := s.observer.CreateSpan(ctx, "Get")
+func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {	ctx, span := s.observer.CreateSpan(ctx, "Get")
 	defer span.End()
 
 	// Validate request is not nil
