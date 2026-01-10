@@ -26,11 +26,15 @@ export interface SkyViewResponse {
   local_sidereal_time: number;
 }
 
-// Get API base URL from environment or default to localhost
+// Get API base URL from environment or default to current origin
 const getApiBaseUrl = (): string => {
+  // Check for explicit environment variable first
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  // In browser, use current origin (nginx proxies /api/ to gateway)
   if (typeof window !== 'undefined') {
-    // Client-side: use environment variable or default
-    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+    return window.location.origin;
   }
   return 'http://localhost:8080';
 };

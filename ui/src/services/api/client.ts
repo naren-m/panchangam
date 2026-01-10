@@ -34,9 +34,18 @@ function getApiBaseUrl(): string {
       return runtimeConfig.API_ENDPOINT;
     }
   }
-  
+
   // Fallback to build-time environment variables
-  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  // Use current origin for relative URLs (nginx proxies /api/ to gateway)
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+
+  // In browser, use current origin; in dev/SSR, use localhost
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return 'http://localhost:8080';
 }
 
 /**
@@ -390,9 +399,17 @@ export class ApiClient {
   private getRuntimeBaseURL(): string {
     // Check for runtime configuration first
     const runtimeConfig = (window as any).__RUNTIME_CONFIG__;
-    return runtimeConfig?.API_ENDPOINT || 
-           import.meta.env.VITE_API_BASE_URL || 
-           this.config.baseURL;
+    if (runtimeConfig?.API_ENDPOINT) {
+      return runtimeConfig.API_ENDPOINT;
+    }
+    if (import.meta.env.VITE_API_BASE_URL) {
+      return import.meta.env.VITE_API_BASE_URL;
+    }
+    // Use current origin for relative URLs (nginx proxies /api/ to gateway)
+    if (typeof window !== 'undefined') {
+      return window.location.origin;
+    }
+    return this.config.baseURL;
   }
 
   /**

@@ -20,14 +20,17 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Declare build arguments for multi-arch support
+ARG TARGETARCH
+
 # Build the gRPC server
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} go build \
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -ldflags="-w -s" \
     -o /bin/grpc-server \
     ./cmd/grpc-server
 
 # Build the gateway
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} go build \
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -ldflags="-w -s" \
     -o /bin/gateway \
     ./cmd/gateway
@@ -60,7 +63,11 @@ RUN apk add --no-cache \
     curl \
     supervisor \
     && mkdir -p /var/log/supervisor /var/run/nginx /var/cache/nginx \
-    && chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run/nginx
+    && mkdir -p /var/lib/nginx/logs /var/lib/nginx/tmp/client_body \
+    && mkdir -p /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/fastcgi \
+    && mkdir -p /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi \
+    && chmod -R 755 /var/lib/nginx \
+    && chown -R root:root /var/lib/nginx /var/cache/nginx /var/log/nginx /var/run/nginx
 
 # Create app user
 RUN addgroup -g 1001 -S panchangam && \
@@ -97,7 +104,6 @@ stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
-user=panchangam
 
 [program:gateway]
 command=/app/gateway --grpc-endpoint=localhost:50052 --http-port=8080
@@ -110,7 +116,6 @@ stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
-user=panchangam
 
 [program:nginx]
 command=/usr/sbin/nginx -g "daemon off;"

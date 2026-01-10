@@ -23,7 +23,7 @@ import groovy.transform.Field
     appName: 'panchangam',
     appType: 'fullstack',  // Go backend (gRPC + Gateway) + React frontend
     namespace: 'panchangam',
-    localRegistry: '192.168.68.138:5002',
+    localRegistry: '192.168.68.124:30501',
     kubeconfigId: 'homelab-kubeconfig',
     platforms: 'linux/amd64,linux/arm64',
     builderName: 'multiarch-builder',
