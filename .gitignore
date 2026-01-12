@@ -86,3 +86,7 @@ remote-deploy.sh
 BUILD_README.md
 REMOTE_DEPLOYMENT_GUIDE.md
 WORKFLOW_OPTIMIZED_LOADING.md
+
+# AI/MCP tools
+.serena/
+.playwright-mcp/
