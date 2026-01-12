@@ -205,7 +205,7 @@ pipeline {
                                 testType: 'unit',
                                 projectPath: env.WORKSPACE,
                                 host: config.testHost,
-                                testCommand: 'cd ui && npm ci && npm run test:coverage -- --reporter=junit --outputFile=/tmp/test-results/vitest-results.xml'
+                                testCommand: 'cd ui && npm ci && CI=true npm run test:coverage -- --reporter=junit --outputFile=/tmp/test-results/vitest-results.xml'
                             )
 
                             env.FRONTEND_UNIT_PASSED = results.success ? 'true' : 'false'
