@@ -38,6 +38,21 @@ import groovy.transform.Field
 
 @Field def imageTag = ''
 @Field def testResults = [:]  // Store test results for Slack notification
+@Field def slackEnabled = true  // Will be set to false if Slack credentials are missing
+
+// Helper function to safely send Slack notifications (fail-safe)
+def safeSlackNotify(Closure notifyAction) {
+    if (!slackEnabled) {
+        echo "ℹ️ Slack notifications disabled (credentials not configured)"
+        return
+    }
+    try {
+        notifyAction()
+    } catch (Exception e) {
+        echo "⚠️ Slack notification failed (non-blocking): ${e.message}"
+        slackEnabled = false  // Disable future attempts to avoid repeated failures
+    }
+}
 
 pipeline {
     agent any
@@ -90,25 +105,29 @@ pipeline {
                             description: 'Pipeline started...'
                         )
 
-                        // Notify Slack: PR opened/updated
-                        notifySlack.prOpened(
-                            repo: config.appName,
-                            prNumber: env.CHANGE_ID,
-                            title: env.CHANGE_TITLE,
-                            author: env.CHANGE_AUTHOR,
-                            branch: env.CHANGE_BRANCH,
-                            prUrl: env.CHANGE_URL
-                        )
+                        // Notify Slack: PR opened/updated (optional)
+                        safeSlackNotify {
+                            notifySlack.prOpened(
+                                repo: config.appName,
+                                prNumber: env.CHANGE_ID,
+                                title: env.CHANGE_TITLE,
+                                author: env.CHANGE_AUTHOR,
+                                branch: env.CHANGE_BRANCH,
+                                prUrl: env.CHANGE_URL
+                            )
+                        }
                     }
 
-                    // Notify Slack: Merge to main
+                    // Notify Slack: Merge to main (optional)
                     if (env.IS_MAIN == 'true') {
-                        notifySlack.prMerged(
-                            repo: config.appName,
-                            prNumber: env.CHANGE_ID ?: 'N/A',
-                            title: sh(script: 'git log -1 --pretty=%s', returnStdout: true).trim(),
-                            author: sh(script: 'git log -1 --pretty=%an', returnStdout: true).trim()
-                        )
+                        safeSlackNotify {
+                            notifySlack.prMerged(
+                                repo: config.appName,
+                                prNumber: env.CHANGE_ID ?: 'N/A',
+                                title: sh(script: 'git log -1 --pretty=%s', returnStdout: true).trim(),
+                                author: sh(script: 'git log -1 --pretty=%an', returnStdout: true).trim()
+                            )
+                        }
                     }
                 }
             }
@@ -322,15 +341,17 @@ pipeline {
                             description: 'All tests passed - Ready to merge'
                         )
 
-                        // Notify Slack: All tests passed
-                        notifySlack.testsPassed(
-                            repo: config.appName,
-                            prNumber: env.CHANGE_ID,
-                            backendPassed: testResults.backend?.passed ?: '?',
-                            backendTotal: testResults.backend?.total ?: '?',
-                            frontendPassed: testResults.frontend?.passed ?: '?',
-                            frontendTotal: testResults.frontend?.total ?: '?'
-                        )
+                        // Notify Slack: All tests passed (optional)
+                        safeSlackNotify {
+                            notifySlack.testsPassed(
+                                repo: config.appName,
+                                prNumber: env.CHANGE_ID,
+                                backendPassed: testResults.backend?.passed ?: '?',
+                                backendTotal: testResults.backend?.total ?: '?',
+                                frontendPassed: testResults.frontend?.passed ?: '?',
+                                frontendTotal: testResults.frontend?.total ?: '?'
+                            )
+                        }
                     }
                 }
             }
@@ -508,13 +529,15 @@ TOML
                     )
 
                     if (verification.rollbackTriggered) {
-                        // Notify Slack: Rollback occurred
-                        notifySlack.rolledBack(
-                            repo: config.appName,
-                            fromVersion: imageTag,
-                            toVersion: env.PREVIOUS_TAG,
-                            reason: verification.reason ?: 'Deployment verification failed'
-                        )
+                        // Notify Slack: Rollback occurred (optional)
+                        safeSlackNotify {
+                            notifySlack.rolledBack(
+                                repo: config.appName,
+                                fromVersion: imageTag,
+                                toVersion: env.PREVIOUS_TAG,
+                                reason: verification.reason ?: 'Deployment verification failed'
+                            )
+                        }
                         error "Deployment failed and was rolled back"
                     }
 
@@ -563,14 +586,16 @@ TOML
                         failedTests.add("E2E tests")
                     }
 
-                    // Notify Slack: Tests failed
-                    notifySlack.testsFailed(
-                        repo: config.appName,
-                        prNumber: env.CHANGE_ID,
-                        summary: "Tests failed for PR #${env.CHANGE_ID}",
-                        failedTests: failedTests.isEmpty() ? ['Pipeline error - see logs'] : failedTests,
-                        logsUrl: env.BUILD_URL
-                    )
+                    // Notify Slack: Tests failed (optional)
+                    safeSlackNotify {
+                        notifySlack.testsFailed(
+                            repo: config.appName,
+                            prNumber: env.CHANGE_ID,
+                            summary: "Tests failed for PR #${env.CHANGE_ID}",
+                            failedTests: failedTests.isEmpty() ? ['Pipeline error - see logs'] : failedTests,
+                            logsUrl: env.BUILD_URL
+                        )
+                    }
                 }
 
                 // If we were deploying and it failed, trigger rollback
@@ -584,13 +609,15 @@ TOML
                         reason: "Pipeline failed during deployment"
                     )
 
-                    // Notify Slack: Deploy failed
-                    notifySlack.deployFailed(
-                        repo: config.appName,
-                        version: imageTag,
-                        reason: 'Pipeline failed during deployment',
-                        logsUrl: env.BUILD_URL
-                    )
+                    // Notify Slack: Deploy failed (optional)
+                    safeSlackNotify {
+                        notifySlack.deployFailed(
+                            repo: config.appName,
+                            version: imageTag,
+                            reason: 'Pipeline failed during deployment',
+                            logsUrl: env.BUILD_URL
+                        )
+                    }
                 }
             }
         }
@@ -608,17 +635,19 @@ TOML
                     echo "║  URL:         https://panchangam.naren.me                    ║"
                     echo "╚══════════════════════════════════════════════════════════════╝"
 
-                    // Notify Slack: Deployment successful
+                    // Notify Slack: Deployment successful (optional)
                     def commitMsg = sh(script: 'git log -1 --pretty=%s', returnStdout: true).trim()
                     def author = sh(script: 'git log -1 --pretty=%an', returnStdout: true).trim()
 
-                    notifySlack.deployed(
-                        repo: config.appName,
-                        version: imageTag,
-                        commitMessage: commitMsg,
-                        author: author,
-                        url: config.appUrl
-                    )
+                    safeSlackNotify {
+                        notifySlack.deployed(
+                            repo: config.appName,
+                            version: imageTag,
+                            commitMessage: commitMsg,
+                            author: author,
+                            url: config.appUrl
+                        )
+                    }
                 }
             }
         }
