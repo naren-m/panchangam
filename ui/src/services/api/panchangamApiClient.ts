@@ -121,6 +121,10 @@ function transformApiResponse(apiData: ApiPanchangamData, requestDate: string): 
   const moonriseEvent = apiData.events.find(e => e.event_type === 'MOONRISE');
   const moonsetEvent = apiData.events.find(e => e.event_type === 'MOONSET');
 
+  // Extract tithi start time from events
+  const tithiEvent = apiData.events.find(e => e.event_type === 'TITHI');
+  const tithiStartTime = tithiEvent?.time;
+
   // Determine event quality based on type
   const getEventQuality = (eventType: string): 'auspicious' | 'inauspicious' | 'neutral' => {
     const auspiciousEvents = ['ABHIJIT_MUHURTA', 'BRAHMA_MUHURTA', 'SUNRISE', 'FESTIVAL'];
@@ -134,6 +138,7 @@ function transformApiResponse(apiData: ApiPanchangamData, requestDate: string): 
   return {
     date: apiData.date,
     tithi: apiData.tithi,
+    tithi_start_time: tithiStartTime,
     nakshatra: apiData.nakshatra,
     yoga: apiData.yoga,
     karana: apiData.karana,

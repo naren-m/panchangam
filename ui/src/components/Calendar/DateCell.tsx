@@ -50,13 +50,20 @@ export const DateCell: React.FC<DateCellProps> = ({
           {/* Tithi */}
           <div className="flex items-center space-x-1">
             <Moon className="w-3 h-3 text-blue-600" />
-            <span className="text-blue-700 font-medium truncate" title={data.tithi || 'Loading...'}>
-              {data.tithi ? (
-                data.tithi.includes(' - ') ? data.tithi.split(' - ')[0] : data.tithi.split(' ')[0]
-              ) : (
-                'Loading...'
+            <div className="flex flex-col min-w-0">
+              <span className="text-blue-700 font-medium truncate" title={data.tithi || 'Loading...'}>
+                {data.tithi ? (
+                  data.tithi.includes(' - ') ? data.tithi.split(' - ')[0] : data.tithi.split(' ')[0]
+                ) : (
+                  'Loading...'
+                )}
+              </span>
+              {data.tithi_start_time && (
+                <span className="text-blue-500 text-[10px]" title="Tithi start time">
+                  {formatTime(data.tithi_start_time, settings.time_format)}
+                </span>
               )}
-            </span>
+            </div>
           </div>
 
           {/* Nakshatra */}

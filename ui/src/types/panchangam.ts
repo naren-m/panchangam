@@ -1,6 +1,7 @@
 export interface PanchangamData {
   date: string;
   tithi: string;
+  tithi_start_time?: string;
   nakshatra: string;
   yoga: string;
   karana: string;
