@@ -5,7 +5,7 @@ import { DayDetailModal } from './components/DayDetail/DayDetailModal';
 import { LocationSelector } from './components/LocationPicker/LocationSelector';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { SkeletonCalendar, LoadingSpinner } from './components/common/Loading';
-import { ApiError, NetworkError, ErrorBoundary } from './components/common/Error';
+import { ApiError, NetworkError, ErrorBoundary, OfflineIndicator } from './components/common/Error';
 import { usePanchangamRange } from './hooks/usePanchangam';
 import { useDayDetail } from './hooks/useDayDetail';
 import { Settings, PanchangamData } from './types/panchangam';
@@ -46,7 +46,9 @@ function App() {
     isRetrying, 
     error, 
     errorState, 
-    retry 
+    retry,
+    isOffline,
+    offlineState 
   } = usePanchangamRange(startDate, endDate, settings);
 
   // Initialize location on first load
@@ -114,6 +116,9 @@ function App() {
             Hindu Calendar & Astronomical Almanac
           </p>
         </div>
+
+        {/* Offline Indicator */}
+        <OfflineIndicator isOffline={isOffline} />
 
         {/* Navigation */}
         <MonthNavigation

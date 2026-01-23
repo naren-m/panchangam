@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { PanchangamData, Settings } from '../types/panchangam';
 import { panchangamApi } from '../services/panchangamApi';
 import { formatDateForApi } from '../utils/dateHelpers';
+import { useOffline } from './useOffline';
 
 interface LoadingState {
   isLoading: boolean;
@@ -30,8 +31,28 @@ export const usePanchangam = (date: Date, settings: Settings) => {
     isNetworkError: false,
   });
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Offline detection
+  const offlineState = useOffline({
+    onOnline: () => {
+      // Automatically retry when coming back online
+      if (errorState.hasError && errorState.isNetworkError) {
+        fetchPanchangam(true);
+      }
+    },
+  });
 
   const fetchPanchangam = useCallback(async (isRetry = false) => {
+    // Don't fetch if offline
+    if (!navigator.onLine) {
+      setErrorState({
+        hasError: true,
+        message: 'You are currently offline. Please check your internet connection.',
+        isNetworkError: true,
+      });
+      return;
+    }
+
     // Cancel any existing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -120,6 +141,9 @@ export const usePanchangam = (date: Date, settings: Settings) => {
     error: errorState.hasError ? errorState.message : null,
     errorState,
     retry,
+    offlineState,
+    isOffline: offlineState.isOffline,
+    lastUpdated: loadingState.lastFetchTime ? new Date(loadingState.lastFetchTime) : null,
   };
 };
 
@@ -136,8 +160,28 @@ export const usePanchangamRange = (startDate: Date, endDate: Date, settings: Set
     isNetworkError: false,
   });
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Offline detection
+  const offlineState = useOffline({
+    onOnline: () => {
+      // Automatically retry when coming back online
+      if (errorState.hasError && errorState.isNetworkError) {
+        fetchPanchangamRange(true);
+      }
+    },
+  });
 
   const fetchPanchangamRange = useCallback(async (isRetry = false) => {
+    // Don't fetch if offline
+    if (!navigator.onLine) {
+      setErrorState({
+        hasError: true,
+        message: 'You are currently offline. Please check your internet connection.',
+        isNetworkError: true,
+      });
+      return;
+    }
+
     // Cancel any existing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -234,5 +278,8 @@ export const usePanchangamRange = (startDate: Date, endDate: Date, settings: Set
     error: errorState.hasError ? errorState.message : null,
     errorState,
     retry,
+    offlineState,
+    isOffline: offlineState.isOffline,
+    lastUpdated: loadingState.lastFetchTime ? new Date(loadingState.lastFetchTime) : null,
   };
 };
