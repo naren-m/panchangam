@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import { PanchangamApiError } from './types';
+import { requestCache } from './requestCache';
 import type { PanchangamData, GetPanchangamRequest } from '../../types/panchangam';
 
 // API Response interface that matches the actual gRPC response
@@ -120,6 +121,10 @@ function transformApiResponse(apiData: ApiPanchangamData, requestDate: string): 
   const moonriseEvent = apiData.events.find(e => e.event_type === 'MOONRISE');
   const moonsetEvent = apiData.events.find(e => e.event_type === 'MOONSET');
 
+  // Extract tithi start time from events
+  const tithiEvent = apiData.events.find(e => e.event_type === 'TITHI');
+  const tithiStartTime = tithiEvent?.time;
+
   // Determine event quality based on type
   const getEventQuality = (eventType: string): 'auspicious' | 'inauspicious' | 'neutral' => {
     const auspiciousEvents = ['ABHIJIT_MUHURTA', 'BRAHMA_MUHURTA', 'SUNRISE', 'FESTIVAL'];
@@ -133,6 +138,7 @@ function transformApiResponse(apiData: ApiPanchangamData, requestDate: string): 
   return {
     date: apiData.date,
     tithi: apiData.tithi,
+    tithi_start_time: tithiStartTime,
     nakshatra: apiData.nakshatra,
     yoga: apiData.yoga,
     karana: apiData.karana,
@@ -199,8 +205,7 @@ export class PanchangamApiClient {
       // Validate input parameters
       validatePanchangamRequest(params);
 
-      // Make API call
-      const response = await apiClient.get<ApiPanchangamData>('/api/v1/panchangam', {
+      const requestParams = {
         date: params.date,
         lat: params.latitude,
         lng: params.longitude,
@@ -208,13 +213,40 @@ export class PanchangamApiClient {
         region: params.region || '',
         method: params.calculation_method || 'traditional',
         locale: params.locale || 'en'
-      });
+      };
+
+      const endpoint = '/api/v1/panchangam';
+
+      // Check cache first
+      const cachedData = requestCache.get<PanchangamData>(endpoint, requestParams);
+      if (cachedData) {
+        return cachedData;
+      }
+
+      // Check for pending request to prevent duplicate calls
+      const pendingRequest = requestCache.getPendingRequest<ApiPanchangamData>(endpoint, requestParams);
+      if (pendingRequest) {
+        const response = await pendingRequest;
+        validatePanchangamResponse(response);
+        return transformApiResponse(response, params.date);
+      }
+
+      // Create new request
+      const apiPromise = apiClient.get<ApiPanchangamData>(endpoint, requestParams);
+      requestCache.setPendingRequest(endpoint, requestParams, apiPromise.then(r => r.data));
+
+      const response = await apiPromise;
 
       // Validate response data
       validatePanchangamResponse(response.data);
 
-      // Transform and return
-      return transformApiResponse(response.data, params.date);
+      // Transform data
+      const transformedData = transformApiResponse(response.data, params.date);
+
+      // Cache the transformed result
+      requestCache.set(endpoint, requestParams, transformedData);
+
+      return transformedData;
 
     } catch (error) {
       console.error('Panchangam API error:', error);
@@ -256,29 +288,50 @@ export class PanchangamApiClient {
       throw new PanchangamApiError('Date range cannot exceed 365 days', 'DATE_RANGE_TOO_LARGE');
     }
 
-    // Process dates in parallel for better performance
-    const datePromises: Promise<PanchangamData>[] = [];
-    
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split('T')[0];
-      datePromises.push(this.getPanchangam({ ...params, date: dateStr }));
-    }
-
-    // Wait for all requests to complete
-    const allResults = await Promise.allSettled(datePromises);
+    // Process dates with controlled concurrency to prevent flooding
     const results: PanchangamData[] = [];
+    const batchSize = 5; // Process 5 requests at a time
+    const dates: string[] = [];
     
-    // Extract successful results and log failures
-    allResults.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        results.push(result.value);
-      } else {
-        const date = new Date(start);
-        date.setDate(date.getDate() + index);
-        console.error(`Failed to fetch data for ${date.toISOString().split('T')[0]}:`, result.reason);
+    // Collect all dates first
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      dates.push(d.toISOString().split('T')[0]);
+    }
+    
+    // Process in batches with delay between batches
+    for (let i = 0; i < dates.length; i += batchSize) {
+      const batch = dates.slice(i, i + batchSize);
+      const batchPromises = batch.map((dateStr, index) => {
+        // Add small delay to stagger requests within batch
+        return new Promise<PanchangamData>((resolve, reject) => {
+          setTimeout(async () => {
+            try {
+              const result = await this.getPanchangam({ ...params, date: dateStr });
+              resolve(result);
+            } catch (error) {
+              reject(error);
+            }
+          }, index * 100); // 100ms delay between requests in batch
+        });
+      });
+      
+      const batchResults = await Promise.allSettled(batchPromises);
+      
+      // Extract successful results from this batch
+      batchResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
+        } else {
+          console.error(`Failed to fetch data for ${batch[index]}:`, result.reason);
+        }
+      });
+      
+      // Delay between batches (except for last batch)
+      if (i + batchSize < dates.length) {
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
-    });
-
+    }
+    
     return results;
   }
 

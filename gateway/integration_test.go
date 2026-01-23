@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	ppb "github.com/naren-m/panchangam/proto/panchangam"
+	ppb "github.com/naren-m/panchangam/proto"
 	"github.com/naren-m/panchangam/services/panchangam"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

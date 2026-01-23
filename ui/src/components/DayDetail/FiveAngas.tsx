@@ -8,38 +8,42 @@ interface FiveAngasProps {
 }
 
 export const FiveAngas: React.FC<FiveAngasProps> = ({ data, settings }) => {
+  // Extract Vara from events
+  const varaEvent = data.events?.find(event => event.event_type === 'VARA');
+  const varaName = varaEvent?.name?.replace('Vara: ', '') || 'Not available';
+
   const angas = [
     {
       name: 'Tithi',
-      value: data.tithi,
+      value: data.tithi || 'Loading...',
       icon: Moon,
       color: 'blue',
       description: 'Lunar day phase'
     },
     {
       name: 'Nakshatra',
-      value: data.nakshatra,
+      value: data.nakshatra || 'Loading...',
       icon: Star,
       color: 'purple',
       description: 'Lunar mansion'
     },
     {
       name: 'Yoga',
-      value: data.yoga,
+      value: data.yoga || 'Loading...',
       icon: Sun,
       color: 'yellow',
       description: 'Sun-Moon combination'
     },
     {
       name: 'Karana',
-      value: data.karana,
+      value: data.karana || 'Loading...',
       icon: Zap,
       color: 'green',
       description: 'Half-tithi period'
     },
     {
       name: 'Vara',
-      value: `${data.vara} (${data.planetary_ruler})`,
+      value: varaName,
       icon: Calendar,
       color: 'red',
       description: 'Weekday and ruler'

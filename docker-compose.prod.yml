@@ -1,161 +1,399 @@
 version: '3.8'
 
 services:
-  # PostgreSQL database (if needed for future features)
+  # ====================================
+  # Database Services
+  # ====================================
+
+  # PostgreSQL Primary Database
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: panchangam-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: panchangam
-      POSTGRES_USER: panchangam
+      POSTGRES_DB: ${POSTGRES_DB:-panchangam}
+      POSTGRES_USER: ${POSTGRES_USER:-panchangam}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-panchangam123}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./deployments/postgres/init:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U panchangam"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-panchangam}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - panchangam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
-  # Redis for caching (optional)
+  # PostgreSQL Read Replica (for scaling reads)
+  postgres-replica:
+    image: postgres:16-alpine
+    container_name: panchangam-postgres-replica
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-panchangam}
+      POSTGRES_USER: ${POSTGRES_USER:-panchangam}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-panchangam123}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-panchangam}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - panchangam-network
+    profiles: ["replica"]
+
+  # Redis for caching
   redis:
     image: redis:7-alpine
     container_name: panchangam-redis
-    command: redis-server --appendonly yes
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-panchangam} --maxmemory 256mb --maxmemory-policy allkeys-lru --appendonly yes
     volumes:
       - redis_data:/data
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - panchangam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ====================================
+  # Application Services
+  # ====================================
 
   # Backend gRPC service
   grpc-server:
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-latest}
     container_name: panchangam-grpc
     command: ["/panchangam-grpc"]
+    restart: unless-stopped
     environment:
       - PORT=50052
+      - GRPC_PORT=50052
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-panchangam}
+      - DB_USER=${POSTGRES_USER:-panchangam}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-panchangam123}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-panchangam}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - OTEL_SERVICE_NAME=panchangam-grpc-service
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_ENDPOINT:-}
     ports:
       - "50052:50052"
-    healthcheck:
-      test: ["CMD", "/panchangam-grpc", "--health-check"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      jaeger:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "/panchangam-grpc", "--health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - panchangam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Backend HTTP Gateway
   gateway:
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
-    command: ["/panchangam-gateway"]
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-latest}
+    command: ["/panchangam-gateway", "-grpc-endpoint", "grpc-server:50052"]
     container_name: panchangam-gateway
+    restart: unless-stopped
     environment:
       - HTTP_PORT=8080
       - GRPC_ENDPOINT=grpc-server:50052
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-panchangam}
+      - DB_USER=${POSTGRES_USER:-panchangam}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-panchangam123}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-panchangam}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - OTEL_SERVICE_NAME=panchangam-gateway-service
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:4173}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_ENDPOINT:-}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
+      - ALLOW_ALL_ORIGINS=${ALLOW_ALL_ORIGINS:-false}
     ports:
       - "8080:8080"
+    depends_on:
+      grpc-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "/panchangam-gateway", "--health-check"]
       interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
-    depends_on:
-      grpc-server:
-        condition: service_healthy
+      start_period: 40s
+    networks:
+      - panchangam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Frontend React application
   frontend:
     build:
       context: ./ui
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
     container_name: panchangam-frontend
+    restart: unless-stopped
     environment:
-      - API_ENDPOINT=http://gateway:8080
+      - API_ENDPOINT=${API_ENDPOINT:-http://gateway:8080}
+      - PUBLIC_API_ENDPOINT=${PUBLIC_API_ENDPOINT:-}
       - VERSION=${VERSION:-dev}
     ports:
       - "80:80"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
       interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
+    networks:
+      - panchangam-network
     depends_on:
       gateway:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
-  # Monitoring - Prometheus (optional)
+  # ====================================
+  # Observability Services
+  # ====================================
+
+  # Distributed Tracing - Jaeger
+  jaeger:
+    image: jaegertracing/opentelemetry-all-in-one:latest
+    container_name: panchangam-jaeger
+    restart: unless-stopped
+    command:
+      - "--memory.max-traces=10000"
+      - "--query.base-path=/jaeger/ui"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC receiver
+      - "4318:4318"    # OTLP HTTP receiver
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - panchangam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Metrics Collection - Prometheus
   prometheus:
     image: prom/prometheus:latest
     container_name: panchangam-prometheus
+    restart: unless-stopped
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
+      - '--storage.tsdb.retention.time=30d'
       - '--web.enable-lifecycle'
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./deployments/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deployments/prometheus/alerts:/etc/prometheus/alerts:ro
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
-    restart: unless-stopped
-    profiles: ["monitoring"]
+    networks:
+      - panchangam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
-  # Monitoring - Grafana (optional)
+  # Visualization - Grafana
   grafana:
     image: grafana/grafana:latest
     container_name: panchangam-grafana
+    restart: unless-stopped
     environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3000}
+      - GF_INSTALL_PLUGINS=redis-datasource
     volumes:
+      - ./deployments/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deployments/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
     ports:
       - "3000:3000"
-    restart: unless-stopped
-    profiles: ["monitoring"]
     depends_on:
       - prometheus
+    networks:
+      - panchangam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
-  # Log aggregation - Loki (optional)
+  # Alert Management - Alertmanager
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: panchangam-alertmanager
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./deployments/alertmanager/config.yml:/etc/alertmanager/config.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - panchangam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  # Log aggregation - Loki
   loki:
     image: grafana/loki:latest
     container_name: panchangam-loki
+    restart: unless-stopped
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
-      - ./monitoring/loki.yml:/etc/loki/local-config.yaml
+      - ./deployments/loki/loki.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
     ports:
       - "3100:3100"
+    networks:
+      - panchangam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # ====================================
+  # Backup Services
+  # ====================================
+
+  backup:
+    image: postgres:16-alpine
+    container_name: panchangam-backup
     restart: unless-stopped
-    profiles: ["monitoring"]
+    environment:
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGDATABASE=${POSTGRES_DB:-panchangam}
+      - PGUSER=${POSTGRES_USER:-panchangam}
+      - PGPASSWORD=${POSTGRES_PASSWORD:-panchangam123}
+      - BACKUP_SCHEDULE=${BACKUP_SCHEDULE:-0 2 * * *}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+      - S3_BUCKET=${S3_BACKUP_BUCKET:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+    volumes:
+      - ./deployments/backup/backup.sh:/backup.sh:ro
+      - backup_data:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - panchangam-network
+    entrypoint: /bin/sh
+    command: -c "apk add --no-cache dcron aws-cli && chmod +x /backup.sh && echo \"$$BACKUP_SCHEDULE /backup.sh\" | crontab - && crond -f -l 2"
+
+# ====================================
+# Networks
+# ====================================
+
+networks:
+  panchangam-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ====================================
+# Volumes
+# ====================================
 
 volumes:
   postgres_data:
+    driver: local
+  postgres_replica_data:
     driver: local
   redis_data:
     driver: local
@@ -163,10 +401,9 @@ volumes:
     driver: local
   grafana_data:
     driver: local
+  alertmanager_data:
+    driver: local
   loki_data:
     driver: local
-
-networks:
-  default:
-    name: panchangam-network
-    driver: bridge
+  backup_data:
+    driver: local

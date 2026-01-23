@@ -1,6 +1,7 @@
 export interface PanchangamData {
   date: string;
   tithi: string;
+  tithi_start_time?: string;
   nakshatra: string;
   yoga: string;
   karana: string;
@@ -37,7 +38,8 @@ export interface Location {
 
 export interface Settings {
   calculation_method: 'Drik' | 'Vakya';
-  locale: 'en' | 'hi' | 'ta';
+  calendar_system?: 'purnimanta' | 'amanta' | 'lunar' | 'solar';
+  locale: 'en' | 'hi' | 'ta' | 'ml' | 'bn' | 'gu' | 'mr';
   region: string;
   time_format: '12' | '24';
   location: Location;
@@ -50,5 +52,6 @@ export interface GetPanchangamRequest {
   timezone: string;
   region: string;
   calculation_method: string;
+  calendar_system?: string;
   locale: string;
 }

@@ -275,25 +275,156 @@ docker-clean:
 # Deployment
 # =============================================================================
 
-# Deploy to staging environment
+# Deploy to development using Docker Compose
+deploy-dev:
+	@echo "$(BLUE)🚀 Deploying to development...$(NC)"
+	@./deployments/scripts/deploy.sh development docker-compose
+
+# Deploy to staging using Docker Compose
 deploy-staging:
 	@echo "$(BLUE)🚀 Deploying to staging...$(NC)"
-	@./scripts/deploy.sh -e staging -v $(VERSION)
+	@./deployments/scripts/deploy.sh staging docker-compose
 
-# Deploy to production environment
+# Deploy to production using Kubernetes
 deploy-production:
 	@echo "$(BLUE)🚀 Deploying to production...$(NC)"
-	@./scripts/deploy.sh -e production -v $(VERSION)
+	@./deployments/scripts/deploy.sh production kubernetes
 
-# Validate staging deployment
-validate-staging:
-	@echo "$(BLUE)✅ Validating staging deployment...$(NC)"
-	@./scripts/validate-deployment.sh -e staging
+# Deploy to Kubernetes (any environment)
+deploy-k8s:
+	@echo "$(BLUE)🚀 Deploying to Kubernetes ($(ENVIRONMENT))...$(NC)"
+	@cd deployments/k8s/overlays/$(ENVIRONMENT) && kustomize build . | kubectl apply -f -
 
-# Validate production deployment
-validate-production:
-	@echo "$(BLUE)✅ Validating production deployment...$(NC)"
-	@./scripts/validate-deployment.sh -e production
+# Deploy to Docker Compose (production)
+deploy-compose:
+	@echo "$(BLUE)🚀 Deploying with Docker Compose...$(NC)"
+	@docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+
+# =============================================================================
+# Database Operations
+# =============================================================================
+
+# Run database migrations
+migrate-up:
+	@echo "$(BLUE)🔄 Running database migrations...$(NC)"
+	@./deployments/migrations/migrate.sh up
+
+# Rollback database migrations
+migrate-down:
+	@echo "$(YELLOW)⚠️  Rolling back database migrations...$(NC)"
+	@./deployments/migrations/migrate.sh down
+
+# Create new migration
+migrate-create:
+	@echo "$(BLUE)📝 Creating new migration...$(NC)"
+	@./deployments/migrations/migrate.sh create $(name)
+
+# Check migration version
+migrate-version:
+	@echo "$(BLUE)📊 Checking migration version...$(NC)"
+	@./deployments/migrations/migrate.sh version
+
+# =============================================================================
+# Backup & Recovery
+# =============================================================================
+
+# Create database backup
+backup:
+	@echo "$(BLUE)💾 Creating database backup...$(NC)"
+	@./deployments/backup/backup.sh
+
+# Restore database from backup
+restore:
+	@echo "$(YELLOW)⚠️  Restoring database from backup...$(NC)"
+	@./deployments/backup/restore.sh $(file)
+
+# =============================================================================
+# Monitoring & Health Checks
+# =============================================================================
+
+# Check service health
+health-check:
+	@echo "$(BLUE)🏥 Checking service health...$(NC)"
+	@curl -f http://localhost:8080/health || echo "$(RED)API Gateway is down$(NC)"
+	@curl -f http://localhost:80/health || echo "$(RED)Frontend is down$(NC)"
+
+# View logs
+logs:
+	@echo "$(BLUE)📋 Viewing service logs...$(NC)"
+	@docker-compose -f docker-compose.prod.yml logs -f --tail=100
+
+# View Kubernetes logs
+logs-k8s:
+	@echo "$(BLUE)📋 Viewing Kubernetes logs...$(NC)"
+	@kubectl logs -f deployment/panchangam-gateway -n panchangam
+
+# =============================================================================
+# Kubernetes Operations
+# =============================================================================
+
+# Apply Kubernetes manifests
+k8s-apply:
+	@echo "$(BLUE)☸️  Applying Kubernetes manifests...$(NC)"
+	@kubectl apply -f deployments/k8s/base/
+
+# Delete Kubernetes resources
+k8s-delete:
+	@echo "$(RED)🗑️  Deleting Kubernetes resources...$(NC)"
+	@kubectl delete -f deployments/k8s/base/
+
+# Get Kubernetes pod status
+k8s-status:
+	@echo "$(BLUE)📊 Kubernetes pod status:$(NC)"
+	@kubectl get pods -n panchangam
+
+# Describe Kubernetes deployment
+k8s-describe:
+	@echo "$(BLUE)📝 Kubernetes deployment details:$(NC)"
+	@kubectl describe deployment -n panchangam
+
+# Scale Kubernetes deployment
+k8s-scale:
+	@echo "$(BLUE)📈 Scaling deployment to $(replicas) replicas...$(NC)"
+	@kubectl scale deployment/panchangam-gateway --replicas=$(replicas) -n panchangam
+	@kubectl scale deployment/panchangam-grpc --replicas=$(replicas) -n panchangam
+
+# Rollback Kubernetes deployment
+k8s-rollback:
+	@echo "$(YELLOW)⏪ Rolling back Kubernetes deployment...$(NC)"
+	@kubectl rollout undo deployment/panchangam-gateway -n panchangam
+	@kubectl rollout undo deployment/panchangam-grpc -n panchangam
+
+# Restart Kubernetes deployment
+k8s-restart:
+	@echo "$(BLUE)🔄 Restarting Kubernetes deployment...$(NC)"
+	@kubectl rollout restart deployment/panchangam-gateway -n panchangam
+	@kubectl rollout restart deployment/panchangam-grpc -n panchangam
+
+# =============================================================================
+# Infrastructure Setup
+# =============================================================================
+
+# Set up production infrastructure
+infra-setup:
+	@echo "$(BLUE)🏗️  Setting up production infrastructure...$(NC)"
+	@mkdir -p deployments/{postgres/init,prometheus/alerts,grafana/{provisioning,dashboards},alertmanager,loki,backup,nginx}
+	@echo "$(GREEN)✅ Infrastructure directories created$(NC)"
+
+# Validate deployment configurations
+infra-validate:
+	@echo "$(BLUE)✔️  Validating deployment configurations...$(NC)"
+	@docker-compose -f docker-compose.prod.yml config
+	@echo "$(GREEN)✅ Docker Compose configuration is valid$(NC)"
+
+# Generate SSL certificates (self-signed for development)
+ssl-generate:
+	@echo "$(BLUE)🔐 Generating self-signed SSL certificates...$(NC)"
+	@mkdir -p deployments/nginx/ssl
+	@openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+		-keyout deployments/nginx/ssl/privkey.pem \
+		-out deployments/nginx/ssl/fullchain.pem \
+		-subj "/C=US/ST=State/L=City/O=Organization/CN=panchangam.local"
+	@echo "$(GREEN)✅ SSL certificates generated$(NC)"
 
 # =============================================================================
 # CI/CD Pipeline Commands

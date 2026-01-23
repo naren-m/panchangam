@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { usePanchangam, usePanchangamRange } from '../usePanchangam';
-import { panchangamApi } from '../../services/panchangamApi';
 
 // Mock the API service
 vi.mock('../../services/panchangamApi', () => ({
@@ -11,6 +10,8 @@ vi.mock('../../services/panchangamApi', () => ({
   },
 }));
 
+// Import the mocked panchangamApi
+import { panchangamApi } from '../../services/panchangamApi';
 const mockPanchangamApi = panchangamApi as any;
 
 describe('usePanchangam', () => {

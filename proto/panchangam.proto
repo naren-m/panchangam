@@ -7,18 +7,12 @@ syntax = "proto3";
 
 package panchangam;
 
-import "google/api/annotations.proto";
-
-option go_package = "./panchangam";
+option go_package = "github.com/naren-m/panchangam/proto";
 
 // Panchangam service definition
 service Panchangam {
     // RPC method to retrieve Panchangam data for a specific date
-    rpc Get(GetPanchangamRequest) returns (GetPanchangamResponse) {
-        option (google.api.http) = {
-            get: "/api/v1/panchangam"
-        };
-    }
+    rpc Get(GetPanchangamRequest) returns (GetPanchangamResponse);
 }
 
 // Panchangam data for a specific date
@@ -46,6 +40,15 @@ message PanchangamData {
 
     // Additional Panchangam details or events for the given date
     repeated PanchangamEvent events = 8;
+
+    // Timezone used for calculations (e.g., "Asia/Kolkata", "UTC+05:30")
+    string timezone = 9;
+
+    // Timezone offset from UTC (e.g., "+05:30", "-08:00")
+    string timezone_offset = 10;
+
+    // Whether daylight saving time is active
+    bool is_dst = 11;
 }
 
 // Represents an event or special occurrence in the Panchangam

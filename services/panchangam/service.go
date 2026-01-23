@@ -10,7 +10,7 @@ import (
 	"github.com/naren-m/panchangam/astronomy/ephemeris"
 	"github.com/naren-m/panchangam/log"
 	"github.com/naren-m/panchangam/observability"
-	ppb "github.com/naren-m/panchangam/proto/panchangam"
+	ppb "github.com/naren-m/panchangam/proto"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
@@ -19,7 +19,37 @@ import (
 
 var logger = log.Logger()
 
+// calendarSystemByRegion maps regions to their traditional calendar system
+// Amanta: Month starts from new moon (solar-based, used in Tamil Nadu, Kerala, Gujarat)
+// Purnimanta: Month starts from full moon (lunar-based, used in most of North India)
+var calendarSystemByRegion = map[string]string{
+	"Tamil Nadu":      "Amanta",
+	"Kerala":          "Amanta",
+	"Gujarat":         "Amanta",
+	"Karnataka":       "Amanta",
+	"Andhra Pradesh":  "Purnimanta",
+	"Telangana":       "Purnimanta",
+	"Maharashtra":     "Purnimanta",
+	"Uttar Pradesh":   "Purnimanta",
+	"Bihar":           "Purnimanta",
+	"West Bengal":     "Purnimanta",
+	"Rajasthan":       "Purnimanta",
+	"Madhya Pradesh":  "Purnimanta",
+	"Punjab":          "Purnimanta",
+	"Odisha":          "Purnimanta",
+	"Hyderabad":       "Purnimanta",
+	"Chennai":         "Amanta",
+	"Bangalore":       "Amanta",
+	"Mumbai":          "Purnimanta",
+	"Delhi":           "Purnimanta",
+	"New York":        "Purnimanta",
+	"Texas":           "Purnimanta",
+	"New Jersey":      "Purnimanta",
+	"California":      "Purnimanta",
+}
+
 type PanchangamServer struct {
+	config           Config
 	observer         observability.ObserverInterface
 	ephemerisManager *ephemeris.Manager
 	tithiCalc        *astronomy.TithiCalculator
@@ -30,25 +60,19 @@ type PanchangamServer struct {
 	ppb.UnimplementedPanchangamServer
 }
 
-func NewPanchangamServer() *PanchangamServer {
-	// Initialize ephemeris providers and cache
-	jplProvider := ephemeris.NewJPLProvider()
-	swissProvider := ephemeris.NewSwissProvider()
-	cache := ephemeris.NewMemoryCache(1000, 24*time.Hour) // 1000 entries, 24h TTL
-
-	// Create ephemeris manager
-	ephemerisManager := ephemeris.NewManager(jplProvider, swissProvider, cache)
-
+// NewPanchangamServer creates a new server instance with the provided dependencies
+func NewPanchangamServer(manager *ephemeris.Manager, config Config) *PanchangamServer {
 	// Initialize calculators
-	tithiCalc := astronomy.NewTithiCalculator(ephemerisManager)
-	nakshatraCalc := astronomy.NewNakshatraCalculator(ephemerisManager)
-	yogaCalc := astronomy.NewYogaCalculator(ephemerisManager)
-	karanaCalc := astronomy.NewKaranaCalculator(ephemerisManager)
+	tithiCalc := astronomy.NewTithiCalculator(manager)
+	nakshatraCalc := astronomy.NewNakshatraCalculator(manager)
+	yogaCalc := astronomy.NewYogaCalculator(manager)
+	karanaCalc := astronomy.NewKaranaCalculator(manager)
 	varaCalc := astronomy.NewVaraCalculator()
 
 	return &PanchangamServer{
+		config:           config,
 		observer:         observability.Observer(),
-		ephemerisManager: ephemerisManager,
+		ephemerisManager: manager,
 		tithiCalc:        tithiCalc,
 		nakshatraCalc:    nakshatraCalc,
 		yogaCalc:         yogaCalc,
@@ -75,8 +99,7 @@ func traceAttributes(keyValues ...string) []trace.EventOption {
 	return []trace.EventOption{trace.WithAttributes(attrs...)}
 }
 
-func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
-	ctx, span := s.observer.CreateSpan(ctx, "Get")
+func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {	ctx, span := s.observer.CreateSpan(ctx, "Get")
 	defer span.End()
 
 	// Validate request is not nil
@@ -303,26 +326,57 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 	}
 	logger.DebugContext(ctx, "Date parsed successfully", "parsed_date", date.Format("2006-01-02"))
 
-	// Handle timezone configuration
-	loc := time.Local // default to local timezone
-	logger.DebugContext(ctx, "Processing timezone", "timezone", req.Timezone)
-	if req.Timezone != "" {
-		parsedLoc, err := time.LoadLocation(req.Timezone)
-		if err != nil {
-			logger.WarnContext(ctx, "Failed to load timezone, falling back to local",
-				"requested_timezone", req.Timezone,
-				"error", err,
-				"fallback_timezone", "local")
-			span.AddEvent("Timezone fallback", traceAttributes(
-				"requested_timezone", req.Timezone,
-				"fallback_timezone", "local",
-			)...)
-		} else {
-			loc = parsedLoc
-			logger.DebugContext(ctx, "Timezone loaded successfully", "timezone", req.Timezone)
-		}
-	} else {
-		logger.DebugContext(ctx, "No timezone specified, using local timezone")
+	// Handle timezone configuration with enhanced parsing and validation
+	tzParser := NewTimezoneParser()
+	loc := time.UTC // default to UTC for consistency
+	tzString := req.Timezone
+	if tzString == "" {
+		tzString = "UTC"
+		logger.DebugContext(ctx, "No timezone specified, using UTC default")
+	}
+
+	logger.DebugContext(ctx, "Processing timezone", "timezone", tzString)
+	parsedLoc, err := tzParser.ParseTimezone(tzString)
+	if err != nil {
+		// Return error instead of falling back silently
+		grpcErr := status.Error(codes.InvalidArgument, fmt.Sprintf("invalid timezone: %v", err))
+
+		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
+			Severity:    observability.SeverityMedium,
+			Category:    observability.CategoryValidation,
+			Operation:   "timezone_parsing",
+			Component:   "panchangam_service",
+			Additional: map[string]interface{}{
+				"timezone_input": tzString,
+				"parse_error":    err.Error(),
+			},
+			Retryable:   false,
+			ExpectedErr: true,
+		})
+
+		logger.WarnContext(ctx, "Timezone parsing failed",
+			"timezone", tzString,
+			"error", grpcErr)
+		span.RecordError(grpcErr)
+		return nil, grpcErr
+	}
+
+	loc = parsedLoc
+	logger.DebugContext(ctx, "Timezone parsed successfully",
+		"timezone", tzString,
+		"location", loc.String())
+
+	// Validate timezone against location coordinates
+	isValid, warning := tzParser.ValidateTimezoneForLocation(loc, req.Latitude, req.Longitude)
+	if !isValid {
+		logger.WarnContext(ctx, "Timezone validation warning",
+			"timezone", tzString,
+			"latitude", req.Latitude,
+			"longitude", req.Longitude,
+			"warning", warning)
+		span.AddEvent("Timezone validation warning", traceAttributes(
+			"warning", warning,
+		)...)
 	}
 
 	// Adjust date to the requested timezone
@@ -416,8 +470,11 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		"sunrise", sunTimes.Sunrise.Format("15:04:05"),
 		"sunset", sunTimes.Sunset.Format("15:04:05"))
 
-	// Calculate Tithi
-	tithi, err := s.tithiCalc.GetTithiForDate(ctx, date)
+	// Determine calendar system based on region
+	calendarSystem := getCalendarSystemForRegion(req.Region)
+
+	// Calculate Tithi with calendar system
+	tithi, err := s.tithiCalc.GetTithiForDateWithCalendarSystem(ctx, date, calendarSystem)
 	if err != nil {
 		grpcErr := status.Error(codes.Internal, fmt.Sprintf("failed to calculate tithi: %v", err))
 		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
@@ -535,20 +592,24 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		festivals = []string{}
 	}
 
+	// Convert sunrise/sunset times to local timezone for events
+	localSunrise := sunTimes.Sunrise.In(loc)
+	localSunset := sunTimes.Sunset.In(loc)
+	
 	// Build comprehensive event list with accurate timing
 	events := []*ppb.PanchangamEvent{
 		{
 			Name:      "Sunrise",
-			Time:      sunTimes.Sunrise.Format("15:04:05"),
+			Time:      localSunrise.Format("15:04:05"),
 			EventType: "SUNRISE",
 		},
 		{
 			Name:      "Sunset",
-			Time:      sunTimes.Sunset.Format("15:04:05"),
+			Time:      localSunset.Format("15:04:05"),
 			EventType: "SUNSET",
 		},
 		{
-			Name:      fmt.Sprintf("Tithi: %s", tithi.Name),
+			Name:      fmt.Sprintf("Tithi: %s (%s Paksha)", tithi.TraditionalName, tithi.Paksha),
 			Time:      tithi.StartTime.Format("15:04:05"),
 			EventType: "TITHI",
 		},
@@ -569,7 +630,7 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		},
 		{
 			Name:      fmt.Sprintf("Vara: %s", vara.Name),
-			Time:      sunTimes.Sunrise.Format("15:04:05"), // Vara starts at sunrise
+			Time:      localSunrise.Format("15:04:05"), // Vara starts at sunrise
 			EventType: "VARA",
 		},
 	}
@@ -638,15 +699,38 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		})
 	}
 
+	logger.DebugContext(ctx, "Sun times converted to local timezone",
+		"utc_sunrise", sunTimes.Sunrise.Format("15:04:05 MST"),
+		"utc_sunset", sunTimes.Sunset.Format("15:04:05 MST"),
+		"local_sunrise", localSunrise.Format("15:04:05 MST"),
+		"local_sunset", localSunset.Format("15:04:05 MST"),
+		"timezone", loc.String())
+
+	// Format tithi with traditional names and paksha information
+	var tithiDisplay string
+	if calendarSystem == "Amanta" && !tithi.IsShukla {
+		// For Amanta Krishna paksha, show adjusted day number
+		tithiDisplay = fmt.Sprintf("%s - %s Paksha Day %d (%s)", tithi.TraditionalName, tithi.Paksha, tithi.PakshaDay, calendarSystem)
+	} else {
+		// For Shukla paksha or Purnimanta system
+		tithiDisplay = fmt.Sprintf("%s - %s Paksha Day %d (%s)", tithi.TraditionalName, tithi.Paksha, tithi.PakshaDay, calendarSystem)
+	}
+
+	// Get timezone information for the response
+	tzInfo := tzParser.GetTimezoneInfo(loc, date)
+
 	data := &ppb.PanchangamData{
-		Date:        req.Date,
-		Tithi:       fmt.Sprintf("%s (%d)", tithi.Name, tithi.Number),
-		Nakshatra:   fmt.Sprintf("%s (%d)", nakshatra.Name, nakshatra.Number),
-		Yoga:        fmt.Sprintf("%s (%d)", yoga.Name, yoga.Number),
-		Karana:      fmt.Sprintf("%s (%d)", karana.Name, karana.Number),
-		SunriseTime: sunTimes.Sunrise.Format("15:04:05"),
-		SunsetTime:  sunTimes.Sunset.Format("15:04:05"),
-		Events:      events,
+		Date:           req.Date,
+		Tithi:          tithiDisplay,
+		Nakshatra:      fmt.Sprintf("%s (%d)", nakshatra.Name, nakshatra.Number),
+		Yoga:           fmt.Sprintf("%s (%d)", yoga.Name, yoga.Number),
+		Karana:         fmt.Sprintf("%s (%d)", karana.Name, karana.Number),
+		SunriseTime:    localSunrise.Format("15:04:05"),
+		SunsetTime:     localSunset.Format("15:04:05"),
+		Events:         events,
+		Timezone:       loc.String(),
+		TimezoneOffset: tzInfo.Formatted,
+		IsDst:          tzInfo.IsDST,
 	}
 
 	logger.InfoContext(ctx, "Panchangam data fetched successfully",
@@ -662,4 +746,15 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 	)...)
 
 	return data, nil
+}
+
+// getCalendarSystemForRegion returns the appropriate calendar system for a given region
+func getCalendarSystemForRegion(region string) string {
+	// Check if the region has a specific calendar system mapping
+	if system, exists := calendarSystemByRegion[region]; exists {
+		return system
+	}
+	
+	// Default to Purnimanta if region is not found
+	return "Purnimanta"
 }

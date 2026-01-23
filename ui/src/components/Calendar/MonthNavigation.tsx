@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, Calendar, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, Globe } from 'lucide-react';
 import { getMonthName } from '../../utils/dateHelpers';
 import { Settings } from '../../types/panchangam';
 
@@ -12,6 +12,7 @@ interface MonthNavigationProps {
   onToday: () => void;
   onLocationClick: () => void;
   onSettingsClick: () => void;
+  onSkyViewClick?: () => void;
 }
 
 export const MonthNavigation: React.FC<MonthNavigationProps> = ({
@@ -22,7 +23,8 @@ export const MonthNavigation: React.FC<MonthNavigationProps> = ({
   onNextMonth,
   onToday,
   onLocationClick,
-  onSettingsClick
+  onSettingsClick,
+  onSkyViewClick
 }) => {
   const monthName = getMonthName(month, settings.locale);
 
@@ -77,6 +79,17 @@ export const MonthNavigation: React.FC<MonthNavigationProps> = ({
               {settings.location.name.split(',')[0]}
             </span>
           </button>
+
+          {onSkyViewClick && (
+            <button
+              onClick={onSkyViewClick}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+              title="Sky View"
+            >
+              <Globe className="w-4 h-4" />
+              <span className="hidden sm:inline">Sky View</span>
+            </button>
+          )}
 
           <button
             onClick={onSettingsClick}

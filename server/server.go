@@ -5,7 +5,7 @@ import (
 	"github.com/naren-m/panchangam/aaa"
 	"github.com/naren-m/panchangam/log"
 	"github.com/naren-m/panchangam/observability"
-	ppb "github.com/naren-m/panchangam/proto/panchangam"
+	ppb "github.com/naren-m/panchangam/proto"
 	ps "github.com/naren-m/panchangam/services/panchangam"
 	"google.golang.org/grpc"
 	"net"

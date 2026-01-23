@@ -1,74 +1,111 @@
-import React, { useState, useEffect } from 'react';
-import { CalendarGrid } from './components/Calendar/CalendarGrid';
+import React, { useState, useMemo, useRef, Suspense, lazy } from 'react';
+import { CalendarDisplayManager } from './components/Calendar/CalendarDisplayManager';
 import { MonthNavigation } from './components/Calendar/MonthNavigation';
-import { DayDetailModal } from './components/DayDetail/DayDetailModal';
-import { LocationSelector } from './components/LocationPicker/LocationSelector';
-import { SettingsPanel } from './components/Settings/SettingsPanel';
-import { SkeletonCalendar, LoadingSpinner } from './components/common/Loading';
-import { ApiError, NetworkError, ErrorBoundary, OfflineIndicator } from './components/common/Error';
-import { usePanchangamRange } from './hooks/usePanchangam';
+import { ViewSwitcher, ViewMode } from './components/ViewSwitcher';
+import { ErrorBoundary } from './components/common/Error';
+import { useProgressivePanchangam } from './hooks/useProgressivePanchangam';
 import { useDayDetail } from './hooks/useDayDetail';
 import { Settings, PanchangamData } from './types/panchangam';
 import { getCurrentMonthDates } from './utils/dateHelpers';
-import { locationService } from './services/locationService';
+import { exportToCSV, exportToJSON } from './utils/exportHelpers';
+
+// Lazy load heavy components to improve initial load performance
+const DayDetailModal = lazy(() => import('./components/DayDetail/DayDetailModal').then(module => ({ default: module.DayDetailModal })));
+const LocationSelector = lazy(() => import('./components/LocationPicker/LocationSelector').then(module => ({ default: module.LocationSelector })));
+const SettingsPanel = lazy(() => import('./components/Settings/SettingsPanel').then(module => ({ default: module.SettingsPanel })));
+const SkyVisualizationContainer = lazy(() => import('./components/SkyVisualization').then(module => ({ default: module.SkyVisualizationContainer })));
+const TableView = lazy(() => import('./components/TableView').then(module => ({ default: module.TableView })));
+const GraphView = lazy(() => import('./components/GraphView').then(module => ({ default: module.GraphView })));
 
 function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showLocationSelector, setShowLocationSelector] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [settings, setSettings] = useState<Settings>({
+  const [showSkyVisualization, setShowSkyVisualization] = useState(false);
+  const [currentView, setCurrentView] = useState<ViewMode>('calendar');
+  const [settingsState, setSettingsState] = useState({
     calculation_method: 'Drik',
     locale: 'en',
-    region: 'Tamil Nadu',
+    region: 'California',
     time_format: '12',
     location: {
-      name: 'Chennai, Tamil Nadu',
-      latitude: 13.0827,
-      longitude: 80.2707,
-      timezone: 'Asia/Kolkata',
-      region: 'Tamil Nadu'
+      name: 'Milpitas, California',
+      latitude: 37.4323,
+      longitude: -121.9066,
+      timezone: 'America/Los_Angeles',
+      region: 'California'
     }
   });
+
+  // Use ref to break infinite loop completely
+  const settingsRef = useRef(null);
+  
+  // Update ref when settings change
+  const settings = useMemo(() => {
+    const newSettings = {
+      calculation_method: settingsState.calculation_method,
+      locale: settingsState.locale,
+      region: settingsState.region,
+      time_format: settingsState.time_format,
+      location: {
+        name: settingsState.location.name,
+        latitude: settingsState.location.latitude,
+        longitude: settingsState.location.longitude,
+        timezone: settingsState.location.timezone,
+        region: settingsState.location.region
+      }
+    };
+    
+    // Only update if actually different
+    if (!settingsRef.current || JSON.stringify(settingsRef.current) !== JSON.stringify(newSettings)) {
+      console.log('📝 Settings actually changed, updating...');
+      settingsRef.current = newSettings;
+    }
+    
+    return settingsRef.current;
+  }, [
+    settingsState.calculation_method,
+    settingsState.locale,
+    settingsState.region,
+    settingsState.time_format,
+    settingsState.location.name,
+    settingsState.location.latitude,
+    settingsState.location.longitude,
+    settingsState.location.timezone,
+    settingsState.location.region
+  ]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // Get the date range for the current month view
-  const monthDates = getCurrentMonthDates(year, month);
-  const startDate = monthDates[0];
-  const endDate = monthDates[monthDates.length - 1];
+  // Memoize date range to prevent infinite re-renders
+  // getCurrentMonthDates creates new Date objects, so we memoize to keep stable references
+  const { startDate, endDate } = useMemo(() => {
+    const monthDates = getCurrentMonthDates(year, month);
+    return {
+      startDate: monthDates[0],
+      endDate: monthDates[monthDates.length - 1]
+    };
+  }, [year, month]);
 
-  // Fetch panchangam data for the visible month
+  // Fetch panchangam data progressively for the visible month
   const { 
     data: panchangamData, 
     loading, 
-    isRetrying, 
+    isProgressiveLoading,
+    progress,
+    todayLoaded,
+    loadedCount,
+    totalCount,
+    loadingPhase,
     error, 
     errorState, 
-    retry,
-    isOffline,
-    offlineState 
-  } = usePanchangamRange(startDate, endDate, settings);
+    retry 
+  } = useProgressivePanchangam(startDate, endDate, settings);
 
-  // Initialize location on first load
-  useEffect(() => {
-    const initializeLocation = async () => {
-      try {
-        const location = await locationService.getCurrentLocation();
-        setSettings(prev => ({
-          ...prev,
-          location,
-          region: location.region
-        }));
-      } catch (error) {
-        console.error('Failed to get initial location:', error);
-        // Keep default location (Chennai)
-      }
-    };
-
-    initializeLocation();
-  }, []);
+  // Note: Removed automatic location initialization to prevent infinite re-renders
+  // Default location is already set to Milpitas, CA
 
   const handlePrevMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1));
@@ -87,7 +124,7 @@ function App() {
   };
 
   const handleLocationSelect = (location: any) => {
-    setSettings(prev => ({
+    setSettingsState(prev => ({
       ...prev,
       location,
       region: location.region
@@ -103,6 +140,15 @@ function App() {
     retry,
   });
 
+  // Export handlers
+  const handleExport = (format: 'csv' | 'json') => {
+    if (format === 'csv') {
+      exportToCSV(panchangamData, settings, year, month);
+    } else {
+      exportToJSON(panchangamData, settings, year, month);
+    }
+  };
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -117,9 +163,6 @@ function App() {
           </p>
         </div>
 
-        {/* Offline Indicator */}
-        <OfflineIndicator isOffline={isOffline} />
-
         {/* Navigation */}
         <MonthNavigation
           year={year}
@@ -130,56 +173,76 @@ function App() {
           onToday={handleToday}
           onLocationClick={() => setShowLocationSelector(true)}
           onSettingsClick={() => setShowSettings(true)}
+          onSkyViewClick={() => setShowSkyVisualization(true)}
         />
 
-        {/* Loading State */}
-        {loading && !isRetrying && (
-          <div className="mb-6">
-            <SkeletonCalendar />
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="mb-6">
-            {errorState.isNetworkError ? (
-              <NetworkError
-                onRetry={retry}
-                isRetrying={isRetrying}
-                customMessage={error}
-              />
-            ) : (
-              <ApiError
-                error={error}
-                onRetry={retry}
-                statusCode={errorState.statusCode}
-                endpoint="/api/v1/panchangam"
-              />
-            )}
-          </div>
-        )}
-
-        {/* Retry Loading Indicator */}
-        {isRetrying && (
-          <div className="mb-6 text-center">
-            <LoadingSpinner
-              size="md"
-              color="orange"
-              message="Retrying..."
-            />
-          </div>
-        )}
-
-        {/* Calendar */}
-        {!loading || isRetrying ? (
-          <CalendarGrid
-            year={year}
-            month={month}
-            panchangamData={panchangamData}
-            settings={settings}
-            onDateClick={handleDateClick}
+        {/* View Switcher */}
+        <div className="mb-6 flex justify-center">
+          <ViewSwitcher
+            currentView={currentView}
+            onViewChange={setCurrentView}
           />
-        ) : null}
+        </div>
+
+        {/* View Display - Shows Calendar, Table, or Graph based on currentView */}
+        {currentView === 'calendar' && (
+          <CalendarDisplayManager
+            loading={loading}
+            hasData={Object.keys(panchangamData).length > 0}
+            error={error}
+            errorState={errorState}
+            isProgressiveLoading={isProgressiveLoading}
+            progress={progress}
+            loadedCount={loadedCount}
+            totalCount={totalCount}
+            loadingPhase={loadingPhase}
+            todayLoaded={todayLoaded}
+            retry={retry}
+            calendarProps={{
+              year,
+              month,
+              panchangamData,
+              settings,
+              onDateClick: handleDateClick
+            }}
+          />
+        )}
+
+        {currentView === 'table' && (
+          <Suspense fallback={
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading table view...</p>
+            </div>
+          }>
+            <TableView
+              year={year}
+              month={month}
+              panchangamData={panchangamData}
+              settings={settings}
+              onDateClick={handleDateClick}
+              onExport={handleExport}
+            />
+          </Suspense>
+        )}
+
+        {currentView === 'graph' && (
+          <Suspense fallback={
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading analytics...</p>
+            </div>
+          }>
+            <GraphView
+              year={year}
+              month={month}
+              panchangamData={panchangamData}
+              settings={settings}
+              onDateClick={handleDateClick}
+              onExport={handleExport}
+            />
+          </Suspense>
+        )}
 
         {/* Footer */}
         <div className="text-center mt-8 text-gray-600">
@@ -192,35 +255,64 @@ function App() {
         </div>
       </div>
 
-      {/* Modals */}
-      {selectedDate && (
-        <DayDetailModal
-          date={selectedDate}
-          data={dayDetail.data}
-          settings={settings}
-          isLoading={dayDetail.isLoading}
-          error={dayDetail.error}
-          onRetry={dayDetail.retry}
-          onClose={() => setSelectedDate(null)}
-        />
-      )}
-
-      {showLocationSelector && (
-        <LocationSelector
-          currentLocation={settings.location}
-          onLocationSelect={handleLocationSelect}
-          onClose={() => setShowLocationSelector(false)}
-        />
-      )}
-
-      {showSettings && (
-        <SettingsPanel
-          settings={settings}
-          onSettingsChange={setSettings}
-          onClose={() => setShowSettings(false)}
-        />
-      )}
+      {/* Modals - Wrapped in Suspense for lazy loading */}
+      <Suspense fallback={
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 shadow-xl">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
         </div>
+      }>
+        {selectedDate && (
+          <DayDetailModal
+            date={selectedDate}
+            data={dayDetail.data}
+            settings={settings}
+            isLoading={dayDetail.isLoading}
+            error={dayDetail.error}
+            onRetry={dayDetail.retry}
+            onClose={() => setSelectedDate(null)}
+          />
+        )}
+
+        {showLocationSelector && (
+          <LocationSelector
+            currentLocation={settings.location}
+            onLocationSelect={handleLocationSelect}
+            onClose={() => setShowLocationSelector(false)}
+          />
+        )}
+
+        {showSettings && (
+          <SettingsPanel
+            settings={settings}
+            onSettingsChange={setSettingsState}
+            onClose={() => setShowSettings(false)}
+          />
+        )}
+
+        {showSkyVisualization && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center">
+            <div className="relative w-full h-full max-w-7xl max-h-full p-4">
+              <button
+                onClick={() => setShowSkyVisualization(false)}
+                className="absolute top-6 right-6 z-10 bg-gray-800 bg-opacity-90 text-white rounded-full p-2 hover:bg-gray-700 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <SkyVisualizationContainer
+                latitude={settings.location.latitude}
+                longitude={settings.location.longitude}
+                date={currentDate}
+                className="w-full h-full rounded-lg overflow-hidden"
+              />
+            </div>
+          </div>
+        )}
+      </Suspense>
       </div>
     </ErrorBoundary>
   );

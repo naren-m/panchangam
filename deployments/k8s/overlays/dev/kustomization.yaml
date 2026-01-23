@@ -1,0 +1,39 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: panchangam-dev
+
+bases:
+  - ../../base
+
+namePrefix: dev-
+
+commonLabels:
+  environment: development
+
+replicas:
+  - name: panchangam-grpc
+    count: 1
+  - name: panchangam-gateway
+    count: 1
+  - name: panchangam-frontend
+    count: 1
+
+images:
+  - name: ghcr.io/naren-m/panchangam-backend
+    newTag: dev
+  - name: ghcr.io/naren-m/panchangam-frontend
+    newTag: dev
+
+configMapGenerator:
+  - name: panchangam-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=debug
+
+secretGenerator:
+  - name: panchangam-secrets
+    behavior: merge
+    envs:
+      - secrets.env
