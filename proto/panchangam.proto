@@ -13,6 +13,9 @@ option go_package = "github.com/naren-m/panchangam/proto";
 service Panchangam {
     // RPC method to retrieve Panchangam data for a specific date
     rpc Get(GetPanchangamRequest) returns (GetPanchangamResponse);
+
+    // RPC method to retrieve current Tithi details for watch complications
+    rpc GetTithiSummary(GetTithiSummaryRequest) returns (GetTithiSummaryResponse);
 }
 
 // Panchangam data for a specific date
@@ -91,4 +94,104 @@ message GetPanchangamRequest {
 message GetPanchangamResponse {
     // Panchangam data for the requested date
     PanchangamData panchangam_data = 1;
+}
+
+// Request message to retrieve current Tithi details for a specific moment and location
+message GetTithiSummaryRequest {
+    // Moment to calculate in RFC3339 format
+    string at = 1;
+
+    // Latitude of the location (required, -90 to 90)
+    double latitude = 2;
+
+    // Longitude of the location (required, -180 to 180)
+    double longitude = 3;
+
+    // Timezone identifier (e.g., "America/Los_Angeles")
+    string timezone = 4;
+
+    // Regional system (e.g., "California", "Tamil Nadu")
+    string region = 5;
+
+    // Calculation method (e.g., "Drik")
+    string calculation_method = 6;
+
+    // Language/locale (e.g., "en")
+    string locale = 7;
+
+    // Optional calendar system override (e.g., "Purnimanta", "Amanta")
+    string calendar_system = 8;
+}
+
+// Response message containing rich Tithi details for watch complications
+message GetTithiSummaryResponse {
+    // Local date for the calculation
+    string date = 1;
+
+    // Current Tithi details
+    TithiSummary tithi = 2;
+
+    // Other Pancha Anga details
+    PanchaAngaSummary pancha_anga = 3;
+
+    // Calculation settings used by the service
+    TithiCalculationSummary calculation = 4;
+
+    // Time this response was generated in RFC3339 format
+    string generated_at = 5;
+
+    // Best next refresh time in RFC3339 format
+    string next_refresh_at = 6;
+
+    // Day details used by the Mandala watch face
+    DaySummary day = 7;
+}
+
+// Tithi details for compact mobile and watch display
+message TithiSummary {
+    string name = 1;
+    string traditional_name = 2;
+    int32 number = 3;
+    string paksha = 4;
+    int32 paksha_day = 5;
+    string type = 6;
+    string start_time = 7;
+    string end_time = 8;
+}
+
+// Other Pancha Anga values for rich display
+message PanchaAngaSummary {
+    string nakshatra = 1;
+    string yoga = 2;
+    string karana = 3;
+    string vara = 4;
+}
+
+// Day-level details for compact Mandala display
+message DaySummary {
+    // Local sunrise time in HH:MM format
+    string sunrise_time = 1;
+
+    // Local sunset time in HH:MM format
+    string sunset_time = 2;
+
+    // Abhijit Muhurta window for the local day
+    TimeWindow abhijit_muhurta = 3;
+}
+
+// A named local time window for watch and phone display
+message TimeWindow {
+    string name = 1;
+    string start_time = 2;
+    string end_time = 3;
+    bool auspicious = 4;
+}
+
+// Calculation metadata for diagnostics and display
+message TithiCalculationSummary {
+    string timezone = 1;
+    string region = 2;
+    string calendar_system = 3;
+    string method = 4;
+    string locale = 5;
 }

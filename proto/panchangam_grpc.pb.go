@@ -24,7 +24,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Panchangam_Get_FullMethodName = "/panchangam.Panchangam/Get"
+	Panchangam_Get_FullMethodName             = "/panchangam.Panchangam/Get"
+	Panchangam_GetTithiSummary_FullMethodName = "/panchangam.Panchangam/GetTithiSummary"
 )
 
 // PanchangamClient is the client API for Panchangam service.
@@ -35,6 +36,8 @@ const (
 type PanchangamClient interface {
 	// RPC method to retrieve Panchangam data for a specific date
 	Get(ctx context.Context, in *GetPanchangamRequest, opts ...grpc.CallOption) (*GetPanchangamResponse, error)
+	// RPC method to retrieve current Tithi details for watch complications
+	GetTithiSummary(ctx context.Context, in *GetTithiSummaryRequest, opts ...grpc.CallOption) (*GetTithiSummaryResponse, error)
 }
 
 type panchangamClient struct {
@@ -55,6 +58,16 @@ func (c *panchangamClient) Get(ctx context.Context, in *GetPanchangamRequest, op
 	return out, nil
 }
 
+func (c *panchangamClient) GetTithiSummary(ctx context.Context, in *GetTithiSummaryRequest, opts ...grpc.CallOption) (*GetTithiSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTithiSummaryResponse)
+	err := c.cc.Invoke(ctx, Panchangam_GetTithiSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PanchangamServer is the server API for Panchangam service.
 // All implementations must embed UnimplementedPanchangamServer
 // for forward compatibility.
@@ -63,6 +76,8 @@ func (c *panchangamClient) Get(ctx context.Context, in *GetPanchangamRequest, op
 type PanchangamServer interface {
 	// RPC method to retrieve Panchangam data for a specific date
 	Get(context.Context, *GetPanchangamRequest) (*GetPanchangamResponse, error)
+	// RPC method to retrieve current Tithi details for watch complications
+	GetTithiSummary(context.Context, *GetTithiSummaryRequest) (*GetTithiSummaryResponse, error)
 	mustEmbedUnimplementedPanchangamServer()
 }
 
@@ -75,6 +90,9 @@ type UnimplementedPanchangamServer struct{}
 
 func (UnimplementedPanchangamServer) Get(context.Context, *GetPanchangamRequest) (*GetPanchangamResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedPanchangamServer) GetTithiSummary(context.Context, *GetTithiSummaryRequest) (*GetTithiSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTithiSummary not implemented")
 }
 func (UnimplementedPanchangamServer) mustEmbedUnimplementedPanchangamServer() {}
 func (UnimplementedPanchangamServer) testEmbeddedByValue()                    {}
@@ -115,6 +133,24 @@ func _Panchangam_Get_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Panchangam_GetTithiSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTithiSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PanchangamServer).GetTithiSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Panchangam_GetTithiSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PanchangamServer).GetTithiSummary(ctx, req.(*GetTithiSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Panchangam_ServiceDesc is the grpc.ServiceDesc for Panchangam service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -125,6 +161,10 @@ var Panchangam_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Get",
 			Handler:    _Panchangam_Get_Handler,
+		},
+		{
+			MethodName: "GetTithiSummary",
+			Handler:    _Panchangam_GetTithiSummary_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

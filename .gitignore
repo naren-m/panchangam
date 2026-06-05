@@ -4,11 +4,12 @@ coverage.out
 *.coverage
 
 # Build artifacts
-panchangam
-panchangam-cli
-panchangam-cli-enhanced
-panchangam-gateway
-panchangam-grpc
+/panchangam
+/panchangam-cli
+/panchangam-cli-enhanced
+/panchangam-gateway
+/panchangam-grpc
+.build/
 .build-cache/
 /bin/
 /dist/
@@ -29,6 +30,7 @@ Thumbs.db
 *.swo
 *~
 .vscode/
+**/*.xcodeproj/xcuserdata/
 
 # Go specific
 *.exe

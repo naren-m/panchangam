@@ -457,12 +457,16 @@ func testFeatureQA_002(t *testing.T) {
 
 		// Test Tithi validation
 		validTithi := &astronomy.TithiInfo{
-			Number:      15,
-			MoonSunDiff: 180.0,
-			Duration:    24.0,
-			StartTime:   time.Now(),
-			EndTime:     time.Now().Add(24 * time.Hour),
-			Name:        "Purnima",
+			Number:          15,
+			MoonSunDiff:     180.0,
+			Duration:        24.0,
+			StartTime:       time.Now(),
+			EndTime:         time.Now().Add(24 * time.Hour),
+			Name:            "Purnima",
+			TraditionalName: "Pournima",
+			Paksha:          "Shukla",
+			PakshaDay:       15,
+			CalendarSystem:  "Purnimanta",
 		}
 		err := astronomy.ValidateTithiCalculation(validTithi)
 		assert.NoError(t, err, "QA_002: Valid Tithi should pass validation")

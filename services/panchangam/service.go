@@ -23,29 +23,29 @@ var logger = log.Logger()
 // Amanta: Month starts from new moon (solar-based, used in Tamil Nadu, Kerala, Gujarat)
 // Purnimanta: Month starts from full moon (lunar-based, used in most of North India)
 var calendarSystemByRegion = map[string]string{
-	"Tamil Nadu":      "Amanta",
-	"Kerala":          "Amanta",
-	"Gujarat":         "Amanta",
-	"Karnataka":       "Amanta",
-	"Andhra Pradesh":  "Purnimanta",
-	"Telangana":       "Purnimanta",
-	"Maharashtra":     "Purnimanta",
-	"Uttar Pradesh":   "Purnimanta",
-	"Bihar":           "Purnimanta",
-	"West Bengal":     "Purnimanta",
-	"Rajasthan":       "Purnimanta",
-	"Madhya Pradesh":  "Purnimanta",
-	"Punjab":          "Purnimanta",
-	"Odisha":          "Purnimanta",
-	"Hyderabad":       "Purnimanta",
-	"Chennai":         "Amanta",
-	"Bangalore":       "Amanta",
-	"Mumbai":          "Purnimanta",
-	"Delhi":           "Purnimanta",
-	"New York":        "Purnimanta",
-	"Texas":           "Purnimanta",
-	"New Jersey":      "Purnimanta",
-	"California":      "Purnimanta",
+	"Tamil Nadu":     "Amanta",
+	"Kerala":         "Amanta",
+	"Gujarat":        "Amanta",
+	"Karnataka":      "Amanta",
+	"Andhra Pradesh": "Purnimanta",
+	"Telangana":      "Purnimanta",
+	"Maharashtra":    "Purnimanta",
+	"Uttar Pradesh":  "Purnimanta",
+	"Bihar":          "Purnimanta",
+	"West Bengal":    "Purnimanta",
+	"Rajasthan":      "Purnimanta",
+	"Madhya Pradesh": "Purnimanta",
+	"Punjab":         "Purnimanta",
+	"Odisha":         "Purnimanta",
+	"Hyderabad":      "Purnimanta",
+	"Chennai":        "Amanta",
+	"Bangalore":      "Amanta",
+	"Mumbai":         "Purnimanta",
+	"Delhi":          "Purnimanta",
+	"New York":       "Purnimanta",
+	"Texas":          "Purnimanta",
+	"New Jersey":     "Purnimanta",
+	"California":     "Purnimanta",
 }
 
 type PanchangamServer struct {
@@ -60,9 +60,14 @@ type PanchangamServer struct {
 	ppb.UnimplementedPanchangamServer
 }
 
-// NewPanchangamServer creates a new server instance with the provided dependencies
-func NewPanchangamServer(manager *ephemeris.Manager, config Config) *PanchangamServer {
-	// Initialize calculators
+// NewPanchangamServer creates a new server with the default ephemeris providers.
+func NewPanchangamServer() *PanchangamServer {
+	manager := newDefaultEphemerisManager()
+	return NewPanchangamServerWithDependencies(manager, DefaultConfig())
+}
+
+// NewPanchangamServerWithDependencies creates a server with explicit dependencies.
+func NewPanchangamServerWithDependencies(manager *ephemeris.Manager, config Config) *PanchangamServer {
 	tithiCalc := astronomy.NewTithiCalculator(manager)
 	nakshatraCalc := astronomy.NewNakshatraCalculator(manager)
 	yogaCalc := astronomy.NewYogaCalculator(manager)
@@ -79,6 +84,13 @@ func NewPanchangamServer(manager *ephemeris.Manager, config Config) *PanchangamS
 		karanaCalc:       karanaCalc,
 		varaCalc:         varaCalc,
 	}
+}
+
+func newDefaultEphemerisManager() *ephemeris.Manager {
+	jplProvider := ephemeris.NewJPLProvider()
+	swissProvider := ephemeris.NewSwissProvider()
+	cache := ephemeris.NewMemoryCache(1000, time.Hour)
+	return ephemeris.NewManager(jplProvider, swissProvider, cache)
 }
 
 // Helper functions for tracing
@@ -99,7 +111,8 @@ func traceAttributes(keyValues ...string) []trace.EventOption {
 	return []trace.EventOption{trace.WithAttributes(attrs...)}
 }
 
-func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {	ctx, span := s.observer.CreateSpan(ctx, "Get")
+func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamRequest) (*ppb.GetPanchangamResponse, error) {
+	ctx, span := s.observer.CreateSpan(ctx, "Get")
 	defer span.End()
 
 	// Validate request is not nil
@@ -134,7 +147,7 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
 
 	// Validate request parameters
 	logger.DebugContext(ctx, "Validating request parameters")
-	
+
 	// Validate required date parameter
 	if req.Date == "" {
 		err := status.Error(codes.InvalidArgument, "date parameter is required")
@@ -147,7 +160,7 @@ func (s *PanchangamServer) Get(ctx context.Context, req *ppb.GetPanchangamReques
 		span.RecordError(err)
 		return nil, err
 	}
-	
+
 	// Enhanced validation with comprehensive error recording
 	if req.Latitude < -90 || req.Latitude > 90 {
 		err := status.Error(codes.InvalidArgument, "latitude must be between -90 and 90")
@@ -342,10 +355,10 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 		grpcErr := status.Error(codes.InvalidArgument, fmt.Sprintf("invalid timezone: %v", err))
 
 		observability.RecordError(ctx, grpcErr, observability.ErrorContext{
-			Severity:    observability.SeverityMedium,
-			Category:    observability.CategoryValidation,
-			Operation:   "timezone_parsing",
-			Component:   "panchangam_service",
+			Severity:  observability.SeverityMedium,
+			Category:  observability.CategoryValidation,
+			Operation: "timezone_parsing",
+			Component: "panchangam_service",
 			Additional: map[string]interface{}{
 				"timezone_input": tzString,
 				"parse_error":    err.Error(),
@@ -595,7 +608,7 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 	// Convert sunrise/sunset times to local timezone for events
 	localSunrise := sunTimes.Sunrise.In(loc)
 	localSunset := sunTimes.Sunset.In(loc)
-	
+
 	// Build comprehensive event list with accurate timing
 	events := []*ppb.PanchangamEvent{
 		{
@@ -637,7 +650,7 @@ func (s *PanchangamServer) fetchPanchangamData(ctx context.Context, req *ppb.Get
 
 	// Add lunar events if available
 	if lunarTimes != nil && lunarTimes.IsVisible {
-		events = append(events, 
+		events = append(events,
 			&ppb.PanchangamEvent{
 				Name:      "Moonrise",
 				Time:      lunarTimes.Moonrise.Format("15:04:05"),
@@ -754,7 +767,7 @@ func getCalendarSystemForRegion(region string) string {
 	if system, exists := calendarSystemByRegion[region]; exists {
 		return system
 	}
-	
+
 	// Default to Purnimanta if region is not found
 	return "Purnimanta"
 }

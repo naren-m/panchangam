@@ -224,11 +224,12 @@ func TestServiceFunctionalCoverage(t *testing.T) {
 		assert.NoError(t, err2)
 		require.NotNil(t, resp2)
 
-		// Test with invalid timezone (should fallback gracefully)
+		// Test with invalid timezone
 		req.Timezone = "Invalid/Timezone"
 		resp3, err3 := server.Get(ctx, req)
-		assert.NoError(t, err3, "Invalid timezone should fallback gracefully")
-		require.NotNil(t, resp3)
+		assert.Error(t, err3, "Invalid timezone should return a clear validation error")
+		assert.Equal(t, codes.InvalidArgument, status.Code(err3))
+		require.Nil(t, resp3)
 	})
 }
 

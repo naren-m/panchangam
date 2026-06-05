@@ -47,7 +47,7 @@ func main() {
 		),
 	)
 
-	pService := ps.NewPanchangamServer(manager, config)
+	pService := ps.NewPanchangamServerWithDependencies(manager, config)
 	ppb.RegisterPanchangamServer(grpcServer, pService)
 
 	logger.Info("Server started on", "port", "50052")

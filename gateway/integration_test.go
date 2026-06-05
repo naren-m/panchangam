@@ -18,41 +18,38 @@ import (
 
 const bufSize = 1024 * 1024
 
-var lis *bufconn.Listener
+func setupGatewayIntegrationClient(t *testing.T) (*grpc.Server, *grpc.ClientConn, ppb.PanchangamClient) {
+	t.Helper()
 
-func init() {
-	lis = bufconn.Listen(bufSize)
-}
-
-func bufDialer(context.Context, string) (net.Conn, error) {
-	return lis.Dial()
-}
-
-// TestHTTPGatewayIntegration tests the complete HTTP Gateway to gRPC service flow
-func TestHTTPGatewayIntegration(t *testing.T) {
-	// Start gRPC server in memory
+	listener := bufconn.Listen(bufSize)
 	grpcServer := grpc.NewServer()
 	panchangamService := panchangam.NewPanchangamServer()
 	ppb.RegisterPanchangamServer(grpcServer, panchangamService)
 
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
+		if err := grpcServer.Serve(listener); err != nil {
 			t.Logf("gRPC server error: %v", err)
 		}
 	}()
-	defer grpcServer.Stop()
 
-	// Create gRPC client
-	conn, err := grpc.NewClient("bufnet", 
-		grpc.WithContextDialer(bufDialer),
+	conn, err := grpc.DialContext(context.Background(), "bufnet",
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return listener.Dial()
+		}),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create gRPC client: %v", err)
 	}
-	defer conn.Close()
 
-	client := ppb.NewPanchangamClient(conn)
+	return grpcServer, conn, ppb.NewPanchangamClient(conn)
+}
+
+// TestHTTPGatewayIntegration tests the complete HTTP Gateway to gRPC service flow
+func TestHTTPGatewayIntegration(t *testing.T) {
+	grpcServer, conn, client := setupGatewayIntegrationClient(t)
+	defer conn.Close()
+	defer grpcServer.Stop()
 
 	tests := []struct {
 		name           string
@@ -100,8 +97,8 @@ func TestHTTPGatewayIntegration(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 			validateResp: func(t *testing.T, resp map[string]interface{}) {
 				if errorInfo, ok := resp["error"].(map[string]interface{}); ok {
-					if code, ok := errorInfo["code"].(string); !ok || code != "INVALID_ARGUMENT" {
-						t.Errorf("Expected error code 'INVALID_ARGUMENT', got %v", errorInfo["code"])
+					if code, ok := errorInfo["code"].(string); !ok || code != "INVALID_PARAMETERS" {
+						t.Errorf("Expected error code 'INVALID_PARAMETERS', got %v", errorInfo["code"])
 					}
 				} else {
 					t.Error("Expected error object in response")
@@ -171,56 +168,88 @@ func TestHTTPGatewayIntegration(t *testing.T) {
 	}
 }
 
-// TestHTTPGatewayPerformance tests the performance of the HTTP Gateway
-func TestHTTPGatewayPerformance(t *testing.T) {
-	// Start gRPC server in memory
-	grpcServer := grpc.NewServer()
-	panchangamService := panchangam.NewPanchangamServer()
-	ppb.RegisterPanchangamServer(grpcServer, panchangamService)
-
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			t.Logf("gRPC server error: %v", err)
-		}
-	}()
+func TestHTTPGatewayTithiSummaryIntegration(t *testing.T) {
+	grpcServer, conn, client := setupGatewayIntegrationClient(t)
+	defer conn.Close()
 	defer grpcServer.Stop()
 
-	// Create gRPC client
-	conn, err := grpc.NewClient("bufnet",
-		grpc.WithContextDialer(bufDialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		t.Fatalf("Failed to create gRPC client: %v", err)
-	}
-	defer conn.Close()
+	gateway := &GatewayServer{}
+	handler := gateway.handleTithiSummary(client)
 
-	client := ppb.NewPanchangamClient(conn)
+	req := httptest.NewRequest("GET", "/api/v1/tithi/current?at=2026-06-02T12:00:00Z&lat=37.3382&lng=-121.8863&tz=America/Los_Angeles&region=California&method=Drik&locale=en&calendar_system=Purnimanta", nil)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	if contentType := w.Header().Get("Content-Type"); contentType != "application/json" {
+		t.Fatalf("expected JSON response, got %q", contentType)
+	}
+	if cacheStatus := w.Header().Get("X-Cache"); cacheStatus != "MISS" {
+		t.Fatalf("expected cache miss header, got %q", cacheStatus)
+	}
+
+	var resp ppb.GetTithiSummaryResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if resp.Date != "2026-06-02" {
+		t.Fatalf("expected local summary date 2026-06-02, got %q", resp.Date)
+	}
+	if resp.Tithi == nil || resp.Tithi.Name == "" || resp.Tithi.EndTime == "" {
+		t.Fatalf("expected populated tithi summary, got %#v", resp.Tithi)
+	}
+	if resp.PanchaAnga == nil || resp.PanchaAnga.Nakshatra == "" || resp.PanchaAnga.Yoga == "" || resp.PanchaAnga.Karana == "" {
+		t.Fatalf("expected populated pancha anga summary, got %#v", resp.PanchaAnga)
+	}
+	if resp.Day == nil || resp.Day.SunriseTime == "" || resp.Day.SunsetTime == "" || resp.Day.AbhijitMuhurta == nil {
+		t.Fatalf("expected populated day summary, got %#v", resp.Day)
+	}
+	if resp.Calculation == nil || resp.Calculation.Timezone != "America/Los_Angeles" || resp.Calculation.Method != "Drik" {
+		t.Fatalf("expected calculation metadata from query, got %#v", resp.Calculation)
+	}
+	if _, err := time.Parse(time.RFC3339, resp.Tithi.EndTime); err != nil {
+		t.Fatalf("expected RFC3339 tithi end time, got %q: %v", resp.Tithi.EndTime, err)
+	}
+	if _, err := time.Parse(time.RFC3339, resp.NextRefreshAt); err != nil {
+		t.Fatalf("expected RFC3339 next refresh, got %q: %v", resp.NextRefreshAt, err)
+	}
+}
+
+// TestHTTPGatewayPerformance tests the performance of the HTTP Gateway
+func TestHTTPGatewayPerformance(t *testing.T) {
+	grpcServer, conn, client := setupGatewayIntegrationClient(t)
+	defer conn.Close()
+	defer grpcServer.Stop()
+
 	gateway := &GatewayServer{}
 	handler := gateway.handlePanchangam(client)
 
 	// Performance test
 	iterations := 100
 	start := time.Now()
-	
+
 	for i := 0; i < iterations; i++ {
 		req := httptest.NewRequest("GET", "/api/v1/panchangam?date=2024-01-15&lat=12.9716&lng=77.5946&tz=Asia/Kolkata", nil)
 		w := httptest.NewRecorder()
 		handler(w, req)
-		
+
 		if w.Code != http.StatusOK {
 			t.Errorf("Request %d failed with status %d", i, w.Code)
 		}
 	}
-	
+
 	duration := time.Since(start)
 	avgDuration := duration / time.Duration(iterations)
-	
+
 	t.Logf("Performance test completed:")
 	t.Logf("- Total time: %v", duration)
 	t.Logf("- Average per request: %v", avgDuration)
 	t.Logf("- Requests per second: %.2f", float64(iterations)/duration.Seconds())
-	
+
 	// Performance target: average should be < 100ms without random delays
 	if avgDuration > 100*time.Millisecond {
 		t.Errorf("Performance target missed: average %v > 100ms", avgDuration)
@@ -229,29 +258,10 @@ func TestHTTPGatewayPerformance(t *testing.T) {
 
 // TestGatewayErrorHandling tests error handling in the gateway
 func TestGatewayErrorHandling(t *testing.T) {
-	// Start gRPC server in memory
-	grpcServer := grpc.NewServer()
-	panchangamService := panchangam.NewPanchangamServer()
-	ppb.RegisterPanchangamServer(grpcServer, panchangamService)
-
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			t.Logf("gRPC server error: %v", err)
-		}
-	}()
+	grpcServer, conn, client := setupGatewayIntegrationClient(t)
+	defer conn.Close()
 	defer grpcServer.Stop()
 
-	// Create gRPC client
-	conn, err := grpc.NewClient("bufnet",
-		grpc.WithContextDialer(bufDialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		t.Fatalf("Failed to create gRPC client: %v", err)
-	}
-	defer conn.Close()
-
-	client := ppb.NewPanchangamClient(conn)
 	gateway := &GatewayServer{}
 	handler := gateway.handlePanchangam(client)
 
@@ -284,7 +294,7 @@ func TestGatewayErrorHandling(t *testing.T) {
 			name:           "Invalid longitude range",
 			query:          "date=2024-01-15&lat=12.9716&lng=999",
 			expectedStatus: http.StatusBadRequest,
-			errorCode:      "INVALID_ARGUMENT",
+			errorCode:      "INVALID_PARAMETERS",
 		},
 	}
 

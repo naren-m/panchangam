@@ -22,6 +22,8 @@ import (
 
 var logger = log.Logger()
 
+const currentTithiMaxCacheAgeSeconds = 300
+
 // GatewayServer represents the HTTP gateway server
 type GatewayServer struct {
 	grpcEndpoint      string
@@ -74,6 +76,9 @@ func (g *GatewayServer) Start(ctx context.Context) error {
 	// Add panchangam endpoint
 	mux.HandleFunc("/api/v1/panchangam", g.handlePanchangam(client))
 
+	// Add current Tithi endpoint for mobile and watch complications
+	mux.HandleFunc("/api/v1/tithi/current", g.handleTithiSummary(client))
+
 	// Add sky-view endpoint
 	mux.HandleFunc("/api/v1/sky-view", g.handleSkyView())
 
@@ -85,16 +90,16 @@ func (g *GatewayServer) Start(ctx context.Context) error {
 
 	// Add custom middleware for logging and monitoring
 	handler := loggingMiddleware(mux)
-	
+
 	// Add health check endpoint
 	handler = addHealthCheck(handler)
 
 	// Configure CORS with dynamic origins from environment
 	allowedOrigins := getCORSOrigins()
-	
+
 	// Log configured origins for debugging
 	logger.Info("CORS configuration", "allowed_origins", allowedOrigins)
-	
+
 	c := cors.New(cors.Options{
 		AllowedOrigins: allowedOrigins,
 		AllowedMethods: []string{
@@ -111,7 +116,7 @@ func (g *GatewayServer) Start(ctx context.Context) error {
 		},
 		AllowCredentials: false,
 		MaxAge:           300,
-		Debug: true, // Enable CORS debugging
+		Debug:            true, // Enable CORS debugging
 	})
 
 	// Apply CORS middleware
@@ -159,7 +164,7 @@ func (g *GatewayServer) handlePanchangam(client ppb.PanchangamClient) http.Handl
 
 		// Extract query parameters
 		query := r.URL.Query()
-		
+
 		// Required parameters
 		date := query.Get("date")
 		if date == "" {
@@ -184,8 +189,8 @@ func (g *GatewayServer) handlePanchangam(client ppb.PanchangamClient) http.Handl
 		if err != nil {
 			writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER", "Invalid latitude format", map[string]interface{}{
 				"parameter": "lat",
-				"value": latStr,
-				"expected": "float64",
+				"value":     latStr,
+				"expected":  "float64",
 			})
 			return
 		}
@@ -195,8 +200,8 @@ func (g *GatewayServer) handlePanchangam(client ppb.PanchangamClient) http.Handl
 		if err != nil {
 			writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER", "Invalid longitude format", map[string]interface{}{
 				"parameter": "lng",
-				"value": lngStr,
-				"expected": "float64",
+				"value":     lngStr,
+				"expected":  "float64",
 			})
 			return
 		}
@@ -211,12 +216,12 @@ func (g *GatewayServer) handlePanchangam(client ppb.PanchangamClient) http.Handl
 		if region == "" {
 			region = "global" // Default region
 		}
-		
+
 		calculationMethod := query.Get("method")
 		if calculationMethod == "" {
 			calculationMethod = "traditional" // Default method
 		}
-		
+
 		locale := query.Get("locale")
 		if locale == "" {
 			locale = "en" // Default locale
@@ -232,7 +237,7 @@ func (g *GatewayServer) handlePanchangam(client ppb.PanchangamClient) http.Handl
 		// Try cache first if available
 		if g.cache != nil {
 			cacheKey := g.cache.GenerateCacheKey(date, region, calculationMethod, lat, lng)
-			
+
 			cachedData, err := g.cache.Get(ctx, cacheKey)
 			if err != nil {
 				logger.Error("Cache get error", "error", err, "key", cacheKey)
@@ -270,7 +275,7 @@ func (g *GatewayServer) handlePanchangam(client ppb.PanchangamClient) http.Handl
 			if g.cache != nil && resp.PanchangamData != nil {
 				cacheData := convertResponseToCache(resp.PanchangamData)
 				cacheKey := g.cache.GenerateCacheKey(date, region, calculationMethod, lat, lng)
-				
+
 				if err := g.cache.Set(ctx, cacheKey, cacheData); err != nil {
 					logger.Error("Cache set error", "error", err, "key", cacheKey)
 				} else {
@@ -296,6 +301,143 @@ func (g *GatewayServer) handlePanchangam(client ppb.PanchangamClient) http.Handl
 			return
 		}
 	}
+}
+
+// handleTithiSummary handles current Tithi requests for mobile and watch complications.
+func (g *GatewayServer) handleTithiSummary(client ppb.PanchangamClient) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		query := r.URL.Query()
+
+		at := query.Get("at")
+		if at == "" {
+			at = time.Now().UTC().Format(time.RFC3339)
+		}
+
+		latStr := query.Get("lat")
+		if latStr == "" {
+			writeErrorResponse(w, r, http.StatusBadRequest, "MISSING_PARAMETER", "Missing required parameter: lat", nil)
+			return
+		}
+
+		lngStr := query.Get("lng")
+		if lngStr == "" {
+			writeErrorResponse(w, r, http.StatusBadRequest, "MISSING_PARAMETER", "Missing required parameter: lng", nil)
+			return
+		}
+
+		lat, err := strconv.ParseFloat(latStr, 64)
+		if err != nil {
+			writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER", "Invalid latitude format", map[string]interface{}{
+				"parameter": "lat",
+				"value":     latStr,
+				"expected":  "float64",
+			})
+			return
+		}
+		if lat < -90 || lat > 90 {
+			writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER", "Invalid latitude. Must be between -90 and 90", map[string]interface{}{
+				"parameter": "lat",
+				"value":     lat,
+				"expected":  "-90 <= lat <= 90",
+			})
+			return
+		}
+
+		lng, err := strconv.ParseFloat(lngStr, 64)
+		if err != nil {
+			writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER", "Invalid longitude format", map[string]interface{}{
+				"parameter": "lng",
+				"value":     lngStr,
+				"expected":  "float64",
+			})
+			return
+		}
+		if lng < -180 || lng > 180 {
+			writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER", "Invalid longitude. Must be between -180 and 180", map[string]interface{}{
+				"parameter": "lng",
+				"value":     lng,
+				"expected":  "-180 <= lng <= 180",
+			})
+			return
+		}
+
+		timezone := query.Get("tz")
+		if timezone == "" {
+			timezone = "UTC"
+		}
+
+		region := query.Get("region")
+		if region == "" {
+			region = "global"
+		}
+
+		calculationMethod := query.Get("method")
+		if calculationMethod == "" {
+			calculationMethod = "Drik"
+		}
+
+		locale := query.Get("locale")
+		if locale == "" {
+			locale = "en"
+		}
+
+		req := &ppb.GetTithiSummaryRequest{
+			At:                at,
+			Latitude:          lat,
+			Longitude:         lng,
+			Timezone:          timezone,
+			Region:            region,
+			CalculationMethod: calculationMethod,
+			Locale:            locale,
+			CalendarSystem:    query.Get("calendar_system"),
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		resp, err := client.GetTithiSummary(ctx, req)
+		if err != nil {
+			handleGRPCError(w, r, err)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Cache", "MISS")
+		w.Header().Set("Cache-Control", tithiSummaryCacheControl(resp.GeneratedAt, resp.NextRefreshAt))
+
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			logger.Error("Failed to encode Tithi summary response", "error", err)
+			writeErrorResponse(w, r, http.StatusInternalServerError, "ENCODING_ERROR", "Failed to encode response", nil)
+			return
+		}
+	}
+}
+
+func tithiSummaryCacheControl(generatedAt string, nextRefreshAt string) string {
+	generatedTime, err := time.Parse(time.RFC3339, generatedAt)
+	if err != nil {
+		return "no-cache"
+	}
+
+	nextRefreshTime, err := time.Parse(time.RFC3339, nextRefreshAt)
+	if err != nil {
+		return "no-cache"
+	}
+
+	maxAge := int(nextRefreshTime.Sub(generatedTime).Seconds())
+	if maxAge <= 0 {
+		return "no-cache"
+	}
+	if maxAge > currentTithiMaxCacheAgeSeconds {
+		maxAge = currentTithiMaxCacheAgeSeconds
+	}
+
+	return fmt.Sprintf("public, max-age=%d", maxAge)
 }
 
 // writeErrorResponse writes a standardized error response
@@ -333,7 +475,7 @@ func handleGRPCError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 
 	httpStatus, apiError := convertGRPCError(err, requestID, r.URL.Path)
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Request-Id", requestID)
 	w.WriteHeader(httpStatus)
@@ -423,31 +565,31 @@ func getCORSOrigins() []string {
 		"http://localhost:3000", // React dev server
 		"http://localhost:8086", // Docker frontend container
 	}
-	
+
 	// Get origins from environment variable
 	corsOriginsEnv := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if corsOriginsEnv == "" {
 		// If not set, return default origins for backward compatibility
 		return defaultOrigins
 	}
-	
+
 	// Parse comma-separated origins
 	envOrigins := strings.Split(corsOriginsEnv, ",")
 	origins := make([]string, 0, len(envOrigins))
-	
+
 	for _, origin := range envOrigins {
 		origin = strings.TrimSpace(origin)
 		if origin != "" {
 			origins = append(origins, origin)
 		}
 	}
-	
+
 	// If no valid origins were provided, return defaults
 	if len(origins) == 0 {
 		logger.Warn("No valid CORS origins found in CORS_ALLOWED_ORIGINS, using defaults")
 		return defaultOrigins
 	}
-	
+
 	return origins
 }
 
@@ -460,7 +602,7 @@ func convertResponseToCache(data interface{}) *cache.PanchangamCacheData {
 	}
 
 	cacheData := &cache.PanchangamCacheData{}
-	
+
 	if date, ok := responseMap["date"].(string); ok {
 		cacheData.Date = date
 	}
@@ -628,9 +770,9 @@ func (g *GatewayServer) handleSkyView() http.HandlerFunc {
 				if err != nil {
 					writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_DATETIME",
 						"Invalid date/time format. Expected: date=YYYY-MM-DD&time=HH:MM:SS", map[string]interface{}{
-						"date": dateStr,
-						"time": timeStr,
-					})
+							"date": dateStr,
+							"time": timeStr,
+						})
 					return
 				}
 			} else {
@@ -640,8 +782,8 @@ func (g *GatewayServer) handleSkyView() http.HandlerFunc {
 				if err != nil {
 					writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_DATE",
 						"Invalid date format. Expected: YYYY-MM-DD", map[string]interface{}{
-						"date": dateStr,
-					})
+							"date": dateStr,
+						})
 					return
 				}
 			}
@@ -670,9 +812,9 @@ func (g *GatewayServer) handleSkyView() http.HandlerFunc {
 		if err != nil || lat < -90 || lat > 90 {
 			writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER",
 				"Invalid latitude. Must be between -90 and 90", map[string]interface{}{
-				"parameter": "lat",
-				"value":     latStr,
-			})
+					"parameter": "lat",
+					"value":     latStr,
+				})
 			return
 		}
 
@@ -681,9 +823,9 @@ func (g *GatewayServer) handleSkyView() http.HandlerFunc {
 		if err != nil || lng < -180 || lng > 180 {
 			writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER",
 				"Invalid longitude. Must be between -180 and 180", map[string]interface{}{
-				"parameter": "lng",
-				"value":     lngStr,
-			})
+					"parameter": "lng",
+					"value":     lngStr,
+				})
 			return
 		}
 
@@ -694,9 +836,9 @@ func (g *GatewayServer) handleSkyView() http.HandlerFunc {
 			if err != nil {
 				writeErrorResponse(w, r, http.StatusBadRequest, "INVALID_PARAMETER",
 					"Invalid altitude format", map[string]interface{}{
-					"parameter": "alt",
-					"value":     altStr,
-				})
+						"parameter": "alt",
+						"value":     altStr,
+					})
 				return
 			}
 		}
@@ -729,8 +871,8 @@ func (g *GatewayServer) handleSkyView() http.HandlerFunc {
 				"lat", lat, "lng", lng, "time", observationTime)
 			writeErrorResponse(w, r, http.StatusInternalServerError, "SKYVIEW_ERROR",
 				"Failed to calculate sky view data", map[string]interface{}{
-				"error": err.Error(),
-			})
+					"error": err.Error(),
+				})
 			return
 		}
 

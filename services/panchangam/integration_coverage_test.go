@@ -430,12 +430,16 @@ func TestCalculationModuleIntegration(t *testing.T) {
 
 		// Test validation functions work together
 		assert.NoError(t, astronomy.ValidateTithiCalculation(&astronomy.TithiInfo{
-			Number:      15,
-			MoonSunDiff: 180.0,
-			Duration:    24.0,
-			StartTime:   testDate,
-			EndTime:     testDate.Add(24 * time.Hour),
-			Name:        "Purnima",
+			Number:          15,
+			MoonSunDiff:     180.0,
+			Duration:        24.0,
+			StartTime:       testDate,
+			EndTime:         testDate.Add(24 * time.Hour),
+			Name:            "Purnima",
+			TraditionalName: "Pournima",
+			Paksha:          "Shukla",
+			PakshaDay:       15,
+			CalendarSystem:  "Purnimanta",
 		}), "Tithi validation should work")
 
 		assert.NoError(t, astronomy.ValidateKaranaCalculation(&astronomy.KaranaInfo{

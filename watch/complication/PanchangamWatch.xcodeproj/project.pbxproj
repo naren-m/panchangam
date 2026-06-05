@@ -1,0 +1,400 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2468DFE0B5A01A631285F247 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B82A4F0C475E747A1B360F /* ContentView.swift */; };
+		3E2A652EEA6249DAE84A1767 /* PanchangamDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A69E1A5842173D531C43241 /* PanchangamDay.swift */; };
+		3F73117B5929D0B6D4ABAB09 /* PanchangamWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7D54268664E288EA1ABE19 /* PanchangamWatchApp.swift */; };
+		8672801CA0A1B89739D6D19E /* PanchangamDayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07BF0721DED7E83108E5A84E /* PanchangamDayTests.swift */; };
+		881AD56EE1221A50D8C0E0A6 /* PanchangamAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064FF7584454374DF4768462 /* PanchangamAPIClient.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A04A4E9F6E8DF801B9CEFF9B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = ECD705082E1651E769CAB11A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C19444AC8EF1EF5D7B379E37;
+			remoteInfo = PanchangamWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		064FF7584454374DF4768462 /* PanchangamAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanchangamAPIClient.swift; sourceTree = "<group>"; };
+		07BF0721DED7E83108E5A84E /* PanchangamDayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanchangamDayTests.swift; sourceTree = "<group>"; };
+		2DD7E289D40B95664F3F7AF2 /* PanchangamWatchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PanchangamWatchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		45270A687FDF3ED07B7BBE2C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		6A69E1A5842173D531C43241 /* PanchangamDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanchangamDay.swift; sourceTree = "<group>"; };
+		BDBFAF6B83C56E7641735175 /* PanchangamWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PanchangamWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F2B82A4F0C475E747A1B360F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		FD7D54268664E288EA1ABE19 /* PanchangamWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanchangamWatchApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		62BA76CDD0C1B7C1E60997B9 /* PanchangamWatch */ = {
+			isa = PBXGroup;
+			children = (
+				F2B82A4F0C475E747A1B360F /* ContentView.swift */,
+				45270A687FDF3ED07B7BBE2C /* Info.plist */,
+				064FF7584454374DF4768462 /* PanchangamAPIClient.swift */,
+				6A69E1A5842173D531C43241 /* PanchangamDay.swift */,
+				FD7D54268664E288EA1ABE19 /* PanchangamWatchApp.swift */,
+			);
+			path = PanchangamWatch;
+			sourceTree = "<group>";
+		};
+		D2E85D55039AC32081833356 = {
+			isa = PBXGroup;
+			children = (
+				62BA76CDD0C1B7C1E60997B9 /* PanchangamWatch */,
+				EECE96EC871AB799119DA755 /* PanchangamWatchTests */,
+				EC366502A2FBD38BEDCCA17E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		EC366502A2FBD38BEDCCA17E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BDBFAF6B83C56E7641735175 /* PanchangamWatch.app */,
+				2DD7E289D40B95664F3F7AF2 /* PanchangamWatchTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EECE96EC871AB799119DA755 /* PanchangamWatchTests */ = {
+			isa = PBXGroup;
+			children = (
+				07BF0721DED7E83108E5A84E /* PanchangamDayTests.swift */,
+			);
+			path = PanchangamWatchTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		89C95CF04DC9277158CD67C7 /* PanchangamWatchTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 919FC069187C57E4DD58D762 /* Build configuration list for PBXNativeTarget "PanchangamWatchTests" */;
+			buildPhases = (
+				B0764C85FCE53A51398D58AA /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				183A579979C70C44AFC022E3 /* PBXTargetDependency */,
+			);
+			name = PanchangamWatchTests;
+			packageProductDependencies = (
+			);
+			productName = PanchangamWatchTests;
+			productReference = 2DD7E289D40B95664F3F7AF2 /* PanchangamWatchTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		C19444AC8EF1EF5D7B379E37 /* PanchangamWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 291D10BDB84CB56291848706 /* Build configuration list for PBXNativeTarget "PanchangamWatch" */;
+			buildPhases = (
+				EA8D3805A74AA27A8789CEAC /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PanchangamWatch;
+			packageProductDependencies = (
+			);
+			productName = PanchangamWatch;
+			productReference = BDBFAF6B83C56E7641735175 /* PanchangamWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		ECD705082E1651E769CAB11A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					C19444AC8EF1EF5D7B379E37 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 6491FBE8A2092414CDA8D0CB /* Build configuration list for PBXProject "PanchangamWatch" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = D2E85D55039AC32081833356;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = EC366502A2FBD38BEDCCA17E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C19444AC8EF1EF5D7B379E37 /* PanchangamWatch */,
+				89C95CF04DC9277158CD67C7 /* PanchangamWatchTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B0764C85FCE53A51398D58AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8672801CA0A1B89739D6D19E /* PanchangamDayTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EA8D3805A74AA27A8789CEAC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2468DFE0B5A01A631285F247 /* ContentView.swift in Sources */,
+				881AD56EE1221A50D8C0E0A6 /* PanchangamAPIClient.swift in Sources */,
+				3E2A652EEA6249DAE84A1767 /* PanchangamDay.swift in Sources */,
+				3F73117B5929D0B6D4ABAB09 /* PanchangamWatchApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		183A579979C70C44AFC022E3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C19444AC8EF1EF5D7B379E37 /* PanchangamWatch */;
+			targetProxy = A04A4E9F6E8DF801B9CEFF9B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2FA57B38BCE1D33F3B2C7307 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = PanchangamWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.naren.panchangam.watch;
+				PRODUCT_NAME = PanchangamWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		4DD00AF1F46C503E2C211AFB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.naren.panchangam.watch.tests;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PanchangamWatch.app/PanchangamWatch";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		4F47EDA11B5A68C2B2D0933D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.naren.panchangam.watch.tests;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PanchangamWatch.app/PanchangamWatch";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		5951141474A70DC3A6720518 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		8A6B453042BA1A3B1166C131 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = PanchangamWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.naren.panchangam.watch;
+				PRODUCT_NAME = PanchangamWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		9CF8CDB21FD8341C2B3489F0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		291D10BDB84CB56291848706 /* Build configuration list for PBXNativeTarget "PanchangamWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A6B453042BA1A3B1166C131 /* Debug */,
+				2FA57B38BCE1D33F3B2C7307 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6491FBE8A2092414CDA8D0CB /* Build configuration list for PBXProject "PanchangamWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9CF8CDB21FD8341C2B3489F0 /* Debug */,
+				5951141474A70DC3A6720518 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		919FC069187C57E4DD58D762 /* Build configuration list for PBXNativeTarget "PanchangamWatchTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4DD00AF1F46C503E2C211AFB /* Debug */,
+				4F47EDA11B5A68C2B2D0933D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = ECD705082E1651E769CAB11A /* Project object */;
+}

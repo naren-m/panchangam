@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panchangam Mandala</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css?v=mandala-calendar">
+</head>
+<body data-preview-state="valid">
+  <main class="page-shell">
+    <section class="mandala-stage" aria-label="Mandala watch face">
+      <div class="mandala-device">
+        <div class="tara-case mandala-watch">
+          <div
+            class="mandala-face starfield"
+            role="button"
+            tabindex="0"
+            aria-label="Open Mandala tithi details"
+            aria-controls="watch-detail-sheet">
+            <div class="mandala-meta meta-left">
+              <span class="sun-glyph" aria-hidden="true"></span>
+              <span>Sunrise</span>
+              <strong data-field="sunriseText">05:42</strong>
+            </div>
+            <div class="mandala-meta meta-right">
+              <span class="night-glyph" aria-hidden="true"></span>
+              <span>Sunset</span>
+              <strong data-field="sunsetText">19:01</strong>
+            </div>
+
+            <div class="mandala-ring" id="mandala-ring" aria-hidden="true"></div>
+            <span class="mandala-hand" aria-hidden="true"></span>
+
+            <div class="mandala-center" data-state-visibility="summary">
+              <span class="moon-mark" aria-hidden="true"></span>
+              <div class="mandala-time" aria-label="Preview time 10:50">
+                <span>10</span><span class="time-colon">:</span><span>50</span>
+              </div>
+              <strong class="mandala-tithi" data-field="mandalaTithi"></strong>
+              <span class="mandala-subtitle" data-field="mandalaNakshatra"></span>
+            </div>
+
+            <div class="mandala-center mandala-state-copy" data-state-visibility="empty">
+              <span class="moon-mark" aria-hidden="true"></span>
+              <strong data-field="watchAppStatusText"></strong>
+              <span data-field="receiverStatusText"></span>
+            </div>
+
+            <div class="mandala-bottom meta-yoga">
+              <span>Yoga</span>
+              <strong data-field="yogaText"></strong>
+            </div>
+            <div class="mandala-bottom meta-karana">
+              <span>Karana</span>
+              <strong data-field="karanaText"></strong>
+            </div>
+
+            <div class="abhijit-pill">
+              <span aria-hidden="true"></span>
+              <strong>Abhijit</strong>
+              <time>11:54-12:48</time>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mandala-caption" aria-label="Selected watch face">
+        <strong>Mandala</strong>
+      </div>
+      <p class="face-hint">Tap the face for details.</p>
+    </section>
+
+    <section
+      class="watch-detail-sheet"
+      id="watch-detail-sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="watch-detail-title"
+      hidden>
+      <div class="watch-detail-panel">
+        <div class="watch-detail-header">
+          <div>
+            <p class="eyebrow">Mandala</p>
+            <h2 id="watch-detail-title">Current Tithi</h2>
+          </div>
+          <button type="button" class="icon-button" data-action="close-watch-details" aria-label="Close details">Close</button>
+        </div>
+        <dl class="detail-list" id="watch-details"></dl>
+      </div>
+    </section>
+
+    <section class="phone-companion" aria-label="iPhone companion app">
+      <div class="iphone-frame">
+        <div class="phone-screen">
+          <div class="phone-nav">
+            <strong>Mandala</strong>
+            <button type="button" class="icon-button" aria-label="Refresh">Refresh</button>
+          </div>
+
+          <section class="phone-hero" data-state-visibility="summary">
+            <span class="moon-mark small" aria-hidden="true"></span>
+            <p class="phone-time">10:50</p>
+            <strong data-field="inlineText"></strong>
+            <span data-field="phoneSubtitle"></span>
+          </section>
+
+          <section class="phone-panel">
+            <h2>Current Tithi</h2>
+            <div class="summary-block" data-state-visibility="summary">
+              <dl class="detail-list" id="iphone-details"></dl>
+            </div>
+            <p class="muted" data-state-visibility="empty">No tithi loaded</p>
+            <div class="row">
+              <span>Status</span>
+              <strong data-field="statusText"></strong>
+            </div>
+          </section>
+
+          <section class="phone-panel">
+            <h2>Location</h2>
+            <label class="switch-row">
+              <span>Manual Location</span>
+              <input type="checkbox" checked>
+            </label>
+            <div class="two-column">
+              <div class="input-shell">37.7749</div>
+              <div class="input-shell">-122.4194</div>
+            </div>
+            <div class="input-shell">America/Los_Angeles</div>
+            <button type="button" class="full-button">Use Current Location</button>
+          </section>
+
+          <section class="phone-panel">
+            <h2>Backend</h2>
+            <div class="input-shell">http://127.0.0.1:8080</div>
+            <div class="row warning-row">
+              <span>Backend Host</span>
+              <strong data-field="backendHostWarning"></strong>
+            </div>
+            <div class="row status-row">
+              <span>Watch Sync</span>
+              <strong data-field="watchSyncText"></strong>
+            </div>
+            <div class="row status-row">
+              <span>Watch App</span>
+              <strong data-field="receiverStatusText"></strong>
+            </div>
+          </section>
+
+          <section class="phone-panel">
+            <h2>Calculation</h2>
+            <div class="two-column">
+              <div class="input-shell">California</div>
+              <div class="input-shell">Drik</div>
+            </div>
+            <div class="input-shell">Locale: en</div>
+            <div class="calendar-control">
+              <span>Calendar System</span>
+              <div class="calendar-segments" role="group" aria-label="Calendar System">
+                <button type="button">Auto</button>
+                <button type="button" aria-pressed="true">Purnimanta</button>
+                <button type="button">Amanta</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="preview.js?v=mandala-calendar"></script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/naren-m/panchangam/astronomy/ephemeris"
 	"github.com/naren-m/panchangam/observability"
 	ppb "github.com/naren-m/panchangam/proto"
 	"github.com/stretchr/testify/assert"
@@ -178,7 +179,7 @@ func TestPanchangamServer_Get(t *testing.T) {
 			},
 		},
 		{
-			name: "Invalid timezone - fallback to local",
+			name: "Invalid timezone - clear validation error",
 			request: &ppb.GetPanchangamRequest{
 				Date:      "2024-06-21",
 				Latitude:  40.7128,
@@ -186,15 +187,10 @@ func TestPanchangamServer_Get(t *testing.T) {
 				Timezone:  "Invalid/Timezone",
 			},
 			validateFunc: func(t *testing.T, resp *ppb.GetPanchangamResponse, err error) {
-				if err != nil {
-					// Skip if random error occurred
-					if status.Code(err) == codes.Internal {
-						t.Skip("Random error occurred, skipping validation")
-					}
-				}
-				// Should not error, but use local timezone
-				require.NoError(t, err)
-				require.NotNil(t, resp)
+				require.Error(t, err)
+				assert.Equal(t, codes.InvalidArgument, status.Code(err))
+				assert.Contains(t, err.Error(), "invalid timezone")
+				require.Nil(t, resp)
 			},
 		},
 		{
@@ -250,6 +246,25 @@ func TestNewPanchangamServer(t *testing.T) {
 	server := NewPanchangamServer()
 	assert.NotNil(t, server)
 	assert.NotNil(t, server.observer)
+	assert.NotNil(t, server.ephemerisManager)
+	assert.NotNil(t, server.tithiCalc)
+	assert.NotNil(t, server.nakshatraCalc)
+	assert.NotNil(t, server.yogaCalc)
+	assert.NotNil(t, server.karanaCalc)
+	assert.NotNil(t, server.varaCalc)
+	assert.Equal(t, DefaultConfig(), server.config)
+}
+
+func TestNewPanchangamServerWithDependencies(t *testing.T) {
+	manager := ephemeris.NewManager(ephemeris.NewJPLProvider(), ephemeris.NewSwissProvider(), ephemeris.NewNoOpCache())
+	config := DefaultConfig()
+	config.DefaultCalendarSystem = "Amanta"
+
+	server := NewPanchangamServerWithDependencies(manager, config)
+
+	assert.NotNil(t, server)
+	assert.Same(t, manager, server.ephemerisManager)
+	assert.Equal(t, config, server.config)
 }
 
 func TestPanchangamServer_SunriseSunsetFormat(t *testing.T) {

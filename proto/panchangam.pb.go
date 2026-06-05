@@ -372,12 +372,601 @@ func (x *GetPanchangamResponse) GetPanchangamData() *PanchangamData {
 	return nil
 }
 
+// Request message to retrieve current Tithi details for a specific moment and location
+type GetTithiSummaryRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Moment to calculate in RFC3339 format
+	At string `protobuf:"bytes,1,opt,name=at,proto3" json:"at,omitempty"`
+	// Latitude of the location (required, -90 to 90)
+	Latitude float64 `protobuf:"fixed64,2,opt,name=latitude,proto3" json:"latitude,omitempty"`
+	// Longitude of the location (required, -180 to 180)
+	Longitude float64 `protobuf:"fixed64,3,opt,name=longitude,proto3" json:"longitude,omitempty"`
+	// Timezone identifier (e.g., "America/Los_Angeles")
+	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	// Regional system (e.g., "California", "Tamil Nadu")
+	Region string `protobuf:"bytes,5,opt,name=region,proto3" json:"region,omitempty"`
+	// Calculation method (e.g., "Drik")
+	CalculationMethod string `protobuf:"bytes,6,opt,name=calculation_method,json=calculationMethod,proto3" json:"calculation_method,omitempty"`
+	// Language/locale (e.g., "en")
+	Locale string `protobuf:"bytes,7,opt,name=locale,proto3" json:"locale,omitempty"`
+	// Optional calendar system override (e.g., "Purnimanta", "Amanta")
+	CalendarSystem string `protobuf:"bytes,8,opt,name=calendar_system,json=calendarSystem,proto3" json:"calendar_system,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetTithiSummaryRequest) Reset() {
+	*x = GetTithiSummaryRequest{}
+	mi := &file_proto_panchangam_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTithiSummaryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTithiSummaryRequest) ProtoMessage() {}
+
+func (x *GetTithiSummaryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_panchangam_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTithiSummaryRequest.ProtoReflect.Descriptor instead.
+func (*GetTithiSummaryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_panchangam_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetTithiSummaryRequest) GetAt() string {
+	if x != nil {
+		return x.At
+	}
+	return ""
+}
+
+func (x *GetTithiSummaryRequest) GetLatitude() float64 {
+	if x != nil {
+		return x.Latitude
+	}
+	return 0
+}
+
+func (x *GetTithiSummaryRequest) GetLongitude() float64 {
+	if x != nil {
+		return x.Longitude
+	}
+	return 0
+}
+
+func (x *GetTithiSummaryRequest) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *GetTithiSummaryRequest) GetRegion() string {
+	if x != nil {
+		return x.Region
+	}
+	return ""
+}
+
+func (x *GetTithiSummaryRequest) GetCalculationMethod() string {
+	if x != nil {
+		return x.CalculationMethod
+	}
+	return ""
+}
+
+func (x *GetTithiSummaryRequest) GetLocale() string {
+	if x != nil {
+		return x.Locale
+	}
+	return ""
+}
+
+func (x *GetTithiSummaryRequest) GetCalendarSystem() string {
+	if x != nil {
+		return x.CalendarSystem
+	}
+	return ""
+}
+
+// Response message containing rich Tithi details for watch complications
+type GetTithiSummaryResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Local date for the calculation
+	Date string `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"`
+	// Current Tithi details
+	Tithi *TithiSummary `protobuf:"bytes,2,opt,name=tithi,proto3" json:"tithi,omitempty"`
+	// Other Pancha Anga details
+	PanchaAnga *PanchaAngaSummary `protobuf:"bytes,3,opt,name=pancha_anga,json=panchaAnga,proto3" json:"pancha_anga,omitempty"`
+	// Calculation settings used by the service
+	Calculation *TithiCalculationSummary `protobuf:"bytes,4,opt,name=calculation,proto3" json:"calculation,omitempty"`
+	// Time this response was generated in RFC3339 format
+	GeneratedAt string `protobuf:"bytes,5,opt,name=generated_at,json=generatedAt,proto3" json:"generated_at,omitempty"`
+	// Best next refresh time in RFC3339 format
+	NextRefreshAt string `protobuf:"bytes,6,opt,name=next_refresh_at,json=nextRefreshAt,proto3" json:"next_refresh_at,omitempty"`
+	// Day details used by the Mandala watch face
+	Day           *DaySummary `protobuf:"bytes,7,opt,name=day,proto3" json:"day,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTithiSummaryResponse) Reset() {
+	*x = GetTithiSummaryResponse{}
+	mi := &file_proto_panchangam_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTithiSummaryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTithiSummaryResponse) ProtoMessage() {}
+
+func (x *GetTithiSummaryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_panchangam_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTithiSummaryResponse.ProtoReflect.Descriptor instead.
+func (*GetTithiSummaryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_panchangam_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetTithiSummaryResponse) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *GetTithiSummaryResponse) GetTithi() *TithiSummary {
+	if x != nil {
+		return x.Tithi
+	}
+	return nil
+}
+
+func (x *GetTithiSummaryResponse) GetPanchaAnga() *PanchaAngaSummary {
+	if x != nil {
+		return x.PanchaAnga
+	}
+	return nil
+}
+
+func (x *GetTithiSummaryResponse) GetCalculation() *TithiCalculationSummary {
+	if x != nil {
+		return x.Calculation
+	}
+	return nil
+}
+
+func (x *GetTithiSummaryResponse) GetGeneratedAt() string {
+	if x != nil {
+		return x.GeneratedAt
+	}
+	return ""
+}
+
+func (x *GetTithiSummaryResponse) GetNextRefreshAt() string {
+	if x != nil {
+		return x.NextRefreshAt
+	}
+	return ""
+}
+
+func (x *GetTithiSummaryResponse) GetDay() *DaySummary {
+	if x != nil {
+		return x.Day
+	}
+	return nil
+}
+
+// Tithi details for compact mobile and watch display
+type TithiSummary struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Name            string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	TraditionalName string                 `protobuf:"bytes,2,opt,name=traditional_name,json=traditionalName,proto3" json:"traditional_name,omitempty"`
+	Number          int32                  `protobuf:"varint,3,opt,name=number,proto3" json:"number,omitempty"`
+	Paksha          string                 `protobuf:"bytes,4,opt,name=paksha,proto3" json:"paksha,omitempty"`
+	PakshaDay       int32                  `protobuf:"varint,5,opt,name=paksha_day,json=pakshaDay,proto3" json:"paksha_day,omitempty"`
+	Type            string                 `protobuf:"bytes,6,opt,name=type,proto3" json:"type,omitempty"`
+	StartTime       string                 `protobuf:"bytes,7,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	EndTime         string                 `protobuf:"bytes,8,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *TithiSummary) Reset() {
+	*x = TithiSummary{}
+	mi := &file_proto_panchangam_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TithiSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TithiSummary) ProtoMessage() {}
+
+func (x *TithiSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_panchangam_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TithiSummary.ProtoReflect.Descriptor instead.
+func (*TithiSummary) Descriptor() ([]byte, []int) {
+	return file_proto_panchangam_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *TithiSummary) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *TithiSummary) GetTraditionalName() string {
+	if x != nil {
+		return x.TraditionalName
+	}
+	return ""
+}
+
+func (x *TithiSummary) GetNumber() int32 {
+	if x != nil {
+		return x.Number
+	}
+	return 0
+}
+
+func (x *TithiSummary) GetPaksha() string {
+	if x != nil {
+		return x.Paksha
+	}
+	return ""
+}
+
+func (x *TithiSummary) GetPakshaDay() int32 {
+	if x != nil {
+		return x.PakshaDay
+	}
+	return 0
+}
+
+func (x *TithiSummary) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *TithiSummary) GetStartTime() string {
+	if x != nil {
+		return x.StartTime
+	}
+	return ""
+}
+
+func (x *TithiSummary) GetEndTime() string {
+	if x != nil {
+		return x.EndTime
+	}
+	return ""
+}
+
+// Other Pancha Anga values for rich display
+type PanchaAngaSummary struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Nakshatra     string                 `protobuf:"bytes,1,opt,name=nakshatra,proto3" json:"nakshatra,omitempty"`
+	Yoga          string                 `protobuf:"bytes,2,opt,name=yoga,proto3" json:"yoga,omitempty"`
+	Karana        string                 `protobuf:"bytes,3,opt,name=karana,proto3" json:"karana,omitempty"`
+	Vara          string                 `protobuf:"bytes,4,opt,name=vara,proto3" json:"vara,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PanchaAngaSummary) Reset() {
+	*x = PanchaAngaSummary{}
+	mi := &file_proto_panchangam_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PanchaAngaSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PanchaAngaSummary) ProtoMessage() {}
+
+func (x *PanchaAngaSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_panchangam_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PanchaAngaSummary.ProtoReflect.Descriptor instead.
+func (*PanchaAngaSummary) Descriptor() ([]byte, []int) {
+	return file_proto_panchangam_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *PanchaAngaSummary) GetNakshatra() string {
+	if x != nil {
+		return x.Nakshatra
+	}
+	return ""
+}
+
+func (x *PanchaAngaSummary) GetYoga() string {
+	if x != nil {
+		return x.Yoga
+	}
+	return ""
+}
+
+func (x *PanchaAngaSummary) GetKarana() string {
+	if x != nil {
+		return x.Karana
+	}
+	return ""
+}
+
+func (x *PanchaAngaSummary) GetVara() string {
+	if x != nil {
+		return x.Vara
+	}
+	return ""
+}
+
+// Day-level details for compact Mandala display
+type DaySummary struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Local sunrise time in HH:MM format
+	SunriseTime string `protobuf:"bytes,1,opt,name=sunrise_time,json=sunriseTime,proto3" json:"sunrise_time,omitempty"`
+	// Local sunset time in HH:MM format
+	SunsetTime string `protobuf:"bytes,2,opt,name=sunset_time,json=sunsetTime,proto3" json:"sunset_time,omitempty"`
+	// Abhijit Muhurta window for the local day
+	AbhijitMuhurta *TimeWindow `protobuf:"bytes,3,opt,name=abhijit_muhurta,json=abhijitMuhurta,proto3" json:"abhijit_muhurta,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *DaySummary) Reset() {
+	*x = DaySummary{}
+	mi := &file_proto_panchangam_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DaySummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DaySummary) ProtoMessage() {}
+
+func (x *DaySummary) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_panchangam_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DaySummary.ProtoReflect.Descriptor instead.
+func (*DaySummary) Descriptor() ([]byte, []int) {
+	return file_proto_panchangam_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *DaySummary) GetSunriseTime() string {
+	if x != nil {
+		return x.SunriseTime
+	}
+	return ""
+}
+
+func (x *DaySummary) GetSunsetTime() string {
+	if x != nil {
+		return x.SunsetTime
+	}
+	return ""
+}
+
+func (x *DaySummary) GetAbhijitMuhurta() *TimeWindow {
+	if x != nil {
+		return x.AbhijitMuhurta
+	}
+	return nil
+}
+
+// A named local time window for watch and phone display
+type TimeWindow struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	StartTime     string                 `protobuf:"bytes,2,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	EndTime       string                 `protobuf:"bytes,3,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	Auspicious    bool                   `protobuf:"varint,4,opt,name=auspicious,proto3" json:"auspicious,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimeWindow) Reset() {
+	*x = TimeWindow{}
+	mi := &file_proto_panchangam_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimeWindow) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimeWindow) ProtoMessage() {}
+
+func (x *TimeWindow) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_panchangam_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimeWindow.ProtoReflect.Descriptor instead.
+func (*TimeWindow) Descriptor() ([]byte, []int) {
+	return file_proto_panchangam_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *TimeWindow) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *TimeWindow) GetStartTime() string {
+	if x != nil {
+		return x.StartTime
+	}
+	return ""
+}
+
+func (x *TimeWindow) GetEndTime() string {
+	if x != nil {
+		return x.EndTime
+	}
+	return ""
+}
+
+func (x *TimeWindow) GetAuspicious() bool {
+	if x != nil {
+		return x.Auspicious
+	}
+	return false
+}
+
+// Calculation metadata for diagnostics and display
+type TithiCalculationSummary struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Timezone       string                 `protobuf:"bytes,1,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Region         string                 `protobuf:"bytes,2,opt,name=region,proto3" json:"region,omitempty"`
+	CalendarSystem string                 `protobuf:"bytes,3,opt,name=calendar_system,json=calendarSystem,proto3" json:"calendar_system,omitempty"`
+	Method         string                 `protobuf:"bytes,4,opt,name=method,proto3" json:"method,omitempty"`
+	Locale         string                 `protobuf:"bytes,5,opt,name=locale,proto3" json:"locale,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *TithiCalculationSummary) Reset() {
+	*x = TithiCalculationSummary{}
+	mi := &file_proto_panchangam_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TithiCalculationSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TithiCalculationSummary) ProtoMessage() {}
+
+func (x *TithiCalculationSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_panchangam_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TithiCalculationSummary.ProtoReflect.Descriptor instead.
+func (*TithiCalculationSummary) Descriptor() ([]byte, []int) {
+	return file_proto_panchangam_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *TithiCalculationSummary) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
+func (x *TithiCalculationSummary) GetRegion() string {
+	if x != nil {
+		return x.Region
+	}
+	return ""
+}
+
+func (x *TithiCalculationSummary) GetCalendarSystem() string {
+	if x != nil {
+		return x.CalendarSystem
+	}
+	return ""
+}
+
+func (x *TithiCalculationSummary) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *TithiCalculationSummary) GetLocale() string {
+	if x != nil {
+		return x.Locale
+	}
+	return ""
+}
+
 var File_proto_panchangam_proto protoreflect.FileDescriptor
 
 const file_proto_panchangam_proto_rawDesc = "" +
 	"\n" +
 	"\x16proto/panchangam.proto\x12\n" +
-	"panchangam\"\xfd\x01\n" +
+	"panchangam\"\xd9\x02\n" +
 	"\x0ePanchangamData\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12\x14\n" +
 	"\x05tithi\x18\x02 \x01(\tR\x05tithi\x12\x1c\n" +
@@ -387,7 +976,11 @@ const file_proto_panchangam_proto_rawDesc = "" +
 	"\fsunrise_time\x18\x06 \x01(\tR\vsunriseTime\x12\x1f\n" +
 	"\vsunset_time\x18\a \x01(\tR\n" +
 	"sunsetTime\x123\n" +
-	"\x06events\x18\b \x03(\v2\x1b.panchangam.PanchangamEventR\x06events\"X\n" +
+	"\x06events\x18\b \x03(\v2\x1b.panchangam.PanchangamEventR\x06events\x12\x1a\n" +
+	"\btimezone\x18\t \x01(\tR\btimezone\x12'\n" +
+	"\x0ftimezone_offset\x18\n" +
+	" \x01(\tR\x0etimezoneOffset\x12\x15\n" +
+	"\x06is_dst\x18\v \x01(\bR\x05isDst\"X\n" +
 	"\x0fPanchangamEvent\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04time\x18\x02 \x01(\tR\x04time\x12\x1d\n" +
@@ -402,10 +995,66 @@ const file_proto_panchangam_proto_rawDesc = "" +
 	"\x12calculation_method\x18\x06 \x01(\tR\x11calculationMethod\x12\x16\n" +
 	"\x06locale\x18\a \x01(\tR\x06locale\"\\\n" +
 	"\x15GetPanchangamResponse\x12C\n" +
-	"\x0fpanchangam_data\x18\x01 \x01(\v2\x1a.panchangam.PanchangamDataR\x0epanchangamData2X\n" +
+	"\x0fpanchangam_data\x18\x01 \x01(\v2\x1a.panchangam.PanchangamDataR\x0epanchangamData\"\x86\x02\n" +
+	"\x16GetTithiSummaryRequest\x12\x0e\n" +
+	"\x02at\x18\x01 \x01(\tR\x02at\x12\x1a\n" +
+	"\blatitude\x18\x02 \x01(\x01R\blatitude\x12\x1c\n" +
+	"\tlongitude\x18\x03 \x01(\x01R\tlongitude\x12\x1a\n" +
+	"\btimezone\x18\x04 \x01(\tR\btimezone\x12\x16\n" +
+	"\x06region\x18\x05 \x01(\tR\x06region\x12-\n" +
+	"\x12calculation_method\x18\x06 \x01(\tR\x11calculationMethod\x12\x16\n" +
+	"\x06locale\x18\a \x01(\tR\x06locale\x12'\n" +
+	"\x0fcalendar_system\x18\b \x01(\tR\x0ecalendarSystem\"\xd9\x02\n" +
+	"\x17GetTithiSummaryResponse\x12\x12\n" +
+	"\x04date\x18\x01 \x01(\tR\x04date\x12.\n" +
+	"\x05tithi\x18\x02 \x01(\v2\x18.panchangam.TithiSummaryR\x05tithi\x12>\n" +
+	"\vpancha_anga\x18\x03 \x01(\v2\x1d.panchangam.PanchaAngaSummaryR\n" +
+	"panchaAnga\x12E\n" +
+	"\vcalculation\x18\x04 \x01(\v2#.panchangam.TithiCalculationSummaryR\vcalculation\x12!\n" +
+	"\fgenerated_at\x18\x05 \x01(\tR\vgeneratedAt\x12&\n" +
+	"\x0fnext_refresh_at\x18\x06 \x01(\tR\rnextRefreshAt\x12(\n" +
+	"\x03day\x18\a \x01(\v2\x16.panchangam.DaySummaryR\x03day\"\xea\x01\n" +
+	"\fTithiSummary\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12)\n" +
+	"\x10traditional_name\x18\x02 \x01(\tR\x0ftraditionalName\x12\x16\n" +
+	"\x06number\x18\x03 \x01(\x05R\x06number\x12\x16\n" +
+	"\x06paksha\x18\x04 \x01(\tR\x06paksha\x12\x1d\n" +
+	"\n" +
+	"paksha_day\x18\x05 \x01(\x05R\tpakshaDay\x12\x12\n" +
+	"\x04type\x18\x06 \x01(\tR\x04type\x12\x1d\n" +
+	"\n" +
+	"start_time\x18\a \x01(\tR\tstartTime\x12\x19\n" +
+	"\bend_time\x18\b \x01(\tR\aendTime\"q\n" +
+	"\x11PanchaAngaSummary\x12\x1c\n" +
+	"\tnakshatra\x18\x01 \x01(\tR\tnakshatra\x12\x12\n" +
+	"\x04yoga\x18\x02 \x01(\tR\x04yoga\x12\x16\n" +
+	"\x06karana\x18\x03 \x01(\tR\x06karana\x12\x12\n" +
+	"\x04vara\x18\x04 \x01(\tR\x04vara\"\x91\x01\n" +
+	"\n" +
+	"DaySummary\x12!\n" +
+	"\fsunrise_time\x18\x01 \x01(\tR\vsunriseTime\x12\x1f\n" +
+	"\vsunset_time\x18\x02 \x01(\tR\n" +
+	"sunsetTime\x12?\n" +
+	"\x0fabhijit_muhurta\x18\x03 \x01(\v2\x16.panchangam.TimeWindowR\x0eabhijitMuhurta\"z\n" +
+	"\n" +
+	"TimeWindow\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"start_time\x18\x02 \x01(\tR\tstartTime\x12\x19\n" +
+	"\bend_time\x18\x03 \x01(\tR\aendTime\x12\x1e\n" +
+	"\n" +
+	"auspicious\x18\x04 \x01(\bR\n" +
+	"auspicious\"\xa6\x01\n" +
+	"\x17TithiCalculationSummary\x12\x1a\n" +
+	"\btimezone\x18\x01 \x01(\tR\btimezone\x12\x16\n" +
+	"\x06region\x18\x02 \x01(\tR\x06region\x12'\n" +
+	"\x0fcalendar_system\x18\x03 \x01(\tR\x0ecalendarSystem\x12\x16\n" +
+	"\x06method\x18\x04 \x01(\tR\x06method\x12\x16\n" +
+	"\x06locale\x18\x05 \x01(\tR\x06locale2\xb4\x01\n" +
 	"\n" +
 	"Panchangam\x12J\n" +
-	"\x03Get\x12 .panchangam.GetPanchangamRequest\x1a!.panchangam.GetPanchangamResponseB%Z#github.com/naren-m/panchangam/protob\x06proto3"
+	"\x03Get\x12 .panchangam.GetPanchangamRequest\x1a!.panchangam.GetPanchangamResponse\x12Z\n" +
+	"\x0fGetTithiSummary\x12\".panchangam.GetTithiSummaryRequest\x1a#.panchangam.GetTithiSummaryResponseB%Z#github.com/naren-m/panchangam/protob\x06proto3"
 
 var (
 	file_proto_panchangam_proto_rawDescOnce sync.Once
@@ -419,23 +1068,37 @@ func file_proto_panchangam_proto_rawDescGZIP() []byte {
 	return file_proto_panchangam_proto_rawDescData
 }
 
-var file_proto_panchangam_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_proto_panchangam_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_proto_panchangam_proto_goTypes = []any{
-	(*PanchangamData)(nil),        // 0: panchangam.PanchangamData
-	(*PanchangamEvent)(nil),       // 1: panchangam.PanchangamEvent
-	(*GetPanchangamRequest)(nil),  // 2: panchangam.GetPanchangamRequest
-	(*GetPanchangamResponse)(nil), // 3: panchangam.GetPanchangamResponse
+	(*PanchangamData)(nil),          // 0: panchangam.PanchangamData
+	(*PanchangamEvent)(nil),         // 1: panchangam.PanchangamEvent
+	(*GetPanchangamRequest)(nil),    // 2: panchangam.GetPanchangamRequest
+	(*GetPanchangamResponse)(nil),   // 3: panchangam.GetPanchangamResponse
+	(*GetTithiSummaryRequest)(nil),  // 4: panchangam.GetTithiSummaryRequest
+	(*GetTithiSummaryResponse)(nil), // 5: panchangam.GetTithiSummaryResponse
+	(*TithiSummary)(nil),            // 6: panchangam.TithiSummary
+	(*PanchaAngaSummary)(nil),       // 7: panchangam.PanchaAngaSummary
+	(*DaySummary)(nil),              // 8: panchangam.DaySummary
+	(*TimeWindow)(nil),              // 9: panchangam.TimeWindow
+	(*TithiCalculationSummary)(nil), // 10: panchangam.TithiCalculationSummary
 }
 var file_proto_panchangam_proto_depIdxs = []int32{
-	1, // 0: panchangam.PanchangamData.events:type_name -> panchangam.PanchangamEvent
-	0, // 1: panchangam.GetPanchangamResponse.panchangam_data:type_name -> panchangam.PanchangamData
-	2, // 2: panchangam.Panchangam.Get:input_type -> panchangam.GetPanchangamRequest
-	3, // 3: panchangam.Panchangam.Get:output_type -> panchangam.GetPanchangamResponse
-	3, // [3:4] is the sub-list for method output_type
-	2, // [2:3] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	1,  // 0: panchangam.PanchangamData.events:type_name -> panchangam.PanchangamEvent
+	0,  // 1: panchangam.GetPanchangamResponse.panchangam_data:type_name -> panchangam.PanchangamData
+	6,  // 2: panchangam.GetTithiSummaryResponse.tithi:type_name -> panchangam.TithiSummary
+	7,  // 3: panchangam.GetTithiSummaryResponse.pancha_anga:type_name -> panchangam.PanchaAngaSummary
+	10, // 4: panchangam.GetTithiSummaryResponse.calculation:type_name -> panchangam.TithiCalculationSummary
+	8,  // 5: panchangam.GetTithiSummaryResponse.day:type_name -> panchangam.DaySummary
+	9,  // 6: panchangam.DaySummary.abhijit_muhurta:type_name -> panchangam.TimeWindow
+	2,  // 7: panchangam.Panchangam.Get:input_type -> panchangam.GetPanchangamRequest
+	4,  // 8: panchangam.Panchangam.GetTithiSummary:input_type -> panchangam.GetTithiSummaryRequest
+	3,  // 9: panchangam.Panchangam.Get:output_type -> panchangam.GetPanchangamResponse
+	5,  // 10: panchangam.Panchangam.GetTithiSummary:output_type -> panchangam.GetTithiSummaryResponse
+	9,  // [9:11] is the sub-list for method output_type
+	7,  // [7:9] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_proto_panchangam_proto_init() }
@@ -449,7 +1112,7 @@ func file_proto_panchangam_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_panchangam_proto_rawDesc), len(file_proto_panchangam_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

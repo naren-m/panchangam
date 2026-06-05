@@ -12,7 +12,7 @@ import (
 
 	"github.com/naren-m/panchangam/log"
 	"github.com/naren-m/panchangam/observability"
-	ppb "github.com/naren-m/panchangam/proto/panchangam"
+	ppb "github.com/naren-m/panchangam/proto"
 	"github.com/naren-m/panchangam/services/panchangam"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -46,8 +46,7 @@ func main() {
 
 	// Create gRPC server with observability interceptors
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(observer.UnaryServerInterceptor()),
-		grpc.StreamInterceptor(observer.StreamServerInterceptor()),
+		grpc.UnaryInterceptor(observability.UnaryServerInterceptor()),
 	)
 
 	// Register Panchangam service
