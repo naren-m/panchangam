@@ -1,4 +1,4 @@
-import React from 'react';
+import type { FC } from 'react';
 import { ErrorMessage } from './ErrorMessage';
 
 interface ApiErrorProps {
@@ -8,7 +8,7 @@ interface ApiErrorProps {
   endpoint?: string;
 }
 
-export const ApiError: React.FC<ApiErrorProps> = ({
+export const ApiError: FC<ApiErrorProps> = ({
   error,
   onRetry,
   statusCode,
@@ -68,7 +68,7 @@ export const ApiError: React.FC<ApiErrorProps> = ({
     return errorMessage;
   };
 
-  const details = process.env.NODE_ENV === 'development' && endpoint 
+  const details = import.meta.env.DEV && endpoint
     ? `Endpoint: ${endpoint}\nStatus: ${statusCode || 'Unknown'}\nError: ${errorMessage}`
     : undefined;
 

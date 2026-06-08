@@ -8,7 +8,7 @@ Your panchangam application has exceptional astronomical calculation capabilitie
 
 ## Feasibility Analysis
 
-### ✅ **Strong Foundation**
+### **Strong Foundation**
 Your existing system provides:
 
 1. **Precise Planetary Positions** (`ephemeris/ephemeris.go`)

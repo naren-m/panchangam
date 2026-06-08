@@ -17,7 +17,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   onHover,
   onClick,
 }) => {
-  const { type, position, symbol, color, size, label } = body;
+  const { type, position, symbol, size, label } = body;
 
   // Generate unique IDs for gradients/filters
   const gradientId = `${type}-gradient`;
@@ -104,8 +104,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
         fontWeight="bold"
         pointerEvents="none"
       >
-        ☉
-      </text>
+        </text>
     </g>
   ), [position, size, isHovered, gradientId, glowId]);
 

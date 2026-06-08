@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ViewSwitcher, ViewMode } from './ViewSwitcher';
+import { ViewSwitcher } from './ViewSwitcher';
 
 describe('ViewSwitcher', () => {
   it('renders all view options', () => {

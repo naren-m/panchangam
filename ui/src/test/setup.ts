@@ -1,13 +1,5 @@
 import { vi } from 'vitest';
-import '@testing-library/jest-dom';
-
-// Mock environment variables
-vi.mock('import.meta.env', () => ({
-  VITE_API_BASE_URL: 'http://localhost:8080',
-  VITE_API_TIMEOUT: '30000',
-  VITE_DEBUG_API: 'true',
-  DEV: true
-}));
+import '@testing-library/jest-dom/vitest';
 
 // Mock AbortSignal.timeout for Node.js environment
 if (!globalThis.AbortSignal?.timeout) {
@@ -21,7 +13,47 @@ if (!globalThis.AbortSignal?.timeout) {
   } as typeof globalThis.AbortSignal;
 }
 
-// Mock window.matchMedia for responsive design tests
+// Mock IntersectionObserver for components that depend on browser layout APIs.
+globalThis.IntersectionObserver = class MockIntersectionObserver implements IntersectionObserver {
+  readonly root = null;
+  readonly rootMargin = '';
+  readonly thresholds = [];
+
+  observe() {
+    return null;
+  }
+
+  disconnect() {
+    return null;
+  }
+
+  takeRecords() {
+    return [];
+  }
+
+  unobserve() {
+    return null;
+  }
+};
+
+// Mock ResizeObserver for components that measure container size.
+globalThis.ResizeObserver = class ResizeObserver {
+  constructor() {}
+
+  observe() {
+    return null;
+  }
+
+  disconnect() {
+    return null;
+  }
+
+  unobserve() {
+    return null;
+  }
+};
+
+// Mock window.matchMedia for responsive design tests.
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({

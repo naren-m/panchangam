@@ -1,5 +1,5 @@
 import React from 'react';
-import { getCurrentMonthDates, getWeekdayNames, isSameMonth } from '../../utils/dateHelpers';
+import { formatDateForApi, getCurrentMonthDates, getWeekdayNames, isSameMonth } from '../../utils/dateHelpers';
 import { DateCell } from './DateCell';
 import { PanchangamData, Settings } from '../../types/panchangam';
 
@@ -37,7 +37,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
       {/* Calendar grid */}
       <div className="grid grid-cols-7 gap-0">
         {dates.map((date, index) => {
-          const dateStr = date.toISOString().split('T')[0];
+          const dateStr = formatDateForApi(date);
           const data = panchangamData[dateStr];
           const isCurrentMonth = isSameMonth(date, month, year);
 

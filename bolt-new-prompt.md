@@ -62,10 +62,10 @@ Each calendar day should display:
 ```
 [Date Number]
 𑚕 Tithi Name
-⭐ Nakshatra 
-🧘 Yoga
-⚡ Karana
-🌅 06:45 🌅 18:15
+Nakshatra
+Yoga
+Karana
+06:45 18:15
 ```
 
 ### 3. Detailed Day View (Expandable)
@@ -73,7 +73,7 @@ When clicking a date, show expanded information:
 
 #### The Five Angas (पञ्चाङ्ग)
 - **Tithi (तिथि)**: Lunar day with completion percentage
-- **Nakshatra (नक्षत्र)**: Current star constellation with deity and characteristics  
+- **Nakshatra (नक्षत्र)**: Current star constellation with deity and characteristics
 - **Yoga (योग)**: Auspicious combination with quality rating
 - **Karana (करण)**: Half-tithi period with attributes
 - **Vara (वार)**: Weekday with planetary ruler and significance
@@ -86,7 +86,7 @@ When clicking a date, show expanded information:
 #### Muhurta (Auspicious Times)
 Display as timeline with color coding:
 - **Green**: Highly auspicious (Abhijit, Brahma Muhurta)
-- **Yellow**: Mildly auspicious 
+- **Yellow**: Mildly auspicious
 - **Orange**: Neutral periods
 - **Red**: Inauspicious (Rahu Kalam, Yamagandam, Gulika Kalam)
 
@@ -118,9 +118,9 @@ Display as timeline with color coding:
 - **Sanskrit/Tamil**: Appropriate font rendering for regional scripts
 
 #### Icons & Symbols
-- Traditional Hindu symbols (ॐ, 🕉️, ⚛️)
-- Astronomical symbols (☀️, 🌙, ⭐, 🌅, 🌄)
-- Time indicators (⏰, ⏳, 🕐)
+- Traditional Hindu symbols (ॐ)
+- Astronomical symbols
+- Time indicators
 
 ### 5. Interactive Features
 
@@ -208,7 +208,7 @@ src/
 
 ### Regional Variations
 - **North India**: Follows traditional Purnimanta (full moon ending) months
-- **South India**: Follows Amanta (new moon ending) months  
+- **South India**: Follows Amanta (new moon ending) months
 - **Tamil Nadu**: Unique Tamil calendar integration with solar months
 - **Kerala**: Malayalam calendar with specific local traditions
 
@@ -221,7 +221,7 @@ src/
 - Keyboard navigation for all interactive elements
 - Alt text for symbolic representations
 
-### Performance  
+### Performance
 - Lazy loading for calendar months
 - Service worker for offline panchangam data
 - Optimized bundle splitting
@@ -237,7 +237,7 @@ src/
 
 ## Deployment Considerations
 - Environment variables for API endpoints
-- CDN integration for static assets  
+- CDN integration for static assets
 - SEO optimization with proper meta tags
 - Social media preview cards
 - Error boundary components for graceful failures

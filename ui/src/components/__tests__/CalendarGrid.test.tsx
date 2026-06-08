@@ -12,11 +12,12 @@ describe('CalendarGrid Component', () => {
       longitude: 77.5946,
       timezone: 'Asia/Kolkata',
       name: 'Bangalore',
+      region: 'Karnataka',
     },
-    calculationMethod: 'traditional',
-    displayLanguage: 'en',
-    theme: 'light',
-    locale: 'en-US',
+    calculation_method: 'Drik',
+    locale: 'en',
+    region: 'Karnataka',
+    time_format: '12',
   };
 
   const mockPanchangamData: Record<string, PanchangamData> = {

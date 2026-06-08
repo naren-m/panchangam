@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -38,6 +40,8 @@ const (
 	CategoryInternal       ErrorCategory = "internal"
 )
 
+var correlationIDCounter uint64
+
 // ErrorContext contains additional context for error reporting
 type ErrorContext struct {
 	Severity    ErrorSeverity
@@ -63,24 +67,26 @@ type EnhancedError struct {
 
 // Error implements the error interface
 func (e *EnhancedError) Error() string {
+	if e == nil || e.OriginalError == nil {
+		return "unknown error"
+	}
 	return e.OriginalError.Error()
 }
 
 // Unwrap returns the original error
 func (e *EnhancedError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
 	return e.OriginalError
 }
 
 // ErrorRecorder provides enhanced error recording capabilities
-type ErrorRecorder struct {
-	observer ObserverInterface
-}
+type ErrorRecorder struct{}
 
 // NewErrorRecorder creates a new error recorder
 func NewErrorRecorder() *ErrorRecorder {
-	return &ErrorRecorder{
-		observer: Observer(),
-	}
+	return &ErrorRecorder{}
 }
 
 // RecordError records an error with comprehensive context and span events
@@ -187,9 +193,12 @@ func (er *ErrorRecorder) RecordRetryAttempt(ctx context.Context, operation strin
 		"operation":    operation,
 		"attempt":      attempt,
 		"max_attempts": maxAttempts,
-		"last_error":   lastError.Error(),
 		"retry_time":   time.Now().Format(time.RFC3339),
 	}
+	if lastError != nil {
+		attributes["last_error"] = lastError.Error()
+	}
+
 	er.RecordEvent(ctx, fmt.Sprintf("Retry attempt %d/%d for %s", attempt, maxAttempts, operation), attributes)
 }
 
@@ -199,16 +208,9 @@ func (er *ErrorRecorder) recordToSpan(span trace.Span, enhancedErr *EnhancedErro
 	span.RecordError(enhancedErr.OriginalError)
 
 	// Set span status
-	var statusCode codes.Code
-	switch enhancedErr.Context.Severity {
-	case SeverityCritical, SeverityHigh:
-		statusCode = codes.Error
-	case SeverityMedium:
-		statusCode = codes.Error
-	case SeverityLow:
+	statusCode := codes.Error
+	if enhancedErr.Context.Severity == SeverityLow {
 		statusCode = codes.Ok // Low severity might not be considered an error
-	default:
-		statusCode = codes.Error
 	}
 	span.SetStatus(statusCode, enhancedErr.OriginalError.Error())
 
@@ -324,7 +326,8 @@ func attributeFromValue(key string, value interface{}) attribute.KeyValue {
 
 // generateCorrelationID generates a unique correlation ID for error tracking
 func generateCorrelationID() string {
-	return fmt.Sprintf("err_%d_%d", time.Now().UnixNano(), runtime.NumGoroutine())
+	sequence := atomic.AddUint64(&correlationIDCounter, 1)
+	return fmt.Sprintf("err_%d_%d_%d", time.Now().UnixNano(), runtime.NumGoroutine(), sequence)
 }
 
 // captureStackTrace captures the current stack trace
@@ -353,12 +356,15 @@ func captureStackTrace(skip int) string {
 }
 
 // GetGlobalErrorRecorder returns a global instance of ErrorRecorder
-var globalErrorRecorder *ErrorRecorder
+var (
+	globalErrorRecorder     *ErrorRecorder
+	globalErrorRecorderOnce sync.Once
+)
 
 func getGlobalErrorRecorder() *ErrorRecorder {
-	if globalErrorRecorder == nil {
+	globalErrorRecorderOnce.Do(func() {
 		globalErrorRecorder = NewErrorRecorder()
-	}
+	})
 	return globalErrorRecorder
 }
 

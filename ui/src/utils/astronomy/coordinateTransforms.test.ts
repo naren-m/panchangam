@@ -95,17 +95,17 @@ describe('Coordinate Transformation System', () => {
       // Object with Dec = observer's latitude, crossing meridian (HA=0)
       // should be at altitude = 90° (zenith)
       const equatorial = {
-        rightAscension: 0, // Will be adjusted by LST calculation
+        // Local sidereal time in New York at 2024-03-20T12:00:00Z.
+        rightAscension: 284.5,
         declination: observer.latitude,
         distance: 1
       };
 
-      // Use a time when LST = RA (object transiting)
-      const time = new Date('2024-03-20T12:00:00Z'); // Near vernal equinox
+      const time = new Date('2024-03-20T12:00:00Z');
       const horizontal = equatorialToHorizontal(equatorial, observer, time);
 
-      // Altitude should be close to 90° (within reasonable error)
-      expect(horizontal.altitude).toBeGreaterThan(45);
+      // Altitude should be close to 90°.
+      expect(horizontal.altitude).toBeGreaterThan(85);
       expect(horizontal.altitude).toBeLessThanOrEqual(90);
     });
 
@@ -343,11 +343,12 @@ describe('Coordinate Transformation System', () => {
     });
 
     it('should correctly transform Polaris (North Star) position', () => {
-      // Polaris is close to North Celestial Pole
-      // Ecliptic: λ ≈ 26°, β ≈ 66.6° (near ecliptic north pole)
+      // Polaris is close to the North Celestial Pole.
+      // These ecliptic coordinates are the J2000 position converted from
+      // RA 37.95°, Dec 89.26°.
       const polarisEcliptic: EclipticCoordinates = {
-        longitude: 26,
-        latitude: 66,
+        longitude: 88.57,
+        latitude: 66.10,
         distance: 433 // light years
       };
 

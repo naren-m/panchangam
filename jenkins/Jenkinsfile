@@ -43,13 +43,13 @@ import groovy.transform.Field
 // Helper function to safely send Slack notifications (fail-safe)
 def safeSlackNotify(Closure notifyAction) {
     if (!slackEnabled) {
-        echo "ℹ️ Slack notifications disabled (credentials not configured)"
+        echo "INFO: Slack notifications disabled (credentials not configured)"
         return
     }
     try {
         notifyAction()
     } catch (Exception e) {
-        echo "⚠️ Slack notification failed (non-blocking): ${e.message}"
+        echo "WARN: Slack notification failed (non-blocking): ${e.message}"
         slackEnabled = false  // Disable future attempts to avoid repeated failures
     }
 }
@@ -332,7 +332,7 @@ pipeline {
         stage('Mark Tests Passed') {
             steps {
                 script {
-                    echo "✅ All tests passed!"
+                    echo "PASS All tests passed!"
 
                     if (env.IS_PR == 'true') {
                         notifyGitHub(
@@ -385,7 +385,7 @@ pipeline {
                 script {
                     sh """
                         set -e
-                        echo "🔧 Setting up Docker Buildx for local insecure registry..."
+                        echo "Setting up Docker Buildx for local insecure registry..."
 
                         # Create buildkitd config to allow insecure (HTTP) registry
                         mkdir -p /tmp/buildkit
@@ -396,7 +396,7 @@ pipeline {
   insecure = true
 TOML
 
-                        echo "📋 BuildKit config:"
+                        echo "BuildKit config:"
                         cat /tmp/buildkit/buildkitd.toml
 
                         # Remove existing builder to apply new config
@@ -414,7 +414,7 @@ TOML
 
                         # Verify builder is ready
                         docker buildx inspect --bootstrap
-                        echo "✅ Buildx builder ready with insecure registry: ${config.localRegistry}"
+                        echo "PASS Buildx builder ready with insecure registry: ${config.localRegistry}"
                     """
                 }
             }
@@ -426,22 +426,22 @@ TOML
             }
             steps {
                 script {
-                    echo "🏗️ Building multi-arch image: ${FULL_IMAGE_NAME}:${imageTag}"
+                    echo "Building multi-arch image: ${FULL_IMAGE_NAME}:${imageTag}"
 
                     sh """
                         set -e
 
                         # Verify registry is accessible before building
-                        echo "🔍 Verifying local registry is accessible..."
+                        echo "Verifying local registry is accessible..."
                         if curl -sf http://${config.localRegistry}/v2/ > /dev/null; then
-                            echo "✅ Registry ${config.localRegistry} is accessible"
+                            echo "PASS Registry ${config.localRegistry} is accessible"
                         else
-                            echo "❌ ERROR: Cannot reach registry ${config.localRegistry}"
+                            echo "FAIL: Cannot reach registry ${config.localRegistry}"
                             echo "   Make sure the registry is running and accessible"
                             exit 1
                         fi
 
-                        echo "🏗️ Building and pushing multi-arch image to LOCAL registry..."
+                        echo "Building and pushing multi-arch image to LOCAL registry..."
                         echo "   Image: ${FULL_IMAGE_NAME}:${imageTag}"
                         echo "   Platforms: ${config.platforms}"
                         echo "   Registry: ${config.localRegistry}"
@@ -454,18 +454,18 @@ TOML
                             --progress=plain \\
                             .
 
-                        echo "✅ Multi-arch build and push completed!"
+                        echo "PASS Multi-arch build and push completed!"
 
                         # Verify the image was pushed to local registry
-                        echo "📋 Verifying image in local registry..."
+                        echo "Verifying image in local registry..."
                         curl -sf "http://${config.localRegistry}/v2/${config.appName}/tags/list" || echo "Warning: Could not verify tags"
 
                         # Verify the manifest
-                        echo "📋 Verifying multi-arch manifest..."
+                        echo "Verifying multi-arch manifest..."
                         docker buildx imagetools inspect ${FULL_IMAGE_NAME}:${imageTag}
                     """
 
-                    echo "✅ Multi-arch images built and pushed to ${config.localRegistry}"
+                    echo "PASS Multi-arch images built and pushed to ${config.localRegistry}"
                 }
             }
         }
@@ -490,7 +490,7 @@ TOML
                     }
 
                     env.GITOPS_COMMIT = gitopsResult.commitSha
-                    echo "✅ GitOps manifest updated (${gitopsResult.method})"
+                    echo "PASS GitOps manifest updated (${gitopsResult.method})"
                     echo "   Commit: ${gitopsResult.commitSha}"
 
                     // Trigger ArgoCD sync
@@ -506,7 +506,7 @@ TOML
                         echo "         Status: ${syncResult.status}, Health: ${syncResult.health}"
                         echo "         ArgoCD will continue syncing in background"
                     } else {
-                        echo "✅ ArgoCD sync completed"
+                        echo "PASS ArgoCD sync completed"
                         echo "   Status: ${syncResult.status}"
                         echo "   Health: ${syncResult.health}"
                     }
@@ -541,7 +541,7 @@ TOML
                         error "Deployment failed and was rolled back"
                     }
 
-                    echo "✅ Deployment verified successfully"
+                    echo "PASS Deployment verified successfully"
                 }
             }
         }
@@ -626,7 +626,7 @@ TOML
             script {
                 if (env.IS_MAIN == 'true') {
                     echo "╔══════════════════════════════════════════════════════════════╗"
-                    echo "║          🎉 DEPLOYMENT COMPLETED SUCCESSFULLY                ║"
+                    echo "║          DEPLOYMENT COMPLETED SUCCESSFULLY                ║"
                     echo "╠══════════════════════════════════════════════════════════════╣"
                     echo "║  Application: ${config.appName.padRight(47)}║"
                     echo "║  Tag:         ${imageTag?.padRight(47) ?: 'N/A'.padRight(47)}║"

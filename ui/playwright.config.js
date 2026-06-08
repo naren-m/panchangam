@@ -1,10 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: '.',
+  testDir: './e2e',
+  testMatch: '**/*.spec.ts',
   timeout: 30000,
   use: {
-    headless: false,
+    headless: true,
     screenshot: 'only-on-failure'
   },
   projects: [

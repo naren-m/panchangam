@@ -30,71 +30,71 @@ func TestAllPanchangamElements(t *testing.T) {
 
 	t.Run("Tithi Calculation", func(t *testing.T) {
 		tithi, err := calculator.GetTithiFromLongitudes(ctx, mockPositions.Sun.Longitude, mockPositions.Moon.Longitude, testDate)
-		
+
 		assert.NoError(t, err)
 		assert.NotNil(t, tithi)
 		err = ValidateTithiCalculation(tithi)
 		assert.NoError(t, err)
-		
-		t.Logf("Tithi: %s (#%d), Type: %s, Duration: %.2f hours", 
+
+		t.Logf("Tithi: %s (#%d), Type: %s, Duration: %.2f hours",
 			tithi.Name, tithi.Number, tithi.Type, tithi.Duration)
 	})
 
 	t.Run("Nakshatra Calculation", func(t *testing.T) {
 		calculator := NewNakshatraCalculator(manager)
 		nakshatra, err := calculator.GetNakshatraFromLongitude(ctx, mockPositions.Moon.Longitude, testDate)
-		
+
 		assert.NoError(t, err)
 		assert.NotNil(t, nakshatra)
 		err = ValidateNakshatraCalculation(nakshatra)
 		assert.NoError(t, err)
-		
-		t.Logf("Nakshatra: %s (#%d), Pada: %d, Planet: %s", 
+
+		t.Logf("Nakshatra: %s (#%d), Pada: %d, Planet: %s",
 			nakshatra.Name, nakshatra.Number, nakshatra.Pada, nakshatra.PlanetaryLord)
 	})
 
 	t.Run("Yoga Calculation", func(t *testing.T) {
 		calculator := NewYogaCalculator(manager)
 		yoga, err := calculator.GetYogaFromLongitudes(ctx, mockPositions.Sun.Longitude, mockPositions.Moon.Longitude, testDate)
-		
+
 		assert.NoError(t, err)
 		assert.NotNil(t, yoga)
 		err = ValidateYogaCalculation(yoga)
 		assert.NoError(t, err)
-		
-		t.Logf("Yoga: %s (#%d), Quality: %s, Combined: %.2f°", 
+
+		t.Logf("Yoga: %s (#%d), Quality: %s, Combined: %.2f°",
 			yoga.Name, yoga.Number, yoga.Quality, yoga.CombinedValue)
 	})
 
 	t.Run("Karana Calculation", func(t *testing.T) {
 		calculator := NewKaranaCalculator(manager)
 		karana, err := calculator.GetKaranaFromLongitudes(ctx, mockPositions.Sun.Longitude, mockPositions.Moon.Longitude, testDate)
-		
+
 		assert.NoError(t, err)
 		assert.NotNil(t, karana)
 		err = ValidateKaranaCalculation(karana)
 		assert.NoError(t, err)
-		
-		t.Logf("Karana: %s (#%d), Type: %s, Tithi: %d/%d, Vishti: %v", 
+
+		t.Logf("Karana: %s (#%d), Type: %s, Tithi: %d/%d, Vishti: %v",
 			karana.Name, karana.Number, karana.Type, karana.TithiNumber, karana.HalfTithi, karana.IsVishti)
 	})
 
 	t.Run("Vara Calculation", func(t *testing.T) {
 		varaCalculator := NewVaraCalculator()
-		
+
 		// For this test, we'll use the simple gregorian day approach since we don't need ephemeris
 		gregorianDay := testDate.Weekday() // Monday
 		sunrise := time.Date(2024, 1, 15, 6, 30, 0, 0, time.UTC)
 		nextSunrise := time.Date(2024, 1, 16, 6, 31, 0, 0, time.UTC)
-		
+
 		vara, err := varaCalculator.GetVaraFromGregorianDay(ctx, gregorianDay, sunrise, nextSunrise, testDate)
-		
+
 		assert.NoError(t, err)
 		assert.NotNil(t, vara)
 		err = ValidateVaraCalculation(vara)
 		assert.NoError(t, err)
-		
-		t.Logf("Vara: %s (#%d), Planet: %s, Hora: %d (%s), Auspicious: %v", 
+
+		t.Logf("Vara: %s (#%d), Planet: %s, Hora: %d (%s), Auspicious: %v",
 			vara.Name, vara.Number, vara.PlanetaryLord, vara.CurrentHora, vara.HoraPlanet, vara.IsAuspicious)
 	})
 }
@@ -135,6 +135,20 @@ func TestPanchangamDataIntegrity(t *testing.T) {
 		}
 		// Check that Vishti is properly marked
 		assert.True(t, KaranaData[8].IsVishti, "Karana 8 should be Vishti")
+	})
+
+	t.Run("Karana Cycle", func(t *testing.T) {
+		calculator := &KaranaCalculator{}
+
+		assert.Equal(t, 1, calculator.calculateKaranaNumber(1, 1), "Shukla Pratipada first half should be Kintughna")
+		assert.Equal(t, 2, calculator.calculateKaranaNumber(1, 2), "Shukla Pratipada second half should be Bava")
+		assert.Equal(t, 3, calculator.calculateKaranaNumber(2, 1), "Dvitiya first half should be Balava")
+		assert.Equal(t, 4, calculator.calculateKaranaNumber(2, 2), "Dvitiya second half should be Kaulava")
+		assert.Equal(t, 3, calculator.calculateKaranaNumber(19, 2), "Krishna Chaturthi second half should be Balava")
+		assert.Equal(t, 4, calculator.calculateKaranaNumber(20, 1), "Krishna Panchami first half should be Kaulava")
+		assert.Equal(t, 9, calculator.calculateKaranaNumber(29, 2), "Krishna Chaturdashi second half should be Shakuni")
+		assert.Equal(t, 10, calculator.calculateKaranaNumber(30, 1), "Amavasya first half should be Chatushpada")
+		assert.Equal(t, 11, calculator.calculateKaranaNumber(30, 2), "Amavasya second half should be Naga")
 	})
 
 	t.Run("Vara Data", func(t *testing.T) {

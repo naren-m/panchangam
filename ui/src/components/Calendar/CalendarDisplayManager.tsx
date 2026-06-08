@@ -1,7 +1,8 @@
 import React from 'react';
 import { CalendarGrid } from './CalendarGrid';
 import { SkeletonCalendar } from '../common/Loading/SkeletonCalendar';
-import { ApiError, NetworkError } from '../common/Error';
+import { ApiError } from '../common/Error/ApiError';
+import { NetworkError } from '../common/Error/NetworkError';
 import { PanchangamData, Settings } from '../../types/panchangam';
 
 interface CalendarProps {
@@ -33,20 +34,20 @@ interface CalendarDisplayManagerProps {
   progress: number;
   loadedCount: number;
   totalCount: number;
-  loadingPhase: LoadingPhase;
-  todayLoaded: boolean;
+  loadingPhase?: LoadingPhase;
+  todayLoaded?: boolean;
   retry: () => void;
   calendarProps: CalendarProps;
 }
 
 /**
  * CalendarDisplayManager - Ensures only ONE calendar component renders at a time
- * 
+ *
  * State Priority (mutually exclusive):
  * 1. Error (highest) - when no data and error exists
- * 2. Loading - when loading and no data exists  
+ * 2. Loading - when loading and no data exists
  * 3. Calendar - when data exists or loading is complete
- * 
+ *
  * Progressive loading indicator appears alongside calendar when data is loading.
  */
 export const CalendarDisplayManager: React.FC<CalendarDisplayManagerProps> = ({
@@ -59,34 +60,46 @@ export const CalendarDisplayManager: React.FC<CalendarDisplayManagerProps> = ({
   loadedCount,
   totalCount,
   loadingPhase,
-  todayLoaded,
+  todayLoaded = false,
   retry,
   calendarProps
 }) => {
+  const activeLoadingPhase = loadingPhase ?? {
+    phase: 'remaining',
+    description: 'Loading calendar data...'
+  };
+
   // Determine current display state
   const isInitialLoading = loading && !hasData && !todayLoaded;
   const hasError = error && !hasData;
   const shouldShowCalendar = hasData || todayLoaded || (!loading && !hasError);
-  
+  const displayProgress = Math.max(0, Math.min(100, progress));
+  const displayLoadedCount = Math.max(0, Math.min(loadedCount, totalCount));
+  const displayProgressPercent = Math.round(displayProgress);
+
   // Get phase-specific loading message
   const getLoadingMessage = () => {
-    switch (loadingPhase.phase) {
+    if (!loadingPhase) {
+      return activeLoadingPhase.description;
+    }
+
+    switch (activeLoadingPhase.phase) {
       case 'today':
-        return '🕉️ Loading today\'s tithi...';
+        return 'Loading today\'s tithi...';
       case 'priority':
-        return '📅 Loading nearby dates...';
+        return 'Loading nearby dates...';
       case 'remaining':
-        return '⏳ Loading remaining dates...';
+        return 'Loading remaining dates...';
       case 'complete':
-        return '✅ All data loaded';
+        return 'All data loaded';
       default:
-        return loadingPhase.description;
+        return activeLoadingPhase.description;
     }
   };
-  
+
   // Get appropriate progress bar color based on phase
   const getProgressColor = () => {
-    switch (loadingPhase.phase) {
+    switch (activeLoadingPhase.phase) {
       case 'today':
         return 'bg-orange-500';
       case 'priority':
@@ -99,9 +112,9 @@ export const CalendarDisplayManager: React.FC<CalendarDisplayManagerProps> = ({
         return 'bg-blue-500';
     }
   };
-  
+
   const getProgressBgColor = () => {
-    switch (loadingPhase.phase) {
+    switch (activeLoadingPhase.phase) {
       case 'today':
         return 'bg-orange-50 border-orange-200';
       case 'priority':
@@ -114,9 +127,9 @@ export const CalendarDisplayManager: React.FC<CalendarDisplayManagerProps> = ({
         return 'bg-blue-50 border-blue-200';
     }
   };
-  
+
   const getTextColor = () => {
-    switch (loadingPhase.phase) {
+    switch (activeLoadingPhase.phase) {
       case 'today':
         return 'text-orange-800';
       case 'priority':
@@ -158,7 +171,7 @@ export const CalendarDisplayManager: React.FC<CalendarDisplayManagerProps> = ({
           <div className="text-center mb-4">
             <div className="inline-flex items-center px-4 py-2 bg-orange-50 border border-orange-200 rounded-full">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
-              <span className="text-orange-800 text-sm font-medium">🕉️ Loading today's tithi...</span>
+              <span className="text-orange-800 text-sm font-medium">Loading today's tithi...</span>
             </div>
           </div>
           <SkeletonCalendar />
@@ -167,32 +180,32 @@ export const CalendarDisplayManager: React.FC<CalendarDisplayManagerProps> = ({
 
       {/* Progressive Loading Indicator - Shows with calendar */}
       {(isProgressiveLoading || (todayLoaded && loading)) && !hasError && (
-        <div 
+        <div
           className={`mb-4 border rounded-lg p-3 transition-all duration-300 ${getProgressBgColor()}`}
           role="progressbar"
-          aria-valuenow={Math.round(progress)}
+          aria-valuenow={displayProgressPercent}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`Loading calendar data: ${Math.round(progress)}% complete`}
+          aria-label={`Loading calendar data: ${displayProgressPercent}% complete`}
         >
           <div className={`flex items-center justify-between text-sm ${getTextColor()}`}>
             <span className="font-medium">{getLoadingMessage()}</span>
             <span aria-live="polite">
-              {loadingPhase.phase === 'complete' ? (
-                '✅ Complete'
+              {activeLoadingPhase.phase === 'complete' ? (
+                'Complete'
               ) : (
-                `${loadedCount}/${totalCount} (${Math.round(progress)}%)`
+                `${displayLoadedCount}/${totalCount} days loaded (${displayProgressPercent}%)`
               )}
             </span>
           </div>
           <div className="mt-2 bg-gray-200 rounded-full h-2 overflow-hidden">
-            <div 
+            <div
               className={`h-2 transition-all duration-500 ease-out ${getProgressColor()}`}
-              style={{ width: `${progress}%` }}
+              style={{ width: `${displayProgress}%` }}
               aria-hidden="true"
             />
           </div>
-          {loadingPhase.phase === 'today' && todayLoaded && (
+          {activeLoadingPhase.phase === 'today' && todayLoaded && (
             <div className="mt-2 text-xs text-orange-600 flex items-center">
               <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-2 animate-pulse"></span>
               Today's tithi is now available!
@@ -207,7 +220,7 @@ export const CalendarDisplayManager: React.FC<CalendarDisplayManagerProps> = ({
           {todayLoaded && Object.keys(calendarProps.panchangamData).length === 1 && loading && (
             <div className="mb-4 p-3 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg">
               <div className="text-center text-orange-800">
-                <div className="text-lg font-semibold mb-1">🎉 Today's Tithi Loaded!</div>
+                <div className="text-lg font-semibold mb-1">Today's tithi loaded</div>
                 <div className="text-sm opacity-75">Loading additional dates for full month view...</div>
               </div>
             </div>

@@ -23,7 +23,7 @@ export const TithiArc: React.FC<TithiArcProps> = ({
 
   // Calculate angular separation for display
   const angularSeparation = useMemo(() => {
-    let diff = normalizeAngle(moonAngle - sunAngle);
+    const diff = normalizeAngle(moonAngle - sunAngle);
     return diff;
   }, [sunAngle, moonAngle]);
 
@@ -36,9 +36,6 @@ export const TithiArc: React.FC<TithiArcProps> = ({
 
   // Arc stroke width based on hover
   const strokeWidth = isHovered ? 4 : 3;
-
-  // Animation ID for dash pattern
-  const animationId = 'tithi-arc-dash';
 
   return (
     <g
@@ -97,52 +94,38 @@ export const TithiArc: React.FC<TithiArcProps> = ({
       {/* Angular separation indicator at midpoint */}
       {isHovered && (
         <g pointerEvents="none">
-          {/* Calculate midpoint of arc for label placement */}
-          {(() => {
-            const midAngle = sunAngle + angularSeparation / 2;
-            const rad = ((90 - midAngle) * Math.PI) / 180;
-            const labelRadius = radius + 20;
-            // Approximate center calculation
-            const cx = 0; // Will be set by parent
-            const cy = 0;
-
-            return (
-              <>
-                {/* Info box positioned relative to arc */}
-                <rect
-                  x={-50}
-                  y={radius + 25}
-                  width={100}
-                  height={50}
-                  rx={6}
-                  fill={CHART_COLORS.text}
-                  fillOpacity={0.95}
-                  transform={`translate(${radius * 0.7}, ${-radius * 0.3})`}
-                />
-                <text
-                  x={0}
-                  y={radius + 42}
-                  textAnchor="middle"
-                  fill="white"
-                  fontSize={12}
-                  fontWeight="bold"
-                  transform={`translate(${radius * 0.7}, ${-radius * 0.3})`}
-                >
-                  {tithi.name}
-                </text>
-                <text
-                  x={0}
-                  y={radius + 58}
-                  textAnchor="middle"
-                  fill="white"
-                  fontSize={10}
-                  transform={`translate(${radius * 0.7}, ${-radius * 0.3})`}
-                >
-                  {tithi.paksha} Paksha • {angularSeparation.toFixed(1)}°
-                </text>
-              </>
-            );
-          })()}
+          {/* Info box positioned relative to arc */}
+          <rect
+            x={-50}
+            y={radius + 25}
+            width={100}
+            height={50}
+            rx={6}
+            fill={CHART_COLORS.text}
+            fillOpacity={0.95}
+            transform={`translate(${radius * 0.7}, ${-radius * 0.3})`}
+          />
+          <text
+            x={0}
+            y={radius + 42}
+            textAnchor="middle"
+            fill="white"
+            fontSize={12}
+            fontWeight="bold"
+            transform={`translate(${radius * 0.7}, ${-radius * 0.3})`}
+          >
+            {tithi.name}
+          </text>
+          <text
+            x={0}
+            y={radius + 58}
+            textAnchor="middle"
+            fill="white"
+            fontSize={10}
+            transform={`translate(${radius * 0.7}, ${-radius * 0.3})`}
+          >
+            {tithi.paksha} Paksha - {angularSeparation.toFixed(1)}°
+          </text>
         </g>
       )}
     </g>

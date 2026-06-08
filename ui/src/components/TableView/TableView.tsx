@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { PanchangamData, Settings } from '../../types/panchangam';
 import { Download, Calendar, Sun, Moon, Star, Clock } from 'lucide-react';
+import { formatDateForApi, parseApiDate } from '../../utils/dateHelpers';
 
 interface TableViewProps {
   year: number;
@@ -26,8 +27,7 @@ export const TableView: React.FC<TableViewProps> = ({
   }, [panchangamData]);
 
   const handleRowClick = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    onDateClick(new Date(year, month - 1, day));
+    onDateClick(parseApiDate(dateStr));
   };
 
   const getEventQualityColor = (quality: string) => {
@@ -153,8 +153,8 @@ export const TableView: React.FC<TableViewProps> = ({
           </thead>
           <tbody className="divide-y divide-gray-200">
             {sortedData.map(([dateStr, data], index) => {
-              const date = new Date(dateStr);
-              const isToday = dateStr === new Date().toISOString().split('T')[0];
+              const date = parseApiDate(dateStr);
+              const isToday = dateStr === formatDateForApi(new Date());
               const isWeekend = date.getDay() === 0 || date.getDay() === 6;
 
               const auspiciousEvents = data.events?.filter(e =>

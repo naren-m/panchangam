@@ -13,71 +13,72 @@ import (
 type Cache interface {
 	// Get retrieves a value from the cache
 	Get(ctx context.Context, key string) (interface{}, bool)
-	
+
 	// Set stores a value in the cache with TTL
 	Set(ctx context.Context, key string, value interface{}, ttl time.Duration)
-	
+
 	// Delete removes a value from the cache
 	Delete(ctx context.Context, key string) bool
-	
+
 	// Clear clears all cache entries
 	Clear(ctx context.Context) error
-	
+
 	// GetStats returns cache statistics
 	GetStats(ctx context.Context) *CacheStats
-	
+
 	// Close closes the cache and releases resources
 	Close() error
 }
 
 // CacheStats represents cache statistics
 type CacheStats struct {
-	Hits            int64     `json:"hits"`
-	Misses          int64     `json:"misses"`
-	Evictions       int64     `json:"evictions"`
-	Entries         int64     `json:"entries"`
-	MemoryUsage     int64     `json:"memory_usage_bytes"`
-	LastAccess      time.Time `json:"last_access"`
-	HitRate         float64   `json:"hit_rate"`
-	AverageLatency  time.Duration `json:"average_latency"`
+	Hits           int64         `json:"hits"`
+	Misses         int64         `json:"misses"`
+	Evictions      int64         `json:"evictions"`
+	Entries        int64         `json:"entries"`
+	MemoryUsage    int64         `json:"memory_usage_bytes"`
+	LastAccess     time.Time     `json:"last_access"`
+	HitRate        float64       `json:"hit_rate"`
+	AverageLatency time.Duration `json:"average_latency"`
 }
 
 // CacheEntry represents a cached entry
 type CacheEntry struct {
-	Value     interface{}
-	ExpiresAt time.Time
-	CreatedAt time.Time
+	Value       interface{}
+	ExpiresAt   time.Time
+	CreatedAt   time.Time
 	AccessCount int64
 	LastAccess  time.Time
 }
 
 // MemoryCache implements an in-memory cache with observability
 type MemoryCache struct {
-	data      map[string]*CacheEntry
-	mutex     sync.RWMutex
-	stats     *CacheStats
-	observer  observability.ObserverInterface
+	data          map[string]*CacheEntry
+	mutex         sync.RWMutex
+	closeOnce     sync.Once
+	stats         *CacheStats
+	observer      observability.ObserverInterface
 	cleanupTicker *time.Ticker
 	stopCleanup   chan struct{}
-	maxSize   int
-	defaultTTL time.Duration
+	maxSize       int
+	defaultTTL    time.Duration
 }
 
 // NewMemoryCache creates a new in-memory cache
 func NewMemoryCache(maxSize int, defaultTTL time.Duration) *MemoryCache {
 	cache := &MemoryCache{
-		data:       make(map[string]*CacheEntry),
-		stats:      &CacheStats{},
-		observer:   observability.Observer(),
-		maxSize:    maxSize,
-		defaultTTL: defaultTTL,
+		data:        make(map[string]*CacheEntry),
+		stats:       &CacheStats{},
+		observer:    observability.Observer(),
+		maxSize:     maxSize,
+		defaultTTL:  defaultTTL,
 		stopCleanup: make(chan struct{}),
 	}
-	
+
 	// Start cleanup goroutine
 	cache.cleanupTicker = time.NewTicker(5 * time.Minute)
 	go cache.cleanupExpired()
-	
+
 	return cache
 }
 
@@ -85,20 +86,32 @@ func NewMemoryCache(maxSize int, defaultTTL time.Duration) *MemoryCache {
 func (c *MemoryCache) Get(ctx context.Context, key string) (interface{}, bool) {
 	_, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Get")
 	defer span.End()
-	
+
 	span.SetAttributes(
 		attribute.String("cache_key", key),
 		attribute.String("operation", "get"),
 	)
-	
+
 	start := time.Now()
-	
+
 	c.mutex.RLock()
+	if c.data == nil {
+		c.mutex.RUnlock()
+		latency := time.Since(start)
+		span.SetAttributes(
+			attribute.Bool("cache_hit", false),
+			attribute.Bool("closed", true),
+			attribute.Int64("latency_ms", latency.Milliseconds()),
+		)
+		span.AddEvent("Cache is closed")
+		return nil, false
+	}
+
 	entry, exists := c.data[key]
 	c.mutex.RUnlock()
-	
+
 	latency := time.Since(start)
-	
+
 	if !exists {
 		c.recordMiss(latency)
 		span.SetAttributes(
@@ -108,13 +121,14 @@ func (c *MemoryCache) Get(ctx context.Context, key string) (interface{}, bool) {
 		span.AddEvent("Cache miss")
 		return nil, false
 	}
-	
+
 	// Check if expired
 	if time.Now().After(entry.ExpiresAt) {
 		c.mutex.Lock()
 		delete(c.data, key)
+		c.stats.Entries = int64(len(c.data))
 		c.mutex.Unlock()
-		
+
 		c.recordMiss(latency)
 		span.SetAttributes(
 			attribute.Bool("cache_hit", false),
@@ -124,21 +138,22 @@ func (c *MemoryCache) Get(ctx context.Context, key string) (interface{}, bool) {
 		span.AddEvent("Cache entry expired")
 		return nil, false
 	}
-	
+
 	// Update access statistics
 	c.mutex.Lock()
 	entry.AccessCount++
 	entry.LastAccess = time.Now()
+	accessCount := entry.AccessCount
 	c.mutex.Unlock()
-	
+
 	c.recordHit(latency)
 	span.SetAttributes(
 		attribute.Bool("cache_hit", true),
 		attribute.Int64("latency_ms", latency.Milliseconds()),
-		attribute.Int64("access_count", entry.AccessCount),
+		attribute.Int64("access_count", accessCount),
 	)
 	span.AddEvent("Cache hit")
-	
+
 	return entry.Value, true
 }
 
@@ -146,27 +161,47 @@ func (c *MemoryCache) Get(ctx context.Context, key string) (interface{}, bool) {
 func (c *MemoryCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) {
 	_, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Set")
 	defer span.End()
-	
+
 	if ttl == 0 {
 		ttl = c.defaultTTL
 	}
-	
+
 	span.SetAttributes(
 		attribute.String("cache_key", key),
 		attribute.String("operation", "set"),
 		attribute.Int64("ttl_seconds", int64(ttl.Seconds())),
 	)
-	
+
 	start := time.Now()
-	
+
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	
-	// Check if we need to evict entries
-	if len(c.data) >= c.maxSize {
+
+	if c.data == nil {
+		span.SetAttributes(
+			attribute.Bool("success", false),
+			attribute.Bool("closed", true),
+			attribute.Int64("cache_size", c.stats.Entries),
+		)
+		span.AddEvent("Cache is closed")
+		return
+	}
+
+	if c.maxSize <= 0 {
+		span.SetAttributes(
+			attribute.Bool("success", false),
+			attribute.Int64("cache_size", c.stats.Entries),
+			attribute.Int("max_size", c.maxSize),
+		)
+		span.AddEvent("Cache has no storage capacity")
+		return
+	}
+
+	_, replacing := c.data[key]
+	if !replacing && len(c.data) >= c.maxSize {
 		c.evictLRU()
 	}
-	
+
 	now := time.Now()
 	entry := &CacheEntry{
 		Value:       value,
@@ -175,12 +210,12 @@ func (c *MemoryCache) Set(ctx context.Context, key string, value interface{}, tt
 		AccessCount: 1,
 		LastAccess:  now,
 	}
-	
+
 	c.data[key] = entry
 	c.stats.Entries = int64(len(c.data))
-	
+
 	latency := time.Since(start)
-	
+
 	span.SetAttributes(
 		attribute.Bool("success", true),
 		attribute.Int64("latency_ms", latency.Milliseconds()),
@@ -193,31 +228,32 @@ func (c *MemoryCache) Set(ctx context.Context, key string, value interface{}, tt
 func (c *MemoryCache) Delete(ctx context.Context, key string) bool {
 	_, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Delete")
 	defer span.End()
-	
+
 	span.SetAttributes(
 		attribute.String("cache_key", key),
 		attribute.String("operation", "delete"),
 	)
-	
+
 	c.mutex.Lock()
 	_, exists := c.data[key]
 	if exists {
 		delete(c.data, key)
 		c.stats.Entries = int64(len(c.data))
 	}
+	cacheSize := c.stats.Entries
 	c.mutex.Unlock()
-	
+
 	span.SetAttributes(
 		attribute.Bool("found", exists),
-		attribute.Int64("cache_size", c.stats.Entries),
+		attribute.Int64("cache_size", cacheSize),
 	)
-	
+
 	if exists {
 		span.AddEvent("Cache entry deleted")
 	} else {
 		span.AddEvent("Cache entry not found")
 	}
-	
+
 	return exists
 }
 
@@ -225,21 +261,23 @@ func (c *MemoryCache) Delete(ctx context.Context, key string) bool {
 func (c *MemoryCache) Clear(ctx context.Context) error {
 	_, span := c.observer.CreateSpan(ctx, "ephemeris.cache.Clear")
 	defer span.End()
-	
+
 	span.SetAttributes(attribute.String("operation", "clear"))
-	
+
 	c.mutex.Lock()
 	entriesCleared := len(c.data)
-	c.data = make(map[string]*CacheEntry)
+	if c.data != nil {
+		c.data = make(map[string]*CacheEntry)
+	}
 	c.stats.Entries = 0
 	c.mutex.Unlock()
-	
+
 	span.SetAttributes(
 		attribute.Int("entries_cleared", entriesCleared),
 		attribute.Bool("success", true),
 	)
 	span.AddEvent("Cache cleared")
-	
+
 	return nil
 }
 
@@ -247,26 +285,26 @@ func (c *MemoryCache) Clear(ctx context.Context) error {
 func (c *MemoryCache) GetStats(ctx context.Context) *CacheStats {
 	_, span := c.observer.CreateSpan(ctx, "ephemeris.cache.GetStats")
 	defer span.End()
-	
+
 	c.mutex.RLock()
 	stats := &CacheStats{
-		Hits:        c.stats.Hits,
-		Misses:      c.stats.Misses,
-		Evictions:   c.stats.Evictions,
-		Entries:     c.stats.Entries,
-		MemoryUsage: c.stats.MemoryUsage,
-		LastAccess:  c.stats.LastAccess,
-		HitRate:     c.stats.HitRate,
+		Hits:           c.stats.Hits,
+		Misses:         c.stats.Misses,
+		Evictions:      c.stats.Evictions,
+		Entries:        c.stats.Entries,
+		MemoryUsage:    c.stats.MemoryUsage,
+		LastAccess:     c.stats.LastAccess,
+		HitRate:        c.stats.HitRate,
 		AverageLatency: c.stats.AverageLatency,
 	}
 	c.mutex.RUnlock()
-	
+
 	// Calculate hit rate
 	total := stats.Hits + stats.Misses
 	if total > 0 {
 		stats.HitRate = float64(stats.Hits) / float64(total)
 	}
-	
+
 	span.SetAttributes(
 		attribute.Int64("cache_hits", stats.Hits),
 		attribute.Int64("cache_misses", stats.Misses),
@@ -274,21 +312,26 @@ func (c *MemoryCache) GetStats(ctx context.Context) *CacheStats {
 		attribute.Float64("hit_rate", stats.HitRate),
 	)
 	span.AddEvent("Cache statistics retrieved")
-	
+
 	return stats
 }
 
 // Close closes the cache and releases resources
 func (c *MemoryCache) Close() error {
-	close(c.stopCleanup)
-	if c.cleanupTicker != nil {
-		c.cleanupTicker.Stop()
-	}
-	
-	c.mutex.Lock()
-	c.data = nil
-	c.mutex.Unlock()
-	
+	c.closeOnce.Do(func() {
+		if c.stopCleanup != nil {
+			close(c.stopCleanup)
+		}
+		if c.cleanupTicker != nil {
+			c.cleanupTicker.Stop()
+		}
+
+		c.mutex.Lock()
+		c.data = nil
+		c.stats.Entries = 0
+		c.mutex.Unlock()
+	})
+
 	return nil
 }
 
@@ -296,7 +339,7 @@ func (c *MemoryCache) Close() error {
 func (c *MemoryCache) recordHit(latency time.Duration) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	
+
 	c.stats.Hits++
 	c.stats.LastAccess = time.Now()
 	c.updateAverageLatency(latency)
@@ -306,7 +349,7 @@ func (c *MemoryCache) recordHit(latency time.Duration) {
 func (c *MemoryCache) recordMiss(latency time.Duration) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	
+
 	c.stats.Misses++
 	c.stats.LastAccess = time.Now()
 	c.updateAverageLatency(latency)
@@ -328,14 +371,14 @@ func (c *MemoryCache) updateAverageLatency(latency time.Duration) {
 func (c *MemoryCache) evictLRU() {
 	var oldestKey string
 	var oldestTime time.Time
-	
+
 	for key, entry := range c.data {
 		if oldestKey == "" || entry.LastAccess.Before(oldestTime) {
 			oldestKey = key
 			oldestTime = entry.LastAccess
 		}
 	}
-	
+
 	if oldestKey != "" {
 		delete(c.data, oldestKey)
 		c.stats.Evictions++

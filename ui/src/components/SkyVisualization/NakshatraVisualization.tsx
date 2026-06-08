@@ -1,9 +1,22 @@
 import React, { useMemo } from 'react';
-import * as THREE from 'three';
-import { NakshatraVisualization as NakshatraData } from '../../types/skyVisualization';
+import {
+  BufferGeometry,
+  CanvasTexture,
+  Color,
+  Line,
+  LineBasicMaterial,
+  Mesh,
+  MeshBasicMaterial,
+  Object3D,
+  Scene,
+  SphereGeometry,
+  Sprite,
+  SpriteMaterial,
+  Vector3,
+} from 'three';
 
 interface NakshatraProps {
-  scene: THREE.Scene;
+  scene: Scene;
   radius: number;
   showLabels: boolean;
   showBoundaries: boolean;
@@ -50,7 +63,7 @@ export const NakshatraVisualization: React.FC<NakshatraProps> = ({
 }) => {
   
   const nakshatraObjects = useMemo(() => {
-    const objects: THREE.Object3D[] = [];
+    const objects: Object3D[] = [];
     
     // Each Nakshatra spans 13.333... degrees (360/27)
     const nakshatraSpan = 360 / 27;
@@ -64,15 +77,15 @@ export const NakshatraVisualization: React.FC<NakshatraProps> = ({
       
       // Create Nakshatra boundary arcs
       if (showBoundaries) {
-        const boundaryMaterial = new THREE.LineBasicMaterial({
-          color: isCurrentNakshatra ? 0xffffff : new THREE.Color(nakshatra.color).getHex(),
+        const boundaryMaterial = new LineBasicMaterial({
+          color: isCurrentNakshatra ? 0xffffff : new Color(nakshatra.color).getHex(),
           linewidth: isCurrentNakshatra ? 3 : 1,
           transparent: true,
           opacity: isCurrentNakshatra ? 1.0 : 0.6
         });
         
         // Create arc for nakshatra boundary
-        const arcPoints: THREE.Vector3[] = [];
+        const arcPoints: Vector3[] = [];
         const numPoints = 32;
         
         for (let i = 0; i <= numPoints; i++) {
@@ -85,12 +98,12 @@ export const NakshatraVisualization: React.FC<NakshatraProps> = ({
             const x = radius * Math.sin(phi) * Math.cos(theta);
             const y = radius * Math.cos(phi);
             const z = radius * Math.sin(phi) * Math.sin(theta);
-            arcPoints.push(new THREE.Vector3(x, y, z));
+            arcPoints.push(new Vector3(x, y, z));
           }
         }
         
-        const boundaryGeometry = new THREE.BufferGeometry().setFromPoints(arcPoints);
-        const boundaryLine = new THREE.Line(boundaryGeometry, boundaryMaterial);
+        const boundaryGeometry = new BufferGeometry().setFromPoints(arcPoints);
+        const boundaryLine = new Line(boundaryGeometry, boundaryMaterial);
         boundaryLine.userData = { 
           type: 'nakshatra_boundary', 
           nakshatraId: nakshatra.id,
@@ -100,20 +113,18 @@ export const NakshatraVisualization: React.FC<NakshatraProps> = ({
       }
       
       // Create Nakshatra markers at center
-      const markerGeometry = new THREE.SphereGeometry(
+      const markerGeometry = new SphereGeometry(
         isCurrentNakshatra ? 0.8 : 0.5, 
         16, 
         16
       );
-      const markerMaterial = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(nakshatra.color).getHex(),
-        emissive: new THREE.Color(nakshatra.color).getHex(),
-        emissiveIntensity: isCurrentNakshatra ? 0.8 : 0.4,
+      const markerMaterial = new MeshBasicMaterial({
+        color: new Color(nakshatra.color).getHex(),
         transparent: true,
         opacity: isCurrentNakshatra ? 1.0 : 0.7
       });
       
-      const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+      const marker = new Mesh(markerGeometry, markerMaterial);
       
       // Position marker at center of nakshatra
       const theta = centerLongitude * Math.PI / 180;
@@ -158,14 +169,14 @@ export const NakshatraVisualization: React.FC<NakshatraProps> = ({
         context.fillStyle = isCurrentNakshatra ? '#cccccc' : '#999999';
         context.fillText(`${nakshatra.id}`, canvas.width / 2, canvas.height / 2 + 8);
         
-        const texture = new THREE.CanvasTexture(canvas);
-        const labelMaterial = new THREE.SpriteMaterial({
+        const texture = new CanvasTexture(canvas);
+        const labelMaterial = new SpriteMaterial({
           map: texture,
           transparent: true,
           alphaTest: 0.1
         });
         
-        const label = new THREE.Sprite(labelMaterial);
+        const label = new Sprite(labelMaterial);
         label.scale.set(4, 1, 1);
         
         // Position label slightly outside the marker
@@ -190,7 +201,7 @@ export const NakshatraVisualization: React.FC<NakshatraProps> = ({
   // Add objects to scene
   React.useEffect(() => {
     // Remove existing nakshatra objects
-    const objectsToRemove: THREE.Object3D[] = [];
+    const objectsToRemove: Object3D[] = [];
     scene.traverse((child) => {
       if (child.userData.type && child.userData.type.startsWith('nakshatra_')) {
         objectsToRemove.push(child);
@@ -205,7 +216,7 @@ export const NakshatraVisualization: React.FC<NakshatraProps> = ({
       // Cleanup
       nakshatraObjects.forEach(obj => {
         scene.remove(obj);
-        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj instanceof Mesh || obj instanceof Line) {
           obj.geometry.dispose();
           if (Array.isArray(obj.material)) {
             obj.material.forEach(mat => mat.dispose());

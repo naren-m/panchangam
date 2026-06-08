@@ -144,7 +144,7 @@ export const createArcPath = (
   const end = polarToCartesian(center, radius, endAngle);
 
   // Calculate angular difference for large arc flag
-  let angleDiff = normalizeAngle(endLongitude - startLongitude);
+  const angleDiff = normalizeAngle(endLongitude - startLongitude);
   const largeArcFlag = angleDiff > 180 ? 1 : 0;
 
   return [
@@ -235,12 +235,12 @@ export const cartesianToLongitude = (
   const dy = center.y - point.y; // Invert Y for standard math convention
 
   // Calculate angle from center
-  let angle = radiansToDegrees(Math.atan2(dy, dx));
+  const angle = radiansToDegrees(Math.atan2(dy, dx));
 
   // Convert from SVG angle back to longitude
   // SVG: 0° = East, increases counter-clockwise
   // Longitude: 0° at top (after our rotation), increases counter-clockwise
-  let longitude = normalizeAngle(90 - angle);
+  const longitude = normalizeAngle(90 - angle);
 
   return longitude;
 };

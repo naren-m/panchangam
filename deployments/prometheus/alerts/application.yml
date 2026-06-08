@@ -102,39 +102,6 @@ groups:
           summary: "Low cache hit rate"
           description: "Cache hit rate is below 70% (current value: {{ $value | humanizePercentage }})"
 
-  - name: panchangam_database
-    interval: 30s
-    rules:
-      # PostgreSQL down
-      - alert: PostgreSQLDown
-        expr: up{job="postgres"} == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "PostgreSQL is down"
-          description: "PostgreSQL database has been unavailable for more than 1 minute."
-
-      # High database connections
-      - alert: HighDatabaseConnections
-        expr: pg_stat_database_numbackends > 80
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High number of database connections"
-          description: "Database has {{ $value }} active connections (threshold: 80)"
-
-      # Slow queries
-      - alert: SlowQueries
-        expr: pg_stat_activity_max_tx_duration > 60
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Slow database queries detected"
-          description: "Long-running queries detected (max duration: {{ $value }}s)"
-
   - name: panchangam_redis
     interval: 30s
     rules:

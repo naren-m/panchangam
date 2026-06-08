@@ -1,7 +1,7 @@
 import React from 'react';
 import { Event, Settings } from '../../types/panchangam';
 import { formatTimeRange } from '../../utils/dateHelpers';
-import { Clock, AlertTriangle, CheckCircle, Info, Sun, Moon, Star, Sunrise, Sunset, Calendar } from 'lucide-react';
+import { Clock, AlertTriangle, CheckCircle, Info, Moon, Star, Sunrise, Sunset, Calendar } from 'lucide-react';
 
 interface EventsListProps {
   events: Event[];

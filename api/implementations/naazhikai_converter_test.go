@@ -99,12 +99,12 @@ func TestNaazhikaiConverter(t *testing.T) {
 			naazhikai int
 			contains  string
 		}{
-			{2, "Morning"},     // காலை
-			{10, "Forenoon"},   // முற்பகல்
-			{17, "Noon"},       // மதியம்
-			{25, "Afternoon"},  // பிற்பகல்
-			{35, "Evening"},    // மாலை
-			{45, "Night"},      // இரவு
+			{2, "Morning"},    // காலை
+			{10, "Forenoon"},  // முற்பகல்
+			{17, "Noon"},      // மதியம்
+			{25, "Afternoon"}, // பிற்பகல்
+			{35, "Evening"},   // மாலை
+			{45, "Night"},     // இரவு
 		}
 
 		for _, tc := range testCases {

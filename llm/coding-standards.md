@@ -5,8 +5,8 @@ This document outlines the coding standards and best practices for the Panchanga
 ## General Principles
 
 1. **Write Clear, Self-Documenting Code**: Use descriptive names and clear logic
-2. **Follow DRY Principle**: Don't Repeat Yourself - extract common patterns
-3. **SOLID Principles**: Apply object-oriented design principles appropriately
+2. **Avoid Meaningless Duplication**: Extract shared code only when it removes real repeated logic
+3. **Keep APIs Focused**: Each public function should have one clear job and clear errors
 4. **Keep Functions Small**: Each function should do one thing well
 5. **Comment Why, Not What**: Code shows what; comments explain why
 
@@ -32,7 +32,7 @@ package/
 
 **Functions/Methods**
 - Use camelCase for private functions: `calculateTithi`
-- Use PascalCase for exported functions: `CalculatePanchangam`
+- Use PascalCase for exported functions: `NewPanchangamServer`
 - Start boolean functions with `Is`, `Has`, or `Can`
 - Example: `IsAuspicious`, `HasRetrograde`, `CanCalculate`
 
@@ -104,8 +104,8 @@ func FetchEphemerisData(ctx context.Context, date time.Time) (*EphemerisData, er
 
 **Interfaces**
 ```go
-// Define interfaces in the consumer package, not the implementer
-// Keep interfaces small (1-3 methods)
+// Add interfaces only when a caller needs them.
+// Keep interfaces small and local to the caller.
 type EphemerisProvider interface {
     GetPlanetaryPosition(ctx context.Context, planet string, date time.Time) (Position, error)
 }
@@ -182,28 +182,13 @@ func TestCalculateTithi(t *testing.T) {
 }
 ```
 
-### Common Patterns
+### Service Construction
 
-**Dependency Injection**
+Use direct constructors. Add options or interfaces only after there is a real caller that needs them.
+
 ```go
-// Use constructor functions with options pattern
-type Service struct {
-    ephemeris EphemerisProvider
-    cache     CacheProvider
-    logger    Logger
-}
-
-func NewService(ephemeris EphemerisProvider, opts ...Option) *Service {
-    s := &Service{
-        ephemeris: ephemeris,
-    }
-
-    for _, opt := range opts {
-        opt(s)
-    }
-
-    return s
-}
+server := NewPanchangamServer()
+response, err := server.Get(ctx, req)
 ```
 
 ## TypeScript Frontend Standards
@@ -212,23 +197,26 @@ func NewService(ephemeris EphemerisProvider, opts ...Option) *Service {
 
 ```
 components/
-├── PanchangamDisplay/
-│   ├── PanchangamDisplay.tsx
-│   ├── PanchangamDisplay.test.tsx
-│   ├── PanchangamDisplay.types.ts
+├── Calendar/
+│   ├── MonthNavigation.tsx
+│   ├── CalendarDisplayManager.tsx
+│   └── __tests__/
+├── Settings/
+│   ├── SettingsPanel.tsx
+│   ├── ApiHealthCheck.tsx
 │   └── index.ts
 ```
 
 ### Naming Conventions
 
 **Files**
-- Use PascalCase for component files: `PanchangamDisplay.tsx`
+- Use PascalCase for component files: `MonthNavigation.tsx`
 - Use camelCase for utilities: `formatDate.ts`
-- Use kebab-case for styles: `panchangam-display.css`
+- Use kebab-case for standalone style files when needed
 
 **Components**
-- Use PascalCase: `PanchangamDisplay`, `TithiCard`, `NakshatraWheel`
-- Suffix with descriptive names: `usePanchangamData` (hooks), `PanchangamContext` (context)
+- Use PascalCase: `MonthNavigation`, `SettingsPanel`, `ApiHealthCheck`
+- Hooks start with `use`: `usePanchangam`, `useProgressivePanchangam`
 
 **Variables/Functions**
 - Use camelCase: `tithiData`, `calculateProgress`, `formatTime`
@@ -240,26 +228,21 @@ components/
 ```typescript
 // Define explicit types for all function parameters and return values
 interface PanchangamData {
-    tithi: Tithi;
-    nakshatra: Nakshatra;
-    yoga: Yoga;
-    karana: Karana;
-    sunrise: string;
-    sunset: string;
-}
-
-interface Tithi {
-    number: number;
-    name: string;
-    endTime: string;
-    progress: number;
+    date: string;
+    tithi: string;
+    nakshatra: string;
+    yoga: string;
+    karana: string;
+    sunrise_time: string;
+    sunset_time: string;
+    events: Event[];
 }
 
 // Use type instead of interface for unions and intersections
 type PanchangamElement = 'tithi' | 'nakshatra' | 'yoga' | 'karana';
 
 // Use proper return types
-function fetchPanchangam(date: Date, location: Location): Promise<PanchangamData> {
+function loadPanchangamData(date: Date, settings: Settings): Promise<PanchangamData> {
     // Implementation
 }
 ```
@@ -267,22 +250,22 @@ function fetchPanchangam(date: Date, location: Location): Promise<PanchangamData
 **Component Structure**
 ```typescript
 // Use functional components with TypeScript
-interface PanchangamDisplayProps {
-    date: Date;
-    location: Location;
-    onDateChange?: (date: Date) => void;
+interface MonthNavigationProps {
+    year: number;
+    month: number;
+    settings: Settings;
+    onPrevMonth: () => void;
+    onNextMonth: () => void;
 }
 
-export function PanchangamDisplay({
-    date,
-    location,
-    onDateChange
-}: PanchangamDisplayProps): JSX.Element {
-    const [data, setData] = useState<PanchangamData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-
-    // Implementation
+export function MonthNavigation({
+    year,
+    month,
+    settings,
+    onPrevMonth,
+    onNextMonth,
+}: MonthNavigationProps): JSX.Element {
+    const monthName = getMonthName(month, settings.locale);
 
     return (
         // JSX
@@ -293,7 +276,7 @@ export function PanchangamDisplay({
 **Hooks**
 ```typescript
 // Custom hooks should start with 'use'
-function usePanchangamData(date: Date, location: Location) {
+function usePanchangam(date: Date, settings: Settings) {
     const [data, setData] = useState<PanchangamData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
@@ -304,7 +287,15 @@ function usePanchangamData(date: Date, location: Location) {
         async function fetchData() {
             try {
                 setLoading(true);
-                const response = await fetchPanchangam(date, location);
+                const response = await panchangamApiClient.getPanchangam({
+                    date: formatDateForApi(date),
+                    latitude: settings.location.latitude,
+                    longitude: settings.location.longitude,
+                    timezone: settings.location.timezone,
+                    region: settings.region,
+                    calculation_method: settings.calculation_method,
+                    locale: settings.locale,
+                });
 
                 if (!cancelled) {
                     setData(response);
@@ -326,7 +317,7 @@ function usePanchangamData(date: Date, location: Location) {
         return () => {
             cancelled = true;
         };
-    }, [date, location]);
+    }, [date, settings]);
 
     return { data, loading, error };
 }
@@ -334,17 +325,18 @@ function usePanchangamData(date: Date, location: Location) {
 
 **Error Handling**
 ```typescript
-// Always handle promise rejections
-async function loadPanchangamData(date: Date): Promise<PanchangamData> {
+// Always handle API errors and keep messages clear
+async function loadPanchangamData(date: Date, settings: Settings): Promise<PanchangamData> {
     try {
-        const response = await fetch(`/api/panchangam?date=${date.toISOString()}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data;
+        return await panchangamApiClient.getPanchangam({
+            date: formatDateForApi(date),
+            latitude: settings.location.latitude,
+            longitude: settings.location.longitude,
+            timezone: settings.location.timezone,
+            region: settings.region,
+            calculation_method: settings.calculation_method,
+            locale: settings.locale,
+        });
     } catch (error) {
         console.error('Failed to load Panchangam data:', error);
         throw error;
@@ -385,17 +377,14 @@ async function loadPanchangamData(date: Date): Promise<PanchangamData> {
 ```typescript
 // 1. External dependencies
 import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
 
 // 2. Internal modules
-import { usePanchangamData } from '@/hooks/usePanchangamData';
-import { formatTithi } from '@/utils/formatters';
+import { usePanchangam } from '@/hooks/usePanchangam';
+import { panchangamApiClient } from '@/services/api/panchangamApiClient';
+import { formatDateForApi, getMonthName } from '@/utils/dateHelpers';
 
 // 3. Types
-import type { PanchangamData, Location } from '@/types';
-
-// 4. Styles
-import './PanchangamDisplay.css';
+import type { PanchangamData, Settings } from '@/types/panchangam';
 ```
 
 ## Security Considerations
@@ -408,9 +397,9 @@ import './PanchangamDisplay.css';
 
 ### API Security
 - Use CORS appropriately
-- Implement rate limiting
-- Validate authentication tokens
-- Log security events
+- Keep allowed origins explicit
+- Return clear validation errors
+- Log request IDs with errors
 
 ### Error Messages
 - Don't expose internal implementation details
@@ -422,7 +411,7 @@ import './PanchangamDisplay.css';
 ### Backend
 - Use context for request cancellation
 - Implement caching for expensive calculations
-- Pool database connections
+- Reuse cache and gRPC clients where possible
 - Use appropriate buffer sizes
 
 ### Frontend

@@ -1,7 +1,7 @@
 import React from 'react';
 import { PanchangamData, Settings } from '../../types/panchangam';
 import { formatTime } from '../../utils/dateHelpers';
-import { Moon, Star, Sunrise, Sunset } from 'lucide-react';
+import { Moon, Star, Sunrise } from 'lucide-react';
 
 interface LunarTimingsProps {
   data: PanchangamData;

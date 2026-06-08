@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -95,11 +97,8 @@ func (pm *DefaultPluginManager) GetPluginsByType(pluginType string) []Plugin {
 	var result []Plugin
 	for _, plugin := range pm.plugins {
 		info := plugin.GetInfo()
-		for _, capability := range info.Capabilities {
-			if capability == pluginType {
-				result = append(result, plugin)
-				break
-			}
+		if slices.Contains(info.Capabilities, pluginType) {
+			result = append(result, plugin)
 		}
 	}
 
@@ -179,18 +178,18 @@ func (pm *DefaultPluginManager) InitializeAll(ctx context.Context) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	var errors []error
+	var pluginErrors []error
 	for name, plugin := range pm.plugins {
 		config := pm.pluginConfigs[name]
 		if config.Enabled {
 			if err := plugin.Initialize(ctx, config.Config); err != nil {
-				errors = append(errors, NewPluginError(name, "initialize", "failed to initialize", err))
+				pluginErrors = append(pluginErrors, NewPluginError(name, "initialize", "failed to initialize", err))
 			}
 		}
 	}
 
-	if len(errors) > 0 {
-		return fmt.Errorf("failed to initialize %d plugins: %v", len(errors), errors)
+	if len(pluginErrors) > 0 {
+		return fmt.Errorf("failed to initialize %d plugins: %w", len(pluginErrors), errors.Join(pluginErrors...))
 	}
 
 	return nil
@@ -201,17 +200,17 @@ func (pm *DefaultPluginManager) ShutdownAll(ctx context.Context) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	var errors []error
+	var pluginErrors []error
 	for name, plugin := range pm.plugins {
 		if plugin.IsEnabled() {
 			if err := plugin.Shutdown(ctx); err != nil {
-				errors = append(errors, NewPluginError(name, "shutdown", "failed to shutdown", err))
+				pluginErrors = append(pluginErrors, NewPluginError(name, "shutdown", "failed to shutdown", err))
 			}
 		}
 	}
 
-	if len(errors) > 0 {
-		return fmt.Errorf("failed to shutdown %d plugins: %v", len(errors), errors)
+	if len(pluginErrors) > 0 {
+		return fmt.Errorf("failed to shutdown %d plugins: %w", len(pluginErrors), errors.Join(pluginErrors...))
 	}
 
 	return nil
@@ -288,11 +287,8 @@ func (pm *DefaultPluginManager) GetPluginsByCapability(capability PluginCapabili
 	var result []Plugin
 	for _, plugin := range pm.plugins {
 		info := plugin.GetInfo()
-		for _, cap := range info.Capabilities {
-			if cap == string(capability) {
-				result = append(result, plugin)
-				break
-			}
+		if slices.Contains(info.Capabilities, string(capability)) {
+			result = append(result, plugin)
 		}
 	}
 
@@ -320,29 +316,25 @@ func (pm *DefaultPluginManager) GetPluginStats() map[string]interface{} {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
-	stats := map[string]interface{}{
-		"total_plugins":   len(pm.plugins),
-		"enabled_plugins": 0,
-		"plugin_types":    make(map[string]int),
-	}
-
+	enabledPlugins := 0
+	pluginTypes := make(map[string]int)
 	for name, plugin := range pm.plugins {
 		config := pm.pluginConfigs[name]
 		if config.Enabled && plugin.IsEnabled() {
-			stats["enabled_plugins"] = stats["enabled_plugins"].(int) + 1
+			enabledPlugins++
 		}
 
 		info := plugin.GetInfo()
 		for _, capability := range info.Capabilities {
-			if count, exists := stats["plugin_types"].(map[string]int)[capability]; exists {
-				stats["plugin_types"].(map[string]int)[capability] = count + 1
-			} else {
-				stats["plugin_types"].(map[string]int)[capability] = 1
-			}
+			pluginTypes[capability]++
 		}
 	}
 
-	return stats
+	return map[string]interface{}{
+		"total_plugins":   len(pm.plugins),
+		"enabled_plugins": enabledPlugins,
+		"plugin_types":    pluginTypes,
+	}
 }
 
 // ValidatePluginDependencies checks if all plugin dependencies are satisfied
@@ -384,10 +376,11 @@ func (pm *DefaultPluginManager) Health(ctx context.Context) map[string]interface
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
+	pluginHealthByName := make(map[string]interface{})
 	health := map[string]interface{}{
 		"status":    "healthy",
 		"timestamp": time.Now(),
-		"plugins":   make(map[string]interface{}),
+		"plugins":   pluginHealthByName,
 	}
 
 	unhealthyCount := 0
@@ -406,7 +399,7 @@ func (pm *DefaultPluginManager) Health(ctx context.Context) map[string]interface
 			pluginHealth["status"] = "healthy"
 		}
 
-		health["plugins"].(map[string]interface{})[name] = pluginHealth
+		pluginHealthByName[name] = pluginHealth
 	}
 
 	if unhealthyCount > 0 {

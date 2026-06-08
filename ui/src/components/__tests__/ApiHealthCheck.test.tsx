@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { ApiHealthCheck } from '../Settings/ApiHealthCheck';
-import { panchangamApi } from '../../services/panchangamApi';
+import { panchangamApiClient } from '../../services/api/panchangamApiClient';
 
 // Mock the API service
-vi.mock('../../services/panchangamApi', () => ({
-  panchangamApi: {
+vi.mock('../../services/api/panchangamApiClient', () => ({
+  panchangamApiClient: {
     healthCheck: vi.fn(),
-  },
+  }
+}));
+
+vi.mock('../../services/api/client', () => ({
   apiConfig: {
     baseUrl: 'http://localhost:8080',
     endpoint: 'http://localhost:8080/api/v1/panchangam',
@@ -20,7 +23,7 @@ describe('ApiHealthCheck Component', () => {
   });
 
   it('shows healthy status when API is accessible', async () => {
-    vi.mocked(panchangamApi.healthCheck).mockResolvedValue({
+    vi.mocked(panchangamApiClient.healthCheck).mockResolvedValue({
       status: 'healthy',
       message: 'API is accessible',
     });
@@ -36,7 +39,7 @@ describe('ApiHealthCheck Component', () => {
   });
 
   it('shows unhealthy status when API is not accessible', async () => {
-    vi.mocked(panchangamApi.healthCheck).mockResolvedValue({
+    vi.mocked(panchangamApiClient.healthCheck).mockResolvedValue({
       status: 'unhealthy',
       message: 'Connection failed',
     });
@@ -52,7 +55,7 @@ describe('ApiHealthCheck Component', () => {
   });
 
   it('handles health check errors gracefully', async () => {
-    vi.mocked(panchangamApi.healthCheck).mockRejectedValue(new Error('Network error'));
+    vi.mocked(panchangamApiClient.healthCheck).mockRejectedValue(new Error('Network error'));
 
     render(<ApiHealthCheck />);
 
@@ -64,7 +67,7 @@ describe('ApiHealthCheck Component', () => {
   });
 
   it('displays API endpoint information', async () => {
-    vi.mocked(panchangamApi.healthCheck).mockResolvedValue({
+    vi.mocked(panchangamApiClient.healthCheck).mockResolvedValue({
       status: 'healthy',
       message: 'API is accessible',
     });

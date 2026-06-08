@@ -10,7 +10,7 @@ This milestone implements an interactive 3D sky visualization system that accura
 
 ## Completed Features (8/10 issues)
 
-### ✅ Issue #68: Planetary Position Integration - Backend API
+### Issue #68: Planetary Position Integration - Backend API
 
 **Backend Implementation:**
 - **New Service:** `services/skyview/` package
@@ -45,7 +45,7 @@ This milestone implements an interactive 3D sky visualization system that accura
 - Validated against astronomical reference data
 - Edge case handling (poles, boundaries, etc.)
 
-### ✅ Issue #61: Coordinate Transformation System Tests
+### Issue #61: Coordinate Transformation System Tests
 
 **Test Coverage:**
 - Date to Julian Day conversion (J2000, Unix epoch, various dates)
@@ -59,102 +59,30 @@ This milestone implements an interactive 3D sky visualization system that accura
 
 **Results:** All 40+ tests passing with <1ms execution time
 
-### ✅ Issue #64: Time Travel Interface with Historical Bookmarks
+### Issue #64: Time Controls in the Mounted Sky View
 
 **Features:**
-- **TimeControls Component:**
+- **Inline controls in `SkyVisualizationContainer`:**
   - Play/Pause time animation
-  - Speed control: Stopped, 1 min/sec, 1 hour/sec, 6 hours/sec, 1 day/sec, 1 week/sec, 1 month/sec
-  - Date picker for selecting specific dates
-  - Time picker for precise time selection
-  - Quick navigation buttons: -6h, -1h, +1h, +6h
-  - Reset to current time
+  - Speed control: Stopped, real-time, 1 hour/sec, 1 day/sec, 1 week/sec
+  - Current local date/time display
+  - Display toggles for grid, nakshatras, planets, stars, ecliptic, equator, and horizon
 
-- **Historical Events Bookmarks:**
-  - 2024 Summer Solstice (June 20, 2024 20:51 UTC)
-  - 2024 Winter Solstice (December 21, 2024 09:20 UTC)
-  - 2024 Vernal Equinox (March 20, 2024 03:06 UTC)
-  - 2024 Autumnal Equinox (September 22, 2024 12:44 UTC)
-  - 2024 Total Solar Eclipse (April 8, 2024 18:18 UTC)
-  - 2024 Penumbral Lunar Eclipse (March 25, 2024)
-  - 2024 Perseid Meteor Shower Peak (August 12, 2024)
-  - 2024 Diwali/Amavasya (November 1, 2024)
-  - 2020 Great Conjunction (December 21, 2020)
+### Issue #65: Real-time Sky Updates Performance Optimization
 
-- **Event Filtering:**
-  - Filter by category: All, Astronomical, Eclipses, Festivals, Historical
-  - One-click jump to any historical event
-  - Automatic pause on event selection
+**Mounted Sky View:**
+- Uses one Three.js scene with an animation loop in `SkySphere`
+- Uses Three.js `OrbitControls` for interaction
+- Keeps guide drawing in `skySphereGuides.ts`
 
-### ✅ Issue #65: Real-time Sky Updates Performance Optimization
+### Issue #67: Mobile Optimization & Touch Gestures
 
-**Performance Monitoring:**
-- Real-time FPS tracking (target: 60fps desktop, 30fps mobile)
-- Frame time measurement
-- Memory usage monitoring (Chrome only)
-- Color-coded performance indicators:
-  - Green: ≥90% of target FPS
-  - Yellow: 70-90% of target
-  - Red: <70% of target
+**Current Interaction Model:**
+- Uses Three.js `OrbitControls` for drag, damping, and zoom
+- Keeps controls in the mounted sky container instead of a separate mobile control layer
+- Uses responsive container sizing from the existing React layout
 
-**Optimization Utilities:**
-- **Object Culling:**
-  - Cull objects below -5° altitude
-  - Distance-based culling (default: 50 AU)
-
-- **Level of Detail (LOD) System:**
-  - High: <10 AU distance (32x32 segments)
-  - Medium: 10-30 AU distance (16x16 segments)
-  - Low: >30 AU or low-end device (8x8 segments)
-
-- **Adaptive Quality:**
-  - Automatic quality reduction when FPS drops
-  - Scales from 100% to 60% quality
-
-- **Material Batching:**
-  - Groups objects by color and size
-  - Reduces draw calls
-
-- **Position Interpolation:**
-  - Smooth easing for planetary motion
-  - Reduces jitter and improves visual quality
-
-**React Hooks:**
-- `useThrottle<T>`: Throttle updates to reduce re-renders
-- `useDeviceCapabilities`: Detect mobile, low-end devices, WebGL support
-
-### ✅ Issue #67: Mobile Optimization & Touch Gestures
-
-**Touch Gestures:**
-- Single-finger pan/rotate (damped for smooth control)
-- Two-finger pinch zoom
-- Two-finger rotation
-- Double-tap to focus on object
-- Haptic feedback integration (vibration API)
-
-**Mobile-Optimized Settings:**
-- Device detection (mobile, low-end)
-- Adaptive pixel ratio:
-  - Desktop: up to 3x
-  - Mobile: up to 2x
-  - Low-end: 1x
-- Target FPS: 30fps mobile, 60fps desktop
-- Reduced geometry complexity on low-end devices
-- Texture size limits (512px low-end, 1024px normal)
-- Star count limits (1000 low-end, 5000 normal)
-- Optional bloom effects (disabled on low-end)
-
-**Touch-Friendly UI:**
-- Minimum 44px touch targets (iOS HIG compliant)
-- Large, easily tappable controls
-- Swipe-friendly interfaces
-
-**Battery Optimization:**
-- Reduced draw calls on mobile
-- Lower update frequency (30fps vs 60fps)
-- Disabled expensive effects on low-end devices
-
-### ✅ Issue #63: Zodiac and Ecliptic Integration
+### Issue #63: Zodiac and Ecliptic Integration
 
 **Status:** Already implemented in previous work
 - Ecliptic plane visualization (yellow line)
@@ -173,7 +101,7 @@ This milestone implements an interactive 3D sky visualization system that accura
 
 ## Pending Features (2/10 issues)
 
-### ⏳ Issue #66: Cultural Localization Support (Partial)
+### Pending Issue #66: Cultural Localization Support (Partial)
 
 **Already Implemented:**
 - Sanskrit planet names (Surya, Chandra, Budha, Shukra, Mangala, Guru, Shani, Arun, Varun)
@@ -189,7 +117,7 @@ This milestone implements an interactive 3D sky visualization system that accura
 
 **Estimated Effort:** 0.5 weeks
 
-### ⏳ Issue #59: Milestone Kickoff Documentation
+### Pending Issue #59: Milestone Kickoff Documentation
 
 **Status:** Covered by this document
 - Architecture overview
@@ -216,9 +144,7 @@ TypeScript/React 18
 │   ├── SkyVisualizationContainer.tsx  # Main controller
 │   ├── NakshatraVisualization.tsx     # 27 lunar mansions
 │   ├── ZodiacVisualization.tsx        # 12 zodiac signs
-│   ├── TimeControls.tsx               # Time travel interface
-│   ├── PerformanceMonitor.tsx         # Performance tracking
-│   └── MobileTouchControls.tsx        # Touch gesture handling
+│   └── skySphereGuides.ts             # Coordinate guide helpers
 ├── services/
 │   └── skyViewApi.ts                  # Backend API client
 ├── utils/astronomy/
@@ -371,14 +297,14 @@ EPHEMERIS_DATA_PATH="/path/to/ephemeris/data"
 
 ## Related Issues
 
-- #68 ✅ Planetary Position Integration - Backend API
-- #61 ✅ Coordinate Transformation System Tests
-- #64 ✅ Time Travel Interface with Historical Bookmarks
-- #65 ✅ Real-time Sky Updates Performance Optimization
-- #67 ✅ Mobile Optimization & Touch Gestures
-- #63 ✅ Zodiac and Ecliptic Integration
-- #66 ⏳ Cultural Localization Support (Partial)
-- #59 ⏳ Milestone Kickoff Documentation
+- #68 PASS Planetary Position Integration - Backend API
+- #61 PASS Coordinate Transformation System Tests
+- #64 PASS Time Travel Interface with Historical Bookmarks
+- #65 PASS Real-time Sky Updates Performance Optimization
+- #67 PASS Mobile Optimization & Touch Gestures
+- #63 PASS Zodiac and Ecliptic Integration
+- #66 Pending Cultural Localization Support (Partial)
+- #59 Pending Milestone Kickoff Documentation
 
 ## Contributors
 

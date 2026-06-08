@@ -8,18 +8,11 @@ data:
   LOG_LEVEL: "info"
   ENVIRONMENT: "production"
 
-  # Database configuration
-  DB_HOST: "postgres-primary"
-  DB_PORT: "5432"
-  DB_NAME: "panchangam"
-
   # Redis configuration
-  REDIS_HOST: "redis"
-  REDIS_PORT: "6379"
+  REDIS_ADDR: "redis:6379"
 
   # OpenTelemetry configuration
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4317"
 
   # CORS configuration
   CORS_ALLOWED_ORIGINS: "*"
-  ALLOW_ALL_ORIGINS: "false"

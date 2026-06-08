@@ -19,20 +19,20 @@ type Observer struct {
 
 // CelestialBody represents a celestial object in the sky
 type CelestialBody struct {
-	ID               string             `json:"id"`
-	Name             string             `json:"name"`
-	SanskritName     string             `json:"sanskrit_name"`
-	HindiName        string             `json:"hindi_name"`
-	Type             string             `json:"type"` // sun, moon, planet
-	EclipticCoords   EclipticCoordinates `json:"ecliptic_coords"`
+	ID               string                 `json:"id"`
+	Name             string                 `json:"name"`
+	SanskritName     string                 `json:"sanskrit_name"`
+	HindiName        string                 `json:"hindi_name"`
+	Type             string                 `json:"type"` // sun, moon, planet
+	EclipticCoords   EclipticCoordinates    `json:"ecliptic_coords"`
 	EquatorialCoords *EquatorialCoordinates `json:"equatorial_coords,omitempty"`
 	HorizontalCoords *HorizontalCoordinates `json:"horizontal_coords,omitempty"`
-	Magnitude        float64            `json:"magnitude"`
-	Color            string             `json:"color"`
-	IsVisible        bool               `json:"is_visible"`
-	RiseTime         *time.Time         `json:"rise_time,omitempty"`
-	SetTime          *time.Time         `json:"set_time,omitempty"`
-	TransitTime      *time.Time         `json:"transit_time,omitempty"`
+	Magnitude        float64                `json:"magnitude"`
+	Color            string                 `json:"color"`
+	IsVisible        bool                   `json:"is_visible"`
+	RiseTime         *time.Time             `json:"rise_time,omitempty"`
+	SetTime          *time.Time             `json:"set_time,omitempty"`
+	TransitTime      *time.Time             `json:"transit_time,omitempty"`
 	Metadata         map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -59,12 +59,12 @@ type HorizontalCoordinates struct {
 
 // SkyViewResponse represents the complete sky view data
 type SkyViewResponse struct {
-	Timestamp       time.Time       `json:"timestamp"`
-	Observer        Observer        `json:"observer"`
-	Bodies          []CelestialBody `json:"bodies"`
-	VisibleBodies   []CelestialBody `json:"visible_bodies"`
-	JulianDay       float64         `json:"julian_day"`
-	LocalSiderealTime float64       `json:"local_sidereal_time"`
+	Timestamp         time.Time       `json:"timestamp"`
+	Observer          Observer        `json:"observer"`
+	Bodies            []CelestialBody `json:"bodies"`
+	VisibleBodies     []CelestialBody `json:"visible_bodies"`
+	JulianDay         float64         `json:"julian_day"`
+	LocalSiderealTime float64         `json:"local_sidereal_time"`
 }
 
 // SkyViewService provides sky visualization data
@@ -119,9 +119,9 @@ func (s *SkyViewService) GetSkyView(ctx context.Context, observer Observer, t ti
 	moon := s.createCelestialBody("moon", "Moon", "Chandra", "चन्द्र", "moon",
 		positions.Moon, -12.6, "#ffffff", observer, lst)
 	moon.Metadata = map[string]interface{}{
-		"phase":         moonPos.Phase,
-		"illumination":  moonPos.Illumination,
-		"phase_angle":   moonPos.PhaseAngle,
+		"phase":            moonPos.Phase,
+		"illumination":     moonPos.Illumination,
+		"phase_angle":      moonPos.PhaseAngle,
 		"angular_diameter": moonPos.AngularDiameter,
 	}
 	bodies = append(bodies, moon)
@@ -210,8 +210,8 @@ func (s *SkyViewService) createCelestialBody(id, name, sanskritName, hindiName, 
 // Coordinate transformation functions
 
 const (
-	degToRad   = math.Pi / 180.0
-	radToDeg   = 180.0 / math.Pi
+	degToRad       = math.Pi / 180.0
+	radToDeg       = 180.0 / math.Pi
 	j2000Obliquity = 23.43929111 // Earth's obliquity at J2000 epoch in degrees
 )
 
@@ -223,7 +223,7 @@ func eclipticToEquatorial(ecliptic EclipticCoordinates) EquatorialCoordinates {
 
 	// Right Ascension
 	ra := math.Atan2(
-		math.Sin(lambda)*math.Cos(eps) - math.Tan(beta)*math.Sin(eps),
+		math.Sin(lambda)*math.Cos(eps)-math.Tan(beta)*math.Sin(eps),
 		math.Cos(lambda),
 	)
 
@@ -260,7 +260,7 @@ func equatorialToHorizontal(equatorial EquatorialCoordinates, observer Observer,
 	// Azimuth
 	az := math.Atan2(
 		-math.Cos(dec)*math.Sin(ha),
-		math.Sin(dec)*math.Cos(lat) - math.Cos(dec)*math.Sin(lat)*math.Cos(ha),
+		math.Sin(dec)*math.Cos(lat)-math.Cos(dec)*math.Sin(lat)*math.Cos(ha),
 	)
 
 	// Convert to degrees and normalize azimuth to 0-360

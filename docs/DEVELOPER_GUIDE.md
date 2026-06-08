@@ -13,7 +13,7 @@
 
 ### Prerequisites
 
-- Go 1.21+
+- Go 1.23+
 - Node.js 18+ (for UI)
 - Docker (optional)
 
@@ -67,7 +67,7 @@ tithiCalc := astronomy.NewTithiCalculator(ephemerisManager, observer)
 // Calculate tithi
 tithi, err := tithiCalc.Calculate(ctx, date, location)
 if err != nil {
-    log.Fatal(err)
+    return fmt.Errorf("calculate tithi: %w", err)
 }
 
 fmt.Printf("Tithi: %s\n", tithi.Name)
@@ -82,7 +82,7 @@ nakshatraCalc := astronomy.NewNakshatraCalculator(ephemerisManager, observer)
 
 nakshatra, err := nakshatraCalc.Calculate(ctx, date, location)
 if err != nil {
-    log.Fatal(err)
+    return fmt.Errorf("calculate nakshatra: %w", err)
 }
 
 fmt.Printf("Nakshatra: %s\n", nakshatra.Name)
@@ -404,7 +404,7 @@ func TestTithiCalculation(t *testing.T) {
 ### Integration Testing
 
 ```go
-func TestPanchangamServiceIntegration(t *testing.T) {
+func TestPanchangamGetIntegration(t *testing.T) {
     // Start test server
     server := startTestServer(t)
     defer server.Stop()
@@ -429,7 +429,7 @@ func TestPanchangamServiceIntegration(t *testing.T) {
     // Verify
     assert.NoError(t, err)
     assert.NotNil(t, resp)
-    assert.NotNil(t, resp.Data)
+    assert.NotNil(t, resp.PanchangamData)
 }
 ```
 

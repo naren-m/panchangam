@@ -1,18 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { SettingsPanel } from '../Settings/SettingsPanel';
 import { Settings } from '../../types/panchangam';
-import { panchangamApi } from '../../services/panchangamApi';
 
-// Mock the API service
-vi.mock('../../services/panchangamApi', () => ({
-  panchangamApi: {
-    healthCheck: vi.fn(),
-  },
-  apiConfig: {
-    baseUrl: 'http://localhost:8080',
-    endpoint: 'http://localhost:8080/api/v1/panchangam',
-  },
+vi.mock('../Settings/ApiHealthCheck', () => ({
+  ApiHealthCheck: () => (
+    <div>
+      <span>API Connection</span>
+      <span>Connected</span>
+    </div>
+  ),
 }));
 
 describe('SettingsPanel Component', () => {
@@ -25,11 +22,9 @@ describe('SettingsPanel Component', () => {
       longitude: 77.5946,
       timezone: 'Asia/Kolkata',
       name: 'Bangalore',
+      region: 'Karnataka',
     },
-    calculationMethod: 'traditional',
-    displayLanguage: 'en',
-    theme: 'light',
-    locale: 'en-US',
+    locale: 'en',
     calculation_method: 'Drik',
     time_format: '12',
     region: 'Karnataka',
@@ -43,30 +38,19 @@ describe('SettingsPanel Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(panchangamApi.healthCheck).mockResolvedValue({
-      status: 'healthy',
-      message: 'API is accessible',
-    });
   });
 
-  it('renders settings panel with title', async () => {
+  it('renders settings panel with title', () => {
     render(<SettingsPanel {...defaultProps} />);
 
     expect(screen.getByText('Settings')).toBeInTheDocument();
-
-    // Wait for API health check to complete
-    await waitFor(() => {
-      expect(screen.getByText('Connected')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Connected')).toBeInTheDocument();
   });
 
-  it('renders API health check component', async () => {
+  it('renders API health check component', () => {
     render(<SettingsPanel {...defaultProps} />);
 
-    // Wait for health check and verify it's displayed
-    await waitFor(() => {
-      expect(screen.getByText('API Connection')).toBeInTheDocument();
-    });
+    expect(screen.getByText('API Connection')).toBeInTheDocument();
   });
 
   it('displays calculation method options', () => {

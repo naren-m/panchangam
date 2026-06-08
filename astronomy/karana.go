@@ -15,8 +15,8 @@ import (
 type KaranaType string
 
 const (
-	KaranaTypeMovable KaranaType = "Movable"  // Chara Karanas (7 types)
-	KaranaTypeFixed   KaranaType = "Fixed"    // Sthira Karanas (4 types)
+	KaranaTypeMovable KaranaType = "Movable" // Chara Karanas (7 types)
+	KaranaTypeFixed   KaranaType = "Fixed"   // Sthira Karanas (4 types)
 )
 
 // KaranaInfo represents a Karana with its properties
@@ -124,6 +124,38 @@ func (kc *KaranaCalculator) GetKaranaForDate(ctx context.Context, date time.Time
 	return karana, nil
 }
 
+// GetKaranaForTime calculates the Karana at an exact time.
+func (kc *KaranaCalculator) GetKaranaForTime(ctx context.Context, dateTime time.Time) (*KaranaInfo, error) {
+	ctx, span := kc.observer.CreateSpan(ctx, "KaranaCalculator.GetKaranaForTime")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("date_time", dateTime.Format(time.RFC3339)),
+		attribute.String("timezone", dateTime.Location().String()),
+	)
+
+	tithi, err := kc.tithiCalculator.GetTithiForTimeWithCalendarSystem(ctx, dateTime, "Purnimanta")
+	if err != nil {
+		span.RecordError(err)
+		return nil, fmt.Errorf("failed to calculate tithi for karana: %w", err)
+	}
+
+	karana, err := kc.calculateKaranaFromTithi(ctx, tithi, dateTime)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+
+	span.SetAttributes(
+		attribute.Int("karana_number", karana.Number),
+		attribute.String("karana_name", karana.Name),
+		attribute.Int("tithi_number", karana.TithiNumber),
+		attribute.Int("half_tithi", karana.HalfTithi),
+	)
+
+	return karana, nil
+}
+
 // calculateKaranaFromTithi calculates Karana from Tithi information
 func (kc *KaranaCalculator) calculateKaranaFromTithi(ctx context.Context, tithi *TithiInfo, referenceDate time.Time) (*KaranaInfo, error) {
 	ctx, span := kc.observer.CreateSpan(ctx, "KaranaCalculator.calculateKaranaFromTithi")
@@ -199,37 +231,30 @@ func (kc *KaranaCalculator) calculateKaranaFromTithi(ctx context.Context, tithi 
 // calculateKaranaNumber determines the Karana number based on Tithi and half
 func (kc *KaranaCalculator) calculateKaranaNumber(tithiNumber, halfTithi int) int {
 	// Special cases for fixed Karanas
-	if tithiNumber == 30 && halfTithi == 1 {
-		// First half of Amavasya (30th Tithi) - Shakuni
-		return 9
-	}
-	if tithiNumber == 30 && halfTithi == 2 {
-		// Second half of Amavasya - Chatushpada
-		return 10
-	}
 	if tithiNumber == 1 && halfTithi == 1 {
-		// First half of Pratipada (1st Tithi) - Naga
-		return 11
-	}
-	if tithiNumber == 1 && halfTithi == 2 {
-		// Second half of Pratipada - Kintughna (same as 1st but special name Kimstughna)
+		// First half of Shukla Pratipada - Kimstughna/Kintughna
 		return 1
 	}
+	if tithiNumber == 29 && halfTithi == 2 {
+		// Second half of Krishna Chaturdashi - Shakuni
+		return 9
+	}
+	if tithiNumber == 30 && halfTithi == 1 {
+		// First half of Amavasya - Chatushpada
+		return 10
+	}
+	if tithiNumber == 30 && halfTithi == 2 {
+		// Second half of Amavasya - Naga
+		return 11
+	}
 
-	// For movable Karanas (Tithis 2-29), use the 8-Karana cycle
-	// Starting from the second half of Pratipada, cycle through 8 movable Karanas
-	
-	// Calculate the position in the movable cycle
-	// Tithis 2-29 = 28 Tithis × 2 halves = 56 half-Tithis
-	// Starting from Tithi 2, half 1
-	
-	var karanaPosition int
-	if tithiNumber >= 2 && tithiNumber <= 29 {
-		// Position in the movable cycle (0-55)
-		karanaPosition = ((tithiNumber - 2) * 2) + (halfTithi - 1)
-		// Cycle through the 8 movable Karanas (1-8)
-		karanaNumber := (karanaPosition % 8) + 1
-		return karanaNumber
+	// Movable Karanas run from the second half of Shukla Pratipada
+	// through the first half of Krishna Chaturdashi.
+	movableCycle := []int{2, 3, 4, 5, 6, 7, 8}
+
+	if tithiNumber >= 1 && tithiNumber <= 29 {
+		position := ((tithiNumber - 1) * 2) + (halfTithi - 1) - 1
+		return movableCycle[position%len(movableCycle)]
 	}
 
 	// Fallback (should not happen with proper input)
@@ -249,7 +274,7 @@ func (kc *KaranaCalculator) calculateKaranaTimesFromTithi(ctx context.Context, t
 	)
 
 	// Each Karana is half a Tithi
-	karanaDuration := time.Duration(tithi.Duration/2.0) * time.Hour
+	karanaDuration := time.Duration((tithi.Duration / 2.0) * float64(time.Hour))
 
 	if halfTithi == 1 {
 		// First half of Tithi

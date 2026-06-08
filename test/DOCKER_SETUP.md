@@ -2,7 +2,7 @@
 
 Complete Docker containerization for the Panchangam API testing framework, providing isolated, reproducible testing environment.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Docker Engine 20.10+
@@ -21,7 +21,7 @@ make test
 ./run-docker-tests.sh
 ```
 
-## 🐳 Docker Configuration
+## Docker Configuration
 
 ### Container Architecture
 ```
@@ -40,7 +40,7 @@ panchangam-test-runner/
 - **Volume Mounting**: Real-time code changes reflected in container
 - **Report Persistence**: Test reports saved to host filesystem
 
-## 📁 File Structure
+## File Structure
 
 ```
 test/
@@ -54,7 +54,7 @@ test/
 └── DOCKER_SETUP.md        # This documentation
 ```
 
-## 🔧 Usage Methods
+## Usage Methods
 
 ### Method 1: Make Commands (Recommended)
 ```bash
@@ -103,7 +103,7 @@ docker-compose exec panchangam-tests /bin/bash
 docker-compose down
 ```
 
-## 🧪 Test Execution Examples
+## Test Execution Examples
 
 ### Quick Validation
 ```bash
@@ -144,7 +144,7 @@ make test-performance
 docker-compose run --rm panchangam-tests locust --headless -u 10 -r 2 -t 30s
 ```
 
-## 📊 Reports and Output
+## Reports and Output
 
 ### Generated Reports
 - **Test Report**: `./reports/report.html`
@@ -163,7 +163,7 @@ make coverage-report
 make clean-reports
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 ```bash
@@ -192,7 +192,7 @@ services:
       - "9090:8080"  # Alternative port mapping
 ```
 
-## 🚀 Advanced Features
+## Advanced Features
 
 ### Multi-Stage Testing
 ```bash
@@ -227,7 +227,7 @@ docker-compose run --rm panchangam-tests pytest -k "test_error" -v
 docker-compose run --rm panchangam-tests pytest -m "smoke and not slow" -v
 ```
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -288,7 +288,7 @@ docker-compose exec panchangam-tests go version
 docker-compose exec panchangam-tests curl http://localhost:8080/api/v1/health
 ```
 
-## 🔐 Security Considerations
+## Security Considerations
 
 ### Container Security
 - **Non-root User**: Container runs with limited privileges
@@ -305,7 +305,7 @@ echo "API_KEY=your-secret-key" > .env
 docker-compose up
 ```
 
-## 📈 Performance Optimization
+## Performance Optimization
 
 ### Build Optimization
 - **Multi-stage Build**: Optimized Docker layer caching
@@ -332,7 +332,7 @@ services:
           memory: 512M
 ```
 
-## 🚀 CI/CD Integration
+## CI/CD Integration
 
 ### GitHub Actions Example
 ```yaml
@@ -379,7 +379,7 @@ stage('Docker Tests') {
 }
 ```
 
-## 🎯 Benefits
+## Benefits
 
 ### Development Benefits
 - **Consistent Environment**: Same results across all machines
@@ -399,7 +399,7 @@ stage('Docker Tests') {
 - **Environment Parity**: Development matches production testing
 - **Resource Management**: Controlled resource usage
 
-## 📚 Additional Resources
+## Additional Resources
 
 ### Documentation Links
 - [Docker Documentation](https://docs.docker.com/)

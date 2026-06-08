@@ -2,7 +2,7 @@
 
 This directory contains comprehensive design documentation for the Panchangam project, including architecture specifications, system design decisions, and implementation guidelines.
 
-## 📁 Documentation Structure
+## Documentation Structure
 
 ### **Architecture Documents**
 - **[high-level-architecture.md](./high-level-architecture.md)** - Complete system architecture overview
@@ -15,7 +15,7 @@ This directory contains comprehensive design documentation for the Panchangam pr
   - Implementation roadmap with 4-phase approach
   - Quality attributes and architectural principles
 
-## 🎯 Design Principles
+## Design Principles
 
 ### **Core Architectural Principles**
 1. **Hexagonal Architecture**: Clean separation of concerns with well-defined ports and adapters
@@ -31,29 +31,29 @@ This directory contains comprehensive design documentation for the Panchangam pr
 - **Reliability**: 99.9% uptime with graceful degradation
 - **Extensibility**: Plugin architecture for regional variations and custom calculations
 
-## 🚀 Implementation Phases
+## Implementation Phases
 
 ### **Phase 1: Foundation** (Months 1-3)
-- **Status**: ✅ Partially Complete
+- **Status**: PASS Partially Complete
 - **Focus**: Astronomical calculation foundation and observability infrastructure
 - **Key Components**: Sunrise/sunset calculations, OpenTelemetry tracing, service logging
 
 ### **Phase 2: Core Panchangam** (Months 4-6)
-- **Status**: 🔄 Planning
+- **Status**: In Progress Planning
 - **Focus**: Implementation of the five fundamental panchangam elements
 - **Key Components**: Tithi, Nakshatra, Yoga, Karana, Vara calculations
 
 ### **Phase 3: Regional & Events** (Months 7-9)
-- **Status**: 📋 Planned
+- **Status**: Planned
 - **Focus**: Regional variations and practical panchangam features
 - **Key Components**: Regional systems, event generation, festival calculations
 
 ### **Phase 4: Advanced Features** (Months 10-12)
-- **Status**: 📋 Planned
+- **Status**: Planned
 - **Focus**: Advanced astronomical features and user experience
 - **Key Components**: Planetary integration, UI/UX, validation systems
 
-## 🏗️ Architecture Patterns
+##  Architecture Patterns
 
 ### **Hexagonal Architecture Implementation**
 ```
@@ -63,28 +63,28 @@ Astronomical Logic    Service Orchestration    External APIs
 ```
 
 ### **Microservices Decomposition**
-- **Panchangam Service**: Main API endpoint (✅ Implemented)
-- **Astronomical Service**: Dedicated calculations (📋 Planned)
-- **Regional Service**: Regional variations (📋 Planned)
-- **Event Service**: Event generation (📋 Planned)
-- **Validation Service**: Cross-validation (📋 Planned)
+- **Panchangam Service**: Main API endpoint (PASS Implemented)
+- **Astronomical Service**: Dedicated calculations (Planned)
+- **Regional Service**: Regional variations (Planned)
+- **Event Service**: Event generation (Planned)
+- **Validation Service**: Cross-validation (Planned)
 
-## 📊 Technology Decisions
+## Technology Decisions
 
 ### **Current Technology Stack**
 - **Language**: Go 1.23 (chosen for performance and concurrency)
 - **API Protocol**: gRPC with Protocol Buffers (type-safe, efficient)
 - **Observability**: OpenTelemetry standard (vendor-neutral, comprehensive)
-- **Authentication**: Custom AAA interceptors (flexible, secure)
+- **Request safety**: Direct input validation and structured error responses
 - **Testing**: Comprehensive test suite with >95% coverage
 
 ### **Planned Technologies**
 - **Ephemeris**: JPL DE440, Swiss Ephemeris (astronomical accuracy)
-- **Storage**: Redis (cache), PostgreSQL (configuration)
+- **Storage**: Redis for caching; runtime configuration comes from files, environment variables, ConfigMaps, and Secrets
 - **Monitoring**: Prometheus (metrics), Grafana (dashboards)
 - **Deployment**: Docker containers, Kubernetes orchestration
 
-## 📖 Design Document Guidelines
+## Design Document Guidelines
 
 ### **Documentation Standards**
 - **Format**: Markdown with consistent structure
@@ -99,14 +99,14 @@ Astronomical Logic    Service Orchestration    External APIs
 3. **Annual Reviews**: Comprehensive architecture evaluation and planning
 4. **Change Requests**: Document significant architectural changes
 
-## 🔗 Related Documentation
+## Related Documentation
 
 - **[Implementation Plan](../../implementation_plan.md)** - Detailed task breakdown
 - **[GitHub Issues](https://github.com/naren-m/panchangam/issues)** - Active development tracking
 - **[GitHub Milestones](https://github.com/naren-m/panchangam/milestones)** - Phase-based project planning
 - **[CLAUDE.md](../../CLAUDE.md)** - Development workflow guidelines
 
-## 📞 Contact & Contributions
+## Contact & Contributions
 
 For questions about the architecture or suggestions for improvements:
 - **GitHub Issues**: Technical questions and feature requests
@@ -115,6 +115,6 @@ For questions about the architecture or suggestions for improvements:
 
 ---
 
-**Last Updated**: 2025-07-18  
-**Document Version**: 1.0  
+**Last Updated**: 2025-07-18
+**Document Version**: 1.0
 **Maintainer**: Panchangam Development Team

@@ -19,7 +19,6 @@ export const formatTimeRange = (timeRange: string, format: '12' | '24' = '12'): 
 
 export const getCurrentMonthDates = (year: number, month: number): Date[] => {
   const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
   const dates: Date[] = [];
 
   // Add dates from previous month to fill the first week
@@ -46,6 +45,30 @@ export const isSameMonth = (date: Date, month: number, year: number): boolean =>
 
 export const formatDateForApi = (date: Date): string => {
   return date.toISOString().split('T')[0];
+};
+
+const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const getUtcCalendarDay = (date: Date): number => {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+};
+
+export const getCalendarDayDifference = (startDate: Date, endDate: Date): number => {
+  const dayDifference = getUtcCalendarDay(endDate) - getUtcCalendarDay(startDate);
+  return dayDifference / MILLISECONDS_PER_DAY;
+};
+
+export const countCalendarDaysInclusive = (startDate: Date, endDate: Date): number => {
+  return getCalendarDayDifference(startDate, endDate) + 1;
+};
+
+export const getCalendarDayOfYear = (date: Date): number => {
+  return getCalendarDayDifference(new Date(date.getFullYear(), 0, 0), date);
+};
+
+export const parseApiDate = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
 };
 
 export const getMonthName = (month: number, locale: string = 'en'): string => {

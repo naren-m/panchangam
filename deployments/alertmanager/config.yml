@@ -36,7 +36,7 @@ receivers:
   - name: 'critical'
     slack_configs:
       - channel: '#panchangam-alerts-critical'
-        title: '🚨 Critical Alert: {{ .GroupLabels.alertname }}'
+        title: 'Critical Alert: {{ .GroupLabels.alertname }}'
         text: |
           *Summary:* {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
           *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
@@ -51,7 +51,7 @@ receivers:
   - name: 'warning'
     slack_configs:
       - channel: '#panchangam-alerts-warning'
-        title: '⚠️ Warning Alert: {{ .GroupLabels.alertname }}'
+        title: 'Warning Alert: {{ .GroupLabels.alertname }}'
         text: |
           *Summary:* {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
           *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}

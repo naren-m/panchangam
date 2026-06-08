@@ -127,12 +127,12 @@ check_docker() {
         print_error "Docker is not installed or not in PATH"
         exit 1
     fi
-    
+
     if ! command -v docker-compose &> /dev/null; then
         print_error "Docker Compose is not installed or not in PATH"
         exit 1
     fi
-    
+
     if ! docker info &> /dev/null; then
         print_error "Docker daemon is not running"
         exit 1
@@ -141,8 +141,14 @@ check_docker() {
 
 # Function to build Docker image
 build_image() {
+    local build_args=(panchangam-tests)
+
+    if [ -n "$BUILD_FLAG" ]; then
+        build_args=("$BUILD_FLAG" "${build_args[@]}")
+    fi
+
     print_status "Building Docker image..."
-    if docker-compose build $BUILD_FLAG panchangam-tests; then
+    if docker-compose build "${build_args[@]}"; then
         print_success "Docker image built successfully"
     else
         print_error "Failed to build Docker image"
@@ -173,22 +179,32 @@ run_shell() {
 
 # Function to run tests
 run_tests() {
-    local test_command="python run_tests.py --type $TEST_TYPE $VERBOSE $COVERAGE $HTML_REPORT"
-    
+    local test_command=(python run_tests.py --type "$TEST_TYPE")
+
+    if [ -n "$VERBOSE" ]; then
+        test_command+=("$VERBOSE")
+    fi
+    if [ -n "$COVERAGE" ]; then
+        test_command+=("$COVERAGE")
+    fi
+    if [ -n "$HTML_REPORT" ]; then
+        test_command+=("$HTML_REPORT")
+    fi
+
     print_status "Starting test execution..."
     print_status "Test type: $TEST_TYPE"
-    print_status "Command: $test_command"
-    
+    print_status "Command: ${test_command[*]}"
+
     if [ "$INTERACTIVE" = true ]; then
         print_status "Running in interactive mode..."
-        docker-compose run --rm panchangam-tests $test_command
+        docker-compose run --rm panchangam-tests "${test_command[@]}"
     else
         print_status "Running in detached mode..."
         docker-compose up -d panchangam-tests
-        docker-compose exec panchangam-tests $test_command
+        docker-compose exec panchangam-tests "${test_command[@]}"
         local exit_code=$?
-        
-        if [ $exit_code -eq 0 ]; then
+
+        if [ "$exit_code" -eq 0 ]; then
             print_success "Tests completed successfully"
         else
             print_error "Tests failed with exit code $exit_code"
@@ -196,7 +212,7 @@ run_tests() {
                 show_container_logs
             fi
         fi
-        
+
         return $exit_code
     fi
 }
@@ -204,10 +220,10 @@ run_tests() {
 # Function to copy test reports
 copy_reports() {
     print_status "Copying test reports..."
-    
+
     # Create local directories if they don't exist
     mkdir -p ./reports ./htmlcov ./logs
-    
+
     # Copy files from container
     docker-compose exec panchangam-tests bash -c "
         if [ -f /app/reports/report.html ]; then
@@ -220,12 +236,12 @@ copy_reports() {
             cp -r /app/logs/* /workspace/test/logs/ 2>/dev/null || true
         fi
     " 2>/dev/null || true
-    
+
     # Check if reports were generated
     if [ -f "./reports/report.html" ]; then
         print_success "Test report available at: ./reports/report.html"
     fi
-    
+
     if [ -f "./htmlcov/index.html" ]; then
         print_success "Coverage report available at: ./htmlcov/index.html"
     fi
@@ -235,29 +251,29 @@ copy_reports() {
 main() {
     print_status "Panchangam API Docker Test Runner"
     print_status "================================="
-    
+
     # Check prerequisites
     check_docker
-    
+
     # Handle special modes
     if [ "$SHOW_LOGS" = true ]; then
         show_container_logs
         exit 0
     fi
-    
+
     if [ "$SHELL_MODE" = true ]; then
         run_shell
         exit 0
     fi
-    
+
     # Build image
     build_image
-    
+
     # Ensure cleanup on exit
     if [ "$CLEANUP" = true ]; then
         trap cleanup_containers EXIT
     fi
-    
+
     # Run tests
     if run_tests; then
         # Copy reports if they exist

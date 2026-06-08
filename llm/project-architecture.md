@@ -1,12 +1,12 @@
 # Project Architecture
 
-This document describes the architecture, structure, and design patterns of the Panchangam project.
+This document describes the current architecture and source structure of the Panchangam project.
 
 ## System Overview
 
 The Panchangam project is a full-stack application that provides Hindu astronomical calendar calculations. It consists of:
 
-- **Backend**: Go-based microservices architecture with gRPC
+- **Backend**: Go gRPC server with a REST gateway
 - **Frontend**: React-based web application
 - **Data Layer**: Redis cache, Swiss Ephemeris astronomical data
 - **Observability**: OpenTelemetry instrumentation
@@ -26,19 +26,14 @@ The Panchangam project is a full-stack application that provides Hindu astronomi
          │ HTTP/REST
          ▼
 ┌─────────────────┐
-│  Gateway Server │ (gRPC-Gateway, CORS, REST→gRPC)
+│  Gateway Server │ (REST handlers, CORS, validation)
 │   (API Layer)   │
 └────────┬────────┘
          │ gRPC
          ▼
 ┌─────────────────────────────────────┐
 │        gRPC Server                  │
-│  ┌─────────────┐  ┌──────────────┐ │
-│  │ Panchangam  │  │  Sky View    │ │
-│  │  Service    │  │   Service    │ │
-│  └──────┬──────┘  └──────┬───────┘ │
-│         │                 │         │
-│         └────────┬────────┘         │
+│        Panchangam Service           │
 │                  │                  │
 │         ┌────────▼────────┐         │
 │         │   Astronomy     │         │
@@ -65,13 +60,12 @@ The Panchangam project is a full-stack application that provides Hindu astronomi
 
 ```
 panchangam/
-├── main.go                     # Main entry point (currently minimal)
 ├── go.mod/go.sum              # Go dependencies
 ├── Makefile                   # Build and test automation
 │
 ├── cmd/                       # Command-line applications
-│   ├── gateway/              # REST API gateway (gRPC-Gateway)
-│   ├── grpc-server/          # Main gRPC server
+│   ├── gateway/              # REST gateway command
+│   ├── server/               # Main gRPC server
 │   ├── panchangam-cli/       # CLI tool for Panchangam calculations
 │   ├── sunrise-demo/         # Demo application for sunrise calculations
 │   ├── sunrise-simple/       # Simple sunrise calculator
@@ -89,11 +83,14 @@ panchangam/
 │   ├── festivals.go        # Festival date calculations
 │   └── *_test.go           # Unit tests
 │
-├── gateway/                # Gateway server implementation
-│   └── handlers/          # HTTP handlers and middleware
-│
-├── server/                # gRPC server implementation
-│   └── interceptors/     # gRPC interceptors (auth, logging)
+├── gateway/                # REST gateway implementation
+│   ├── server.go          # Server setup and route registration
+│   ├── panchangam_handler.go
+│   ├── current_tithi_handler.go
+│   ├── sky_view_handler.go
+│   ├── cache_handlers.go
+│   ├── middleware.go
+│   └── errors.go
 │
 ├── proto/                # Protocol Buffer definitions
 │   └── *.proto          # gRPC service definitions
@@ -102,11 +99,9 @@ panchangam/
 │   ├── examples/        # API usage examples
 │   └── implementations/ # API implementations
 │
-├── client/              # Client libraries
-│
 ├── observability/       # Observability utilities
-│   ├── tracing.go      # OpenTelemetry tracing
-│   └── metrics.go      # Metrics collection
+│   ├── observability.go # OpenTelemetry setup and interceptors
+│   └── errors.go        # Error recording and correlation helpers
 │
 ├── cache/              # Caching layer (Redis)
 │
@@ -144,7 +139,7 @@ panchangam/
 
 ### Layer Separation
 
-The backend follows a clean architecture pattern with clear layer separation:
+The backend is split by job so each package has a clear owner:
 
 ```
 ┌────────────────────────────────────────┐
@@ -160,43 +155,51 @@ The backend follows a clean architecture pattern with clear layer separation:
 
 ### Core Components
 
-#### 1. API Gateway (`cmd/gateway`)
+#### 1. API Gateway (`cmd/gateway` and `gateway/`)
 
-**Purpose**: Provides HTTP/REST interface to gRPC services
-
-**Responsibilities**:
-- HTTP to gRPC translation (gRPC-Gateway)
-- CORS handling
-- Request/response transformation
-- Rate limiting (future)
-
-**Key Files**:
-- `main.go`: Gateway server initialization
-- `handler.go`: HTTP handlers
-
-#### 2. gRPC Server (`cmd/grpc-server`)
-
-**Purpose**: Main application server hosting gRPC services
+**Purpose**: Provides the HTTP/REST interface.
 
 **Responsibilities**:
-- Service registration
-- gRPC interceptors (logging, auth, metrics)
-- Connection management
-- Health checks
+- Start the HTTP server
+- Parse and validate REST requests
+- Call `Panchangam.Get` through the gRPC client
+- Serve sky view data from `services/skyview`
+- Return structured JSON errors with request IDs
 
 **Key Files**:
-- `main.go`: Server initialization and startup
-- `interceptors.go`: Custom gRPC interceptors
+- `cmd/gateway/main.go`: Gateway process startup, flags, cache setup, and shutdown
+- `gateway/server.go`: Route registration and HTTP server setup
+- `gateway/panchangam_handler.go`: Daily Panchangam REST handler
+- `gateway/current_tithi_handler.go`: Compact current tithi REST handler
+- `gateway/sky_view_handler.go`: Sky visualization REST handler
+- `gateway/middleware.go`: Request logging and `/api/v1/health`
+- `gateway/errors.go`: Shared API error response shape
+
+#### 2. gRPC Server (`cmd/server`)
+
+**Purpose**: Hosts the Panchangam gRPC service.
+
+**Responsibilities**:
+- Start the gRPC server
+- Register `Panchangam.Get`
+- Add the observability unary interceptor
+- Register the gRPC health service and reflection
+- Handle graceful shutdown
+
+**Key Files**:
+- `cmd/server/main.go`: gRPC process startup, service registration, health checks, and shutdown
+- `services/panchangam/server.go`: Panchangam server construction and dependencies
+- `services/panchangam/service.go`: `Panchangam.Get` validation, tracing, and response building
 
 #### 3. Services Layer (`services/`)
 
-**Purpose**: Business logic implementation
+**Purpose**: Business logic used by the gateway and gRPC server.
 
 **Panchangam Service** (`services/panchangam/`):
-- Calculate daily Panchangam
-- Muhurta calculations
-- Festival date calculations
-- Ayanamsa conversions
+- Validates `GetPanchangamRequest`
+- Records request spans and validation failures
+- Fetches ephemeris-backed Panchangam data
+- Builds the gRPC response
 
 **Sky View Service** (`services/skyview/`):
 - 3D sky visualization data
@@ -213,14 +216,6 @@ The backend follows a clean architecture pattern with clear layer separation:
 - **Lunar**: Tithi, Nakshatra calculations
 - **Yoga/Karana**: Combined calculations
 - **Festivals**: Hindu festival date calculation
-
-**Design Pattern**: Pure functions for calculations
-```go
-// Example: Pure calculation function
-func CalculateTithi(sunLongitude, moonLongitude float64) (int, float64, error) {
-    // No side effects, deterministic output
-}
-```
 
 #### 5. Cache Layer (`cache/`)
 
@@ -263,45 +258,38 @@ return data
 ```
 ui/src/
 ├── components/
-│   ├── Panchangam/
-│   │   ├── PanchangamDisplay.tsx      # Main container
-│   │   ├── TithiCard.tsx              # Tithi display
-│   │   ├── NakshatraCard.tsx          # Nakshatra display
-│   │   └── YogaKaranaCard.tsx         # Yoga/Karana display
-│   │
-│   ├── SkyView/
-│   │   ├── SkyVisualization.tsx       # 3D sky viewer
-│   │   └── PlanetaryPositions.tsx     # Planet positions
-│   │
-│   ├── Common/
-│   │   ├── DatePicker.tsx
-│   │   ├── LocationPicker.tsx
-│   │   └── LoadingSpinner.tsx
-│   │
-│   └── Layout/
-│       ├── Header.tsx
-│       ├── Footer.tsx
-│       └── Navigation.tsx
+│   ├── Calendar/                    # Month navigation and calendar grid
+│   ├── DayDetail/                   # Day detail modal and pancha anga views
+│   ├── DataPresentation/            # Tabular data views
+│   ├── TableView/                   # Table-focused calendar view
+│   ├── GraphView/                   # Graph-focused calendar view
+│   ├── ViewSwitcher/                # View mode controls
+│   ├── CelestialChart/              # Celestial chart rendering
+│   ├── EclipticBeltVisualization/   # Shared panchangam element calculations
+│   ├── SkyVisualization/            # Sky sphere and time controls
+│   ├── LocationPicker/              # Location selection
+│   ├── Settings/                    # Settings and API health UI
+│   └── common/                      # Shared loading and error components
 │
 ├── hooks/
-│   ├── usePanchangamData.ts          # Fetch Panchangam data
-│   ├── useSkyViewData.ts             # Fetch sky view data
-│   └── useLocation.ts                # Geolocation hook
+│   ├── usePanchangam.ts             # Panchangam data state
+│   ├── useProgressivePanchangam.ts  # Progressive loading support
+│   ├── useDayDetail.ts              # Day detail state
+│   └── useOffline.ts                # Offline state
 │
 ├── services/
-│   ├── api.ts                        # Base API client
-│   ├── panchangamService.ts          # Panchangam API calls
-│   └── skyviewService.ts             # Sky view API calls
+│   ├── api/                         # Shared API client modules
+│   ├── skyViewApi.ts                # Sky view API helpers
+│   └── locationService.ts           # Location lookup helpers
 │
 ├── types/
-│   ├── panchangam.ts                 # Panchangam types
-│   ├── astronomy.ts                  # Astronomy types
-│   └── api.ts                        # API response types
+│   ├── panchangam.ts                # Panchangam types
+│   └── skyVisualization.ts          # Sky visualization types
 │
 └── utils/
-    ├── formatters.ts                 # Date/time formatters
-    ├── validators.ts                 # Input validation
-    └── constants.ts                  # App constants
+    ├── astronomy/                   # Coordinate, zodiac, nakshatra helpers
+    ├── dateHelpers.ts               # Date helpers
+    └── exportHelpers.ts             # Export helpers
 ```
 
 ### State Management
@@ -316,14 +304,14 @@ ui/src/
 Example:
 ```typescript
 // Custom hook for server state
-function usePanchangamData(date: Date, location: Location) {
+function usePanchangam(date: Date, settings: Settings) {
     const [data, setData] = useState<PanchangamData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
         // Fetch data
-    }, [date, location]);
+    }, [date, settings]);
 
     return { data, loading, error };
 }
@@ -331,11 +319,7 @@ function usePanchangamData(date: Date, location: Location) {
 
 ### Routing
 
-Currently single-page application. Future routes:
-- `/` - Home/Daily Panchangam
-- `/calendar` - Monthly calendar view
-- `/sky` - Sky visualization
-- `/muhurta` - Muhurta finder
+The frontend currently runs as a single-page application. Calendar, day detail, sky, graph, and settings views are handled by React component state.
 
 ## Data Flow
 
@@ -352,7 +336,7 @@ Currently single-page application. Future routes:
 2. **API Request** (Frontend)
    ```typescript
    // Hook fetches data
-   const { data } = usePanchangamData(date, location);
+   const { data } = usePanchangam(date, settings);
    ```
 
 3. **Gateway Receives Request** (Backend)
@@ -362,12 +346,12 @@ Currently single-page application. Future routes:
 
 4. **gRPC Translation** (Gateway)
    ```
-   HTTP REST → gRPC CalculatePanchangam()
+   HTTP REST → gRPC Panchangam.Get()
    ```
 
 5. **Service Processing** (Service Layer)
    ```go
-   func (s *PanchangamService) CalculatePanchangam(ctx context.Context, req *pb.PanchangamRequest) (*pb.PanchangamResponse, error) {
+   func (s *PanchangamServer) Get(ctx context.Context, req *pb.GetPanchangamRequest) (*pb.GetPanchangamResponse, error) {
        // Check cache
        // Calculate if not cached
        // Return response
@@ -396,25 +380,22 @@ Currently single-page application. Future routes:
 ### gRPC Service Definitions
 
 ```protobuf
-service PanchangamService {
-    rpc CalculatePanchangam(PanchangamRequest) returns (PanchangamResponse);
-    rpc CalculateMuhurta(MuhurtaRequest) returns (MuhurtaResponse);
-    rpc GetFestivals(FestivalRequest) returns (FestivalResponse);
+service Panchangam {
+    rpc Get(GetPanchangamRequest) returns (GetPanchangamResponse);
 }
 
-message PanchangamRequest {
-    string date = 1;        // ISO 8601 format
+message GetPanchangamRequest {
+    string date = 1;          // YYYY-MM-DD
     double latitude = 2;
     double longitude = 3;
     string timezone = 4;
+    string region = 5;
+    string calculation_method = 6;
+    string locale = 7;
 }
 
-message PanchangamResponse {
-    Tithi tithi = 1;
-    Nakshatra nakshatra = 2;
-    Yoga yoga = 3;
-    Karana karana = 4;
-    SolarEvents solar_events = 5;
+message GetPanchangamResponse {
+    PanchangamData panchangam_data = 1;
 }
 ```
 
@@ -422,53 +403,23 @@ message PanchangamResponse {
 
 ```
 GET  /api/v1/panchangam          # Get daily Panchangam
-GET  /api/v1/muhurta             # Get muhurta timings
-GET  /api/v1/festivals           # Get festival dates
-GET  /api/v1/skyview             # Get sky view data
-GET  /health                     # Health check
+GET  /api/v1/tithi/current       # Get compact current tithi summary
+GET  /api/v1/sky-view            # Get sky visualization data
+GET  /api/v1/health              # Health check
 ```
 
-## Design Patterns
+## Current Structure
 
-### 1. Repository Pattern (Future)
+Keep code paths direct:
 
-```go
-type PanchangamRepository interface {
-    GetDaily(ctx context.Context, date time.Time, loc Location) (*Panchangam, error)
-    GetRange(ctx context.Context, start, end time.Time, loc Location) ([]*Panchangam, error)
-}
-```
+1. `cmd/*` starts processes and handles flags, environment variables, health checks, and shutdown.
+2. `gateway/*` owns HTTP parsing, validation, route registration, structured REST errors, and service calls.
+3. `services/panchangam/*` owns the `Panchangam.Get` gRPC behavior.
+4. `services/skyview/*` owns sky visualization calculations used by the REST gateway.
+5. `astronomy/*` owns astronomical calculations.
+6. `observability/*` owns tracing, metrics, and request spans.
 
-### 2. Factory Pattern
-
-```go
-func NewPanchangamService(ephemeris EphemerisProvider, cache CacheProvider) *PanchangamService {
-    return &PanchangamService{
-        ephemeris: ephemeris,
-        cache:     cache,
-    }
-}
-```
-
-### 3. Strategy Pattern
-
-```go
-type AyanamsaStrategy interface {
-    Calculate(date time.Time) float64
-}
-
-type LahiriAyanamsa struct{}
-type RamanAyanamsa struct{}
-```
-
-### 4. Dependency Injection
-
-```go
-type Service struct {
-    ephemeris EphemerisProvider  // Interface, not concrete type
-    cache     CacheProvider      // Interface, not concrete type
-}
-```
+Add a new interface or helper only when a real caller needs it. Do not add pattern-only wrappers.
 
 ## Performance Considerations
 
@@ -485,20 +436,13 @@ type Service struct {
 3. **Lazy Loading**: Load data on demand
 4. **Code Splitting**: Split frontend bundles by route
 
-## Security
+## Input Safety
 
-### Authentication (Future)
-- JWT tokens for API authentication
-- API key validation
-
-### Authorization
-- Role-based access control (RBAC)
-- Rate limiting per user/API key
-
-### Data Validation
 - Input validation at all layers
 - Coordinate bounds checking
 - Date range validation
+- Structured JSON errors with request IDs
+- gRPC validation errors recorded on spans
 
 ## Deployment
 
@@ -540,7 +484,7 @@ type Service struct {
 | 3D Graphics | Three.js | Sky visualization |
 | Backend | Go 1.23 | Server-side logic |
 | RPC | gRPC | Service communication |
-| API Gateway | gRPC-Gateway | REST to gRPC |
+| API Gateway | Custom Go HTTP handlers | REST API and service calls |
 | Cache | Redis | Performance optimization |
 | Astronomy | Swiss Ephemeris | Planetary calculations |
 | Observability | OpenTelemetry | Tracing and metrics |

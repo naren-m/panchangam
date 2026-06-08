@@ -14,16 +14,16 @@ import (
 
 // NakshatraInfo represents a Nakshatra with its properties
 type NakshatraInfo struct {
-	Number       int       `json:"number"`         // 1-27
-	Name         string    `json:"name"`           // Sanskrit name
-	Deity        string    `json:"deity"`          // Ruling deity
-	PlanetaryLord string   `json:"planetary_lord"` // Ruling planet
-	Symbol       string    `json:"symbol"`         // Traditional symbol
-	Pada         int       `json:"pada"`           // Current pada (1-4)
-	StartTime    time.Time `json:"start_time"`     // When this Nakshatra begins
-	EndTime      time.Time `json:"end_time"`       // When this Nakshatra ends
-	Duration     float64   `json:"duration"`       // Duration in hours
-	MoonLongitude float64  `json:"moon_longitude"` // Moon's longitude in degrees
+	Number        int       `json:"number"`         // 1-27
+	Name          string    `json:"name"`           // Sanskrit name
+	Deity         string    `json:"deity"`          // Ruling deity
+	PlanetaryLord string    `json:"planetary_lord"` // Ruling planet
+	Symbol        string    `json:"symbol"`         // Traditional symbol
+	Pada          int       `json:"pada"`           // Current pada (1-4)
+	StartTime     time.Time `json:"start_time"`     // When this Nakshatra begins
+	EndTime       time.Time `json:"end_time"`       // When this Nakshatra ends
+	Duration      float64   `json:"duration"`       // Duration in hours
+	MoonLongitude float64   `json:"moon_longitude"` // Moon's longitude in degrees
 }
 
 // NakshatraCalculator handles Nakshatra calculations
@@ -41,7 +41,7 @@ func NewNakshatraCalculator(ephemerisManager *ephemeris.Manager) *NakshatraCalcu
 }
 
 // NakshatraData contains detailed information about each Nakshatra
-// Sources: 
+// Sources:
 // - "Hindu Astronomy" by W.E. van Wijk (1930)
 // - "Surya Siddhanta" - Ancient Sanskrit astronomical text
 // - "Brihat Parashara Hora Shastra" by Sage Parashara
@@ -108,12 +108,16 @@ func (nc *NakshatraCalculator) GetNakshatraForDate(ctx context.Context, date tim
 	}
 
 	moonLong := positions.Moon.Longitude
+	siderealMoonLong := siderealLongitude(moonLong, date)
 
-	posSpan.SetAttributes(attribute.Float64("moon_longitude", moonLong))
+	posSpan.SetAttributes(
+		attribute.Float64("moon_longitude", moonLong),
+		attribute.Float64("sidereal_moon_longitude", siderealMoonLong),
+	)
 	posSpan.End()
 
 	// Calculate Nakshatra
-	nakshatra, err := nc.calculateNakshatraFromLongitude(ctx, moonLong, date)
+	nakshatra, err := nc.calculateNakshatraFromLongitude(ctx, siderealMoonLong, noonDate)
 	if err != nil {
 		span.RecordError(err)
 		return nil, err
@@ -133,6 +137,51 @@ func (nc *NakshatraCalculator) GetNakshatraForDate(ctx context.Context, date tim
 		attribute.String("nakshatra_name", nakshatra.Name),
 		attribute.Int("pada", nakshatra.Pada),
 	))
+
+	return nakshatra, nil
+}
+
+// GetNakshatraForTime calculates the Nakshatra at an exact time.
+func (nc *NakshatraCalculator) GetNakshatraForTime(ctx context.Context, dateTime time.Time) (*NakshatraInfo, error) {
+	ctx, span := nc.observer.CreateSpan(ctx, "NakshatraCalculator.GetNakshatraForTime")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("date_time", dateTime.Format(time.RFC3339)),
+		attribute.String("timezone", dateTime.Location().String()),
+	)
+
+	jd := ephemeris.TimeToJulianDay(dateTime)
+	span.SetAttributes(attribute.Float64("julian_day", float64(jd)))
+
+	ctx, posSpan := nc.observer.CreateSpan(ctx, "getNakshatraPositions")
+	positions, err := nc.ephemerisManager.GetPlanetaryPositions(ctx, jd)
+	if err != nil {
+		posSpan.RecordError(err)
+		posSpan.End()
+		span.RecordError(err)
+		return nil, fmt.Errorf("failed to get planetary positions: %w", err)
+	}
+
+	moonLong := positions.Moon.Longitude
+	siderealMoonLong := siderealLongitude(moonLong, dateTime)
+	posSpan.SetAttributes(
+		attribute.Float64("moon_longitude", moonLong),
+		attribute.Float64("sidereal_moon_longitude", siderealMoonLong),
+	)
+	posSpan.End()
+
+	nakshatra, err := nc.calculateNakshatraFromLongitude(ctx, siderealMoonLong, dateTime)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+
+	span.SetAttributes(
+		attribute.Int("nakshatra_number", nakshatra.Number),
+		attribute.String("nakshatra_name", nakshatra.Name),
+		attribute.Int("pada", nakshatra.Pada),
+	)
 
 	return nakshatra, nil
 }
@@ -161,7 +210,7 @@ func (nc *NakshatraCalculator) calculateNakshatraFromLongitude(ctx context.Conte
 	// Each Nakshatra spans 13°20' (13.333... degrees)
 	// There are 27 Nakshatras covering the full 360° zodiac
 	nakshatraSpan := 360.0 / 27.0 // 13.333... degrees
-	
+
 	// Calculate Nakshatra number (1-27)
 	nakshatraFloat := normalizedLong / nakshatraSpan
 	nakshatraNumber := int(nakshatraFloat) + 1
@@ -257,9 +306,7 @@ func (nc *NakshatraCalculator) calculateNakshatraTimes(ctx context.Context, naks
 	// Estimate when this Nakshatra started and will end
 	timeIntoNakshatra := time.Duration(nakshatraProgress * float64(avgNakshatraDuration))
 
-	// Start time is reference time minus how far we are into the Nakshatra
-	noonRef := time.Date(referenceDate.Year(), referenceDate.Month(), referenceDate.Day(), 12, 0, 0, 0, referenceDate.Location())
-	startTime = noonRef.Add(-timeIntoNakshatra)
+	startTime = referenceDate.Add(-timeIntoNakshatra)
 	endTime = startTime.Add(avgNakshatraDuration)
 
 	span.SetAttributes(
@@ -289,7 +336,7 @@ func (nc *NakshatraCalculator) GetNakshatraFromLongitude(ctx context.Context, mo
 		attribute.String("date", date.Format("2006-01-02")),
 	)
 
-	return nc.calculateNakshatraFromLongitude(ctx, moonLong, date)
+	return nc.calculateNakshatraFromLongitude(ctx, siderealLongitude(moonLong, date), date)
 }
 
 // GetPadaDescription returns a description of the Pada

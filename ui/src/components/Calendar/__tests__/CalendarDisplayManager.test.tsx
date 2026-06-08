@@ -1,8 +1,8 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { CalendarDisplayManager } from '../CalendarDisplayManager';
 import '@testing-library/jest-dom';
+import type { Settings } from '../../../types/panchangam';
 
 // Mock child components
 vi.mock('../CalendarGrid', () => ({
@@ -15,32 +15,37 @@ vi.mock('../../common/Loading/SkeletonCalendar', () => ({
   SkeletonCalendar: () => <div data-testid="skeleton-calendar">Loading...</div>,
 }));
 
-vi.mock('../../common/Error', () => ({
+vi.mock('../../common/Error/NetworkError', () => ({
   NetworkError: ({ customMessage }: { customMessage: string }) => (
     <div data-testid="network-error">{customMessage}</div>
   ),
+}));
+
+vi.mock('../../common/Error/ApiError', () => ({
   ApiError: ({ error }: { error: string }) => (
     <div data-testid="api-error">{error}</div>
   ),
 }));
 
+const mockSettings: Settings = {
+  calculation_method: 'Drik',
+  locale: 'en',
+  region: 'California',
+  time_format: '12',
+  location: {
+    name: 'Test Location',
+    latitude: 37.4323,
+    longitude: -121.9066,
+    timezone: 'America/Los_Angeles',
+    region: 'California'
+  }
+};
+
 const mockCalendarProps = {
   year: 2024,
   month: 0,
   panchangamData: {},
-  settings: {
-    calculation_method: 'Drik',
-    locale: 'en',
-    region: 'California',
-    time_format: '12',
-    location: {
-      name: 'Test Location',
-      latitude: 37.4323,
-      longitude: -121.9066,
-      timezone: 'America/Los_Angeles',
-      region: 'California'
-    }
-  },
+  settings: mockSettings,
   onDateClick: vi.fn()
 };
 
@@ -233,5 +238,30 @@ describe('CalendarDisplayManager', () => {
 
     const calendar = screen.getByRole('main');
     expect(calendar).toHaveAttribute('aria-label', 'Panchangam calendar');
+  });
+
+  it('clamps out-of-range progress values in the visible indicator', () => {
+    render(
+      <CalendarDisplayManager
+        loading={false}
+        hasData={true}
+        error={null}
+        errorState={mockErrorState}
+        isProgressiveLoading={true}
+        progress={143}
+        loadedCount={60}
+        totalCount={42}
+        retry={vi.fn()}
+        calendarProps={mockCalendarProps}
+      />
+    );
+
+    const progressBar = screen.getByRole('progressbar');
+    const progressFill = progressBar.querySelector('[style*="width"]');
+
+    expect(progressBar).toHaveAttribute('aria-valuenow', '100');
+    expect(progressBar).toHaveAttribute('aria-label', 'Loading calendar data: 100% complete');
+    expect(screen.getByText('42/42 days loaded (100%)')).toBeInTheDocument();
+    expect(progressFill).toHaveStyle({ width: '100%' });
   });
 });

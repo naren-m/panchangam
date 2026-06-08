@@ -4,11 +4,13 @@ coverage.out
 *.coverage
 
 # Build artifacts
-panchangam
-panchangam-cli
-panchangam-cli-enhanced
-panchangam-gateway
-panchangam-grpc
+/panchangam
+/panchangam-cli
+/panchangam-cli-enhanced
+/panchangam-gateway
+/panchangam-grpc
+/gateway-server
+/grpc-server
 .build-cache/
 /bin/
 /dist/
@@ -47,6 +49,7 @@ go.work
 
 # Log files
 *.log
+collector-output.txt
 
 # Dependency directories
 vendor/

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Settings, Clock, Maximize2, Minimize2 } from 'lucide-react';
+import { EyeOff, Settings, Maximize2, Minimize2 } from 'lucide-react';
 import SkySphere from './SkySphere';
 import { 
   Observer, 
@@ -162,14 +162,14 @@ export const SkyVisualizationContainer: React.FC<SkyVisualizationContainerProps>
 
         setCelestialObjects(sampleObjects);
         setLoading(false);
-      } catch (err) {
+      } catch {
         setError('Failed to load celestial data');
         setLoading(false);
       }
     };
 
     fetchPlanetaryData();
-  }, [date]);
+  }, [timeConfig.date]);
 
   // Time animation
   useEffect(() => {
@@ -337,7 +337,7 @@ export const SkyVisualizationContainer: React.FC<SkyVisualizationContainerProps>
                 celestialObjects.find(obj => obj.id === 'sun')?.coordinates.ecliptic?.longitude || 0
               ).symbol} {getZodiacInfo(
                 celestialObjects.find(obj => obj.id === 'sun')?.coordinates.ecliptic?.longitude || 0
-              ).westernName} • {getZodiacInfo(
+              ).westernName} - {getZodiacInfo(
                 celestialObjects.find(obj => obj.id === 'sun')?.coordinates.ecliptic?.longitude || 0
               ).element}
             </div>
@@ -349,7 +349,7 @@ export const SkyVisualizationContainer: React.FC<SkyVisualizationContainerProps>
             <div className="font-medium">Current Nakshatra: {getNakshatraInfo(
               celestialObjects.find(obj => obj.id === 'moon')?.coordinates.ecliptic?.longitude || 0
             ).name}</div>
-            <div className="text-xs text-gray-400">#{currentNakshatra} • {
+            <div className="text-xs text-gray-400">#{currentNakshatra} - {
               getNakshatraInfo(
                 celestialObjects.find(obj => obj.id === 'moon')?.coordinates.ecliptic?.longitude || 0
               ).deity
@@ -358,7 +358,7 @@ export const SkyVisualizationContainer: React.FC<SkyVisualizationContainerProps>
         )}
         
         <div className="text-xs text-gray-400 mt-2">
-          Drag to rotate • Scroll to zoom
+          Drag to rotate - Scroll to zoom
         </div>
       </div>
     </div>

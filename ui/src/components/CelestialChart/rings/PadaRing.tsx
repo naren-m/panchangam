@@ -9,7 +9,7 @@
  */
 
 import React, { useMemo, useCallback, useState } from 'react';
-import type { PadaRingProps, Point, PadaInfo } from '../types';
+import type { PadaRingProps } from '../types';
 import {
   createArcSegmentPath,
   createPadaBoundariesPath,
@@ -17,7 +17,7 @@ import {
   distanceFromCenter,
   normalizeAngle
 } from '../utils/geometryHelpers';
-import { getAllPadas, isPadaHighlighted, getPadaAtLongitude } from '../utils/chartCalculations';
+import { getAllPadas } from '../utils/chartCalculations';
 import { CHART_COLORS, DEGREES_PER_PADA } from '../types';
 import type { PanchangamElements } from '../../EclipticBeltVisualization/types/eclipticBelt';
 
@@ -27,11 +27,9 @@ interface ExtendedPadaRingProps extends PadaRingProps {
 
 export const PadaRing: React.FC<ExtendedPadaRingProps> = ({
   dimensions,
-  hoveredId,
   selectedId,
   onHover,
   onSelect,
-  currentPada,
   panchangam,
 }) => {
   const padas = useMemo(() => getAllPadas(), []);
@@ -124,7 +122,7 @@ export const PadaRing: React.FC<ExtendedPadaRingProps> = ({
     onHover(null, { x: 0, y: 0 });
   }, [onHover]);
 
-  const handleClick = useCallback((e: React.MouseEvent<SVGCircleElement>) => {
+  const handleClick = useCallback(() => {
     if (hoveredPadaIndex !== null) {
       onSelect(`pada-${padas[hoveredPadaIndex].number}`);
     }

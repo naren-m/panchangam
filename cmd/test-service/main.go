@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"io"
+	"os"
 	"time"
 
 	"github.com/naren-m/panchangam/observability"
@@ -12,7 +13,7 @@ import (
 )
 
 func main() {
-	fmt.Println("🚀 Testing Panchangam Service End-to-End")
+	fmt.Println("Testing Panchangam Service End-to-End")
 	fmt.Println("=========================================")
 
 	// Initialize observability for testing
@@ -61,15 +62,15 @@ func main() {
 	}
 
 	// Run tests
-	fmt.Println("🧪 Running Service Tests...")
+	fmt.Println("Running service tests...")
 	successCount := 0
 	totalTime := time.Duration(0)
 
 	for i, tc := range testCases {
-		fmt.Printf("\n📍 Test %d: %s\n", i+1, tc.name)
-		fmt.Printf("   📅 Date: %s\n", tc.request.Date)
-		fmt.Printf("   🌍 Location: %.4f, %.4f\n", tc.request.Latitude, tc.request.Longitude)
-		fmt.Printf("   🕐 Timezone: %s\n", tc.request.Timezone)
+		fmt.Printf("\nTest %d: %s\n", i+1, tc.name)
+		fmt.Printf("   Date: %s\n", tc.request.Date)
+		fmt.Printf("   Location: %.4f, %.4f\n", tc.request.Latitude, tc.request.Longitude)
+		fmt.Printf("   Timezone: %s\n", tc.request.Timezone)
 
 		start := time.Now()
 		ctx := context.Background()
@@ -78,44 +79,46 @@ func main() {
 		totalTime += duration
 
 		if err != nil {
-			fmt.Printf("   ❌ ERROR: %v\n", err)
+			fmt.Printf("   FAIL: %v\n", err)
 			continue
 		}
 
 		data := response.PanchangamData
 		if data == nil {
-			fmt.Printf("   ❌ ERROR: No data in response\n")
+			fmt.Printf("   FAIL: no data in response\n")
 			continue
 		}
 
 		// Validate response
-		fmt.Printf("   ✅ SUCCESS (⏱️  %v)\n", duration)
-		fmt.Printf("      🌙 Tithi: %s\n", data.Tithi)
-		fmt.Printf("      ⭐ Nakshatra: %s\n", data.Nakshatra)
-		fmt.Printf("      🔗 Yoga: %s\n", data.Yoga)
-		fmt.Printf("      📏 Karana: %s\n", data.Karana)
-		fmt.Printf("      🌅 Sunrise: %s\n", data.SunriseTime)
-		fmt.Printf("      🌇 Sunset: %s\n", data.SunsetTime)
-		fmt.Printf("      📋 Events: %d\n", len(data.Events))
+		fmt.Printf("   PASS: completed in %v\n", duration)
+		fmt.Printf("      Tithi: %s\n", data.Tithi)
+		fmt.Printf("      Nakshatra: %s\n", data.Nakshatra)
+		fmt.Printf("      Yoga: %s\n", data.Yoga)
+		fmt.Printf("      Karana: %s\n", data.Karana)
+		fmt.Printf("      Sunrise: %s\n", data.SunriseTime)
+		fmt.Printf("      Sunset: %s\n", data.SunsetTime)
+		fmt.Printf("      Events: %d\n", len(data.Events))
 
 		successCount++
 	}
 
-	fmt.Println("\n📊 Test Results Summary")
+	fmt.Println("\nTest Results Summary")
 	fmt.Println("======================")
-	fmt.Printf("✅ Successful: %d/%d\n", successCount, len(testCases))
-	fmt.Printf("⏱️  Total Time: %v\n", totalTime)
-	fmt.Printf("⚡ Average Time: %v\n", totalTime/time.Duration(len(testCases)))
+	fmt.Printf("Successful: %d/%d\n", successCount, len(testCases))
+	fmt.Printf("Total Time: %v\n", totalTime)
+	fmt.Printf("Average Time: %v\n", totalTime/time.Duration(len(testCases)))
 
 	if successCount == len(testCases) {
-		fmt.Println("🎉 All tests passed! Service is working correctly.")
+		fmt.Println("All tests passed. Service is working correctly.")
 	} else {
-		fmt.Printf("⚠️  %d tests failed. Check error messages above.\n", len(testCases)-successCount)
-		log.Fatal("Service test failed")
+		if err := writeServiceTestFailure(os.Stderr, len(testCases)-successCount); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write service test failure: %v\n", err)
+		}
+		os.Exit(1)
 	}
 
 	// Test performance
-	fmt.Println("\n🏃 Performance Test")
+	fmt.Println("\nPerformance Test")
 	fmt.Println("===================")
 	performanceRuns := 10
 	performanceStart := time.Now()
@@ -131,16 +134,24 @@ func main() {
 	performanceDuration := time.Since(performanceStart)
 	avgPerRequest := performanceDuration / time.Duration(performanceRuns)
 
-	fmt.Printf("🏁 Performance Results:\n")
-	fmt.Printf("   📊 %d requests in %v\n", performanceRuns, performanceDuration)
-	fmt.Printf("   ⚡ Average: %v per request\n", avgPerRequest)
-	fmt.Printf("   🚀 Rate: %.1f requests/second\n", float64(performanceRuns)/performanceDuration.Seconds())
+	fmt.Printf("Performance Results:\n")
+	fmt.Printf("   Requests: %d in %v\n", performanceRuns, performanceDuration)
+	fmt.Printf("   Average: %v per request\n", avgPerRequest)
+	fmt.Printf("   Rate: %.1f requests/second\n", float64(performanceRuns)/performanceDuration.Seconds())
 
 	if avgPerRequest < 50*time.Millisecond {
-		fmt.Println("✅ Performance target met (< 50ms average)")
+		fmt.Println("PASS: performance target met (< 50ms average)")
 	} else {
-		fmt.Printf("⚠️  Performance target missed (average %v > 50ms)\n", avgPerRequest)
+		fmt.Printf("WARN: performance target missed (average %v > 50ms)\n", avgPerRequest)
 	}
 
-	fmt.Println("\n🎯 Service validation complete!")
+	fmt.Println("\nService validation complete.")
+}
+
+func writeServiceTestFailure(w io.Writer, failedTests int) error {
+	if _, err := fmt.Fprintf(w, "WARN: %d tests failed. Check error messages above.\n", failedTests); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(w, "Service test failed")
+	return err
 }

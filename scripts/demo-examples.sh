@@ -3,7 +3,7 @@
 # Demo script showing various sunrise/sunset calculation examples
 # Make sure the panchangam server is running before executing this script
 
-echo "🌅 Panchangam Sunrise/Sunset Demo Examples"
+echo "Panchangam Sunrise/Sunset Demo Examples"
 echo "========================================="
 echo ""
 
@@ -11,10 +11,10 @@ echo ""
 run_demo() {
     local description="$1"
     shift
-    echo "📍 $description"
-    echo "Command: go run cmd/sunrise-demo/main.go $*"
+    echo "Example: $description"
+    echo "Command: go run ./cmd/sunrise-demo $*"
     echo "----------------------------------------"
-    go run cmd/sunrise-demo/main.go "$@"
+    go run ./cmd/sunrise-demo "$@"
     echo ""
     echo "Press Enter to continue..."
     read -r
@@ -22,16 +22,16 @@ run_demo() {
 }
 
 # Check if server is running
-echo "🔍 Checking if panchangam server is running..."
+echo "Checking if panchangam server is running..."
 if ! pgrep -f "panchangam" > /dev/null; then
-    echo "⚠️  Server not detected. Please start the server first:"
-    echo "   go run main.go"
+    echo "WARN: server not detected. Please start the server first:"
+    echo "   go run ./cmd/server"
     echo ""
     echo "Press Enter when server is running..."
     read -r
 fi
 
-echo "🚀 Starting demo examples..."
+echo "Starting demo examples..."
 echo ""
 
 # Example 1: Default location (New York)
@@ -68,13 +68,13 @@ run_demo "Ushuaia, Argentina (Southern high latitude)" -lat -54.8019 -lon -68.30
 # Example 6: Different seasons
 run_demo "Equator on Equinox" -lat 0.0 -lon 0.0 -tz "UTC" -date 2024-03-20
 
-echo "🎉 Demo completed!"
+echo "Demo completed."
 echo ""
-echo "💡 Tips:"
-echo "• Use -location for quick predefined locations"
-echo "• Specify -date for historical dates (YYYY-MM-DD)"
-echo "• All times are returned in UTC for consistency"
-echo "• Day length is calculated automatically"
-echo "• The algorithm handles polar regions correctly"
+echo "Tips:"
+echo "- Use -location for quick predefined locations"
+echo "- Specify -date for historical dates (YYYY-MM-DD)"
+echo "- All times are returned in UTC for consistency"
+echo "- Day length is calculated automatically"
+echo "- The algorithm handles polar regions correctly"
 echo ""
-echo "📚 For more examples, see cmd/sunrise-demo/README.md"
+echo "For more examples, see cmd/sunrise-demo/README.md"

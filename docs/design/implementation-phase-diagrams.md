@@ -2,7 +2,7 @@
 
 This document provides detailed Mermaid diagrams for each implementation phase of the Panchangam project.
 
-## 🎯 Phase Implementation Overview
+## Phase Implementation Overview
 
 ### **Implementation Phases Timeline**
 
@@ -38,20 +38,20 @@ gantt
     Documentation              :phase4d, 2024-11-15, 2024-12-15
 ```
 
-## 🏗️ Phase 1: Foundation Architecture
+##  Phase 1: Foundation Architecture
 
 ### **Foundation Components Flow**
 
 ```mermaid
 flowchart TD
-    subgraph "Current Foundation (✅ Completed)"
+    subgraph "Current Foundation (Completed)"
         A[Sunrise/Sunset Calculations]
         B[OpenTelemetry Tracing]
         C[Service Logging]
         D[Observability Package]
     end
     
-    subgraph "In Progress Foundation (🔄)"
+    subgraph "In Progress Foundation (In Progress )"
         E[Ephemeris Integration]
         F[Sun/Moon Longitude Calculations]
         G[Time Zone Handling]
@@ -125,7 +125,7 @@ sequenceDiagram
     EphemerisManager-->>Service: PlanetaryPositions
 ```
 
-## 🌟 Phase 2: Core Panchangam Architecture
+## Phase 2: Core Panchangam Architecture
 
 ### **Five Elements Calculation Flow**
 
@@ -222,7 +222,7 @@ sequenceDiagram
     TithiCalc-->>Service: TithiResult
 ```
 
-## 🌍 Phase 3: Regional & Events Architecture
+## Phase 3: Regional & Events Architecture
 
 ### **Regional Variations System**
 
@@ -325,7 +325,7 @@ sequenceDiagram
     EventGen-->>Service: EventList
 ```
 
-## 🚀 Phase 4: Advanced Features Architecture
+## Phase 4: Advanced Features Architecture
 
 ### **Advanced Features Integration**
 
@@ -474,7 +474,7 @@ flowchart TB
     style R fill:#e8f5e8
 ```
 
-## 📊 Implementation Progress Tracking
+## Implementation Progress Tracking
 
 ### **Current Status Dashboard**
 
@@ -491,10 +491,10 @@ pie title Implementation Progress by Phase
 ```mermaid
 graph LR
     subgraph "Phase 1 Dependencies"
-        A[Sunrise/Sunset ✅]
-        B[OpenTelemetry ✅]
-        C[Service Logging ✅]
-        D[Ephemeris Integration 🔄]
+        A[Sunrise/Sunset PASS ]
+        B[OpenTelemetry PASS ]
+        C[Service Logging PASS ]
+        D[Ephemeris Integration In Progress ]
     end
     
     subgraph "Phase 2 Dependencies"

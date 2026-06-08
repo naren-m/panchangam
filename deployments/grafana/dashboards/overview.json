@@ -68,17 +68,6 @@
             "legendFormat": "Hit Rate"
           }
         ]
-      },
-      {
-        "id": 6,
-        "title": "Database Connections",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "pg_stat_database_numbackends",
-            "legendFormat": "Active Connections"
-          }
-        ]
       }
     ],
     "refresh": "30s",

@@ -1,4 +1,29 @@
 import { PanchangamData, Settings } from '../types/panchangam';
+import { parseApiDate } from './dateHelpers';
+
+function csvCell(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function exportFilename(year: number, month: number, locationName: string, extension: string): string {
+  const monthNumber = String(month + 1).padStart(2, '0');
+  const safeLocationName = locationName.replace(/[^a-z0-9]/gi, '_');
+
+  return `panchangam_${year}-${monthNumber}_${safeLocationName}.${extension}`;
+}
+
+function downloadTextFile(content: string, type: string, filename: string): void {
+  const blob = new Blob([content], { type });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 
 /**
  * Export panchangam data to CSV format
@@ -31,7 +56,7 @@ export function exportToCSV(
 
   // Convert data to CSV rows
   const rows = sortedEntries.map(([dateStr, data]) => {
-    const date = new Date(dateStr);
+    const date = parseApiDate(dateStr);
     const formattedDate = date.toLocaleDateString(settings.locale, {
       year: 'numeric',
       month: '2-digit',
@@ -64,22 +89,14 @@ export function exportToCSV(
   // Combine headers and rows
   const csvContent = [
     headers.join(','),
-    ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ...rows.map(row => row.map(csvCell).join(','))
   ].join('\n');
 
-  // Create and download file
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-
-  const filename = `panchangam_${year}-${String(month + 1).padStart(2, '0')}_${settings.location.name.replace(/[^a-z0-9]/gi, '_')}.csv`;
-
-  link.setAttribute('href', url);
-  link.setAttribute('download', filename);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  downloadTextFile(
+    csvContent,
+    'text/csv;charset=utf-8;',
+    exportFilename(year, month, settings.location.name, 'csv')
+  );
 }
 
 /**
@@ -109,19 +126,11 @@ export function exportToJSON(
   // Convert to JSON with pretty printing
   const jsonContent = JSON.stringify(exportData, null, 2);
 
-  // Create and download file
-  const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-
-  const filename = `panchangam_${year}-${String(month + 1).padStart(2, '0')}_${settings.location.name.replace(/[^a-z0-9]/gi, '_')}.json`;
-
-  link.setAttribute('href', url);
-  link.setAttribute('download', filename);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  downloadTextFile(
+    jsonContent,
+    'application/json;charset=utf-8;',
+    exportFilename(year, month, settings.location.name, 'json')
+  );
 }
 
 /**

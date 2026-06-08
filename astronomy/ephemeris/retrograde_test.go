@@ -11,9 +11,9 @@ func TestDetectRetrogradeMotion(t *testing.T) {
 	detector := NewRetrogradeDetector(manager)
 
 	tests := []struct {
-		name     string
-		date     time.Time
-		planet   string
+		name       string
+		date       time.Time
+		planet     string
 		wantMotion RetrogradeMotion // Can be empty if we just want to verify it works
 	}{
 		{

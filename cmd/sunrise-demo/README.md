@@ -7,21 +7,21 @@ A simple command-line client to demonstrate the sunrise/sunset calculation API.
 ### 1. Start the server
 ```bash
 # In the project root
-go run main.go
+go run ./cmd/server
 ```
 
 ### 2. Run the demo client
 ```bash
 # Basic usage with default location (New York)
-go run cmd/sunrise-demo/main.go
+go run ./cmd/sunrise-demo
 
 # Specify custom coordinates
-go run cmd/sunrise-demo/main.go -lat 51.5074 -lon -0.1278 -tz "Europe/London"
+go run ./cmd/sunrise-demo -lat 51.5074 -lon -0.1278 -tz "Europe/London"
 
 # Use predefined locations
-go run cmd/sunrise-demo/main.go -location london
-go run cmd/sunrise-demo/main.go -location tokyo
-go run cmd/sunrise-demo/main.go -location mumbai
+go run ./cmd/sunrise-demo -location london
+go run ./cmd/sunrise-demo -location tokyo
+go run ./cmd/sunrise-demo -location mumbai
 ```
 
 ## Usage Examples
@@ -29,46 +29,46 @@ go run cmd/sunrise-demo/main.go -location mumbai
 ### Predefined Locations
 ```bash
 # New York
-go run cmd/sunrise-demo/main.go -location nyc
+go run ./cmd/sunrise-demo -location nyc
 
 # London
-go run cmd/sunrise-demo/main.go -location london
+go run ./cmd/sunrise-demo -location london
 
 # Tokyo
-go run cmd/sunrise-demo/main.go -location tokyo
+go run ./cmd/sunrise-demo -location tokyo
 
 # Sydney
-go run cmd/sunrise-demo/main.go -location sydney
+go run ./cmd/sunrise-demo -location sydney
 
 # Mumbai
-go run cmd/sunrise-demo/main.go -location mumbai
+go run ./cmd/sunrise-demo -location mumbai
 
 # Cape Town
-go run cmd/sunrise-demo/main.go -location capetown
+go run ./cmd/sunrise-demo -location capetown
 ```
 
 ### Custom Coordinates
 ```bash
 # San Francisco
-go run cmd/sunrise-demo/main.go -lat 37.7749 -lon -122.4194 -tz "America/Los_Angeles"
+go run ./cmd/sunrise-demo -lat 37.7749 -lon -122.4194 -tz "America/Los_Angeles"
 
 # Paris
-go run cmd/sunrise-demo/main.go -lat 48.8566 -lon 2.3522 -tz "Europe/Paris"
+go run ./cmd/sunrise-demo -lat 48.8566 -lon 2.3522 -tz "Europe/Paris"
 
 # Chennai
-go run cmd/sunrise-demo/main.go -lat 13.0827 -lon 80.2707 -tz "Asia/Kolkata"
+go run ./cmd/sunrise-demo -lat 13.0827 -lon 80.2707 -tz "Asia/Kolkata"
 ```
 
 ### Historical Dates
 ```bash
 # January 15, 2020 (validation date)
-go run cmd/sunrise-demo/main.go -location london -date 2020-01-15
+go run ./cmd/sunrise-demo -location london -date 2020-01-15
 
 # Summer solstice
-go run cmd/sunrise-demo/main.go -location nyc -date 2024-06-21
+go run ./cmd/sunrise-demo -location nyc -date 2024-06-21
 
 # Winter solstice
-go run cmd/sunrise-demo/main.go -location london -date 2024-12-21
+go run ./cmd/sunrise-demo -location london -date 2024-12-21
 ```
 
 ## Command Line Options
@@ -96,39 +96,37 @@ go run cmd/sunrise-demo/main.go -location london -date 2024-12-21
 ## Sample Output
 
 ```
-🌅 Sunrise/Sunset Calculator
-═══════════════════════════════
-📅 Date: 2024-07-17
-📍 Location: 51.5074°N, -0.1278°E
-🌐 Timezone: Europe/London
-🔗 Server: localhost:8080
-═══════════════════════════════
+Sunrise/Sunset Calculator
+-------------------------
+Date: 2024-07-17
+Location: 51.5074°N, -0.1278°E
+Timezone: Europe/London
+Server: localhost:8080
+-------------------------
 
-📊 Results:
-┌─────────────────────────────────┐
-│ 🌅 Sunrise: 05:15:32           │
-│ 🌇 Sunset:  20:58:45           │
-└─────────────────────────────────┘
-☀️  Day Length: 15h43m13s
+Results:
+  Sunrise: 05:15:32
+  Sunset:  20:58:45
+Day Length: 15h43m13s
 
-📜 Traditional Panchangam Data:
-• Tithi: Some Tithi
-• Nakshatra: Some Nakshatra
-• Yoga: Some Yoga
-• Karana: Some Karana
+Traditional Panchangam Data:
+- Tithi: Some Tithi
+- Nakshatra: Some Nakshatra
+- Yoga: Some Yoga
+- Karana: Some Karana
 
-📅 Events:
-• Some Event 1 at 08:00:00
-• Some Event 2 at 12:00:00
+Events:
+- Some Event 1 at 08:00:00
+- Some Event 2 at 12:00:00
 
-✨ Calculation completed successfully!
+Calculation completed successfully.
 ```
 
 ## Building
 
 ```bash
 # Build the demo client
-go build -o sunrise-demo cmd/sunrise-demo/main.go
+go build -o sunrise-demo ./cmd/sunrise-demo
 
 # Run the binary
 ./sunrise-demo -location tokyo -date 2024-06-21

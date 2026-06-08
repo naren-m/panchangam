@@ -44,9 +44,9 @@ export const NetworkError: React.FC<NetworkErrorProps> = ({
               </div>
               <div className="bg-gray-900 text-gray-100 rounded-md p-3 font-mono text-sm overflow-x-auto">
                 <div className="text-gray-400"># Start the gRPC server first</div>
-                <div>go run cmd/grpc-server/main.go</div>
+                <div>go run ./cmd/server</div>
                 <div className="mt-2 text-gray-400"># Then start the HTTP gateway</div>
-                <div>go run cmd/gateway/main.go</div>
+                <div>go run ./cmd/gateway</div>
               </div>
             </div>
           )}

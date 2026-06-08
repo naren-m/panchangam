@@ -2,6 +2,7 @@ package validation
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -78,11 +79,46 @@ func TestValidationSuiteReport(t *testing.T) {
 	t.Logf("Generated report:\n%s", report)
 }
 
+func TestValidationSuiteExportToJSON(t *testing.T) {
+	suite := &ValidationSuite{
+		Name:        "JSON Export Suite",
+		TotalTests:  1,
+		PassedTests: 1,
+		SuccessRate: 100,
+		TestedAt:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+		Results: []ValidationResult{
+			{
+				TestName:        "Tithi Validation",
+				Passed:          true,
+				Expected:        "Panchami",
+				Actual:          "Panchami",
+				ErrorUnit:       "name mismatch",
+				CalculationType: "Tithi",
+			},
+		},
+	}
+
+	data, err := suite.ExportToJSON()
+	if err != nil {
+		t.Fatalf("expected JSON export to succeed, got error: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("expected non-empty JSON export")
+	}
+
+	var exported map[string]interface{}
+	if err := json.Unmarshal(data, &exported); err != nil {
+		t.Fatalf("expected parseable JSON export, got error: %v", err)
+	}
+	if exported["name"] != suite.Name {
+		t.Fatalf("expected exported suite name %q, got %v", suite.Name, exported["name"])
+	}
+}
+
 func TestReferenceData(t *testing.T) {
 	location := astronomy.Location{
 		Latitude:  13.0827,
 		Longitude: 80.2707,
-		Name:      "Chennai",
 	}
 
 	ref := ReferenceData{
@@ -105,8 +141,8 @@ func TestReferenceData(t *testing.T) {
 		t.Errorf("Expected tithi 'Pratipada', got %s", ref.TithiName)
 	}
 
-	if ref.Location.Name != "Chennai" {
-		t.Errorf("Expected location 'Chennai', got %s", ref.Location.Name)
+	if ref.Location.Latitude != location.Latitude || ref.Location.Longitude != location.Longitude {
+		t.Errorf("Expected location %+v, got %+v", location, ref.Location)
 	}
 }
 
@@ -152,12 +188,11 @@ func TestValidatorCreation(t *testing.T) {
 	// Create test components
 	manager := createTestEphemerisManager(t)
 
-	tithiCalc := astronomy.NewTithiCalculator(manager, nil)
-	nakshatraCalc := astronomy.NewNakshatraCalculator(manager, nil)
-	yogaCalc := astronomy.NewYogaCalculator(manager, nil)
-	karanaCalc := astronomy.NewKaranaCalculator(manager, nil)
+	tithiCalc := astronomy.NewTithiCalculator(manager)
+	nakshatraCalc := astronomy.NewNakshatraCalculator(manager)
+	yogaCalc := astronomy.NewYogaCalculator(manager)
+	karanaCalc := astronomy.NewKaranaCalculator(manager)
 	varaCalc := astronomy.NewVaraCalculator()
-	sunriseCalc := astronomy.NewSunriseCalculator(manager, nil)
 
 	validator := NewValidator(
 		tithiCalc,
@@ -165,7 +200,6 @@ func TestValidatorCreation(t *testing.T) {
 		yogaCalc,
 		karanaCalc,
 		varaCalc,
-		sunriseCalc,
 		manager,
 	)
 
@@ -186,7 +220,7 @@ func TestValidatePlanetaryPosition(t *testing.T) {
 	manager := createTestEphemerisManager(t)
 
 	validator := NewValidator(
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil,
 		manager,
 	)
 
@@ -216,6 +250,47 @@ func TestValidatePlanetaryPosition(t *testing.T) {
 	t.Logf("  Expected: %v", result.Expected)
 	t.Logf("  Actual: %v", result.Actual)
 	t.Logf("  Error: %.6f %s", result.Error, result.ErrorUnit)
+}
+
+func TestNameValidationReportsMismatchError(t *testing.T) {
+	manager := createTestEphemerisManager(t)
+	validator := NewValidator(
+		astronomy.NewTithiCalculator(manager),
+		astronomy.NewNakshatraCalculator(manager),
+		nil,
+		nil,
+		nil,
+		manager,
+	)
+
+	ref := ReferenceData{
+		Source:        "Test Source",
+		Date:          time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+		TithiName:     "Reference Tithi Not Produced",
+		NakshatraName: "Reference Nakshatra Not Produced",
+	}
+
+	tithiResult := validator.ValidateTithi(context.Background(), ref, 0)
+	if tithiResult.Passed {
+		t.Fatal("expected mismatched tithi name to fail validation")
+	}
+	if tithiResult.Error <= 0 {
+		t.Fatalf("expected mismatched tithi name to report non-zero error, got %.2f", tithiResult.Error)
+	}
+	if tithiResult.ErrorUnit != "name mismatch" {
+		t.Fatalf("expected tithi error unit to describe a name mismatch, got %q", tithiResult.ErrorUnit)
+	}
+
+	nakshatraResult := validator.ValidateNakshatra(context.Background(), ref, 0)
+	if nakshatraResult.Passed {
+		t.Fatal("expected mismatched nakshatra name to fail validation")
+	}
+	if nakshatraResult.Error <= 0 {
+		t.Fatalf("expected mismatched nakshatra name to report non-zero error, got %.2f", nakshatraResult.Error)
+	}
+	if nakshatraResult.ErrorUnit != "name mismatch" {
+		t.Fatalf("expected nakshatra error unit to describe a name mismatch, got %q", nakshatraResult.ErrorUnit)
+	}
 }
 
 func TestValidationSuiteStatistics(t *testing.T) {
@@ -266,7 +341,7 @@ func TestInvalidPlanetValidation(t *testing.T) {
 	manager := createTestEphemerisManager(t)
 
 	validator := NewValidator(
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil,
 		manager,
 	)
 
@@ -308,7 +383,7 @@ func BenchmarkValidatePlanetaryPosition(b *testing.B) {
 	manager := createTestEphemerisManager(b)
 
 	validator := NewValidator(
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil,
 		manager,
 	)
 
@@ -331,16 +406,8 @@ func BenchmarkValidatePlanetaryPosition(b *testing.B) {
 func createTestEphemerisManager(tb testing.TB) *ephemeris.Manager {
 	tb.Helper()
 
-	primary, err := ephemeris.NewJPLProvider()
-	if err != nil {
-		tb.Skipf("JPL provider not available: %v", err)
-	}
-
-	fallback, err := ephemeris.NewSwissProvider()
-	if err != nil {
-		tb.Logf("Swiss provider not available, using only JPL: %v", err)
-		fallback = nil
-	}
+	primary := ephemeris.NewJPLProvider()
+	fallback := ephemeris.NewSwissProvider()
 
 	cache := ephemeris.NewMemoryCache(100, 1*time.Hour)
 

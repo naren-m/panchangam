@@ -14,7 +14,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onSettingsChange,
   onClose
 }) => {
-  const handleChange = (key: keyof Settings, value: any) => {
+  const handleChange = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     onSettingsChange({
       ...settings,
       [key]: value
@@ -55,7 +55,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   name="calculation_method"
                   value="Drik"
                   checked={settings.calculation_method === 'Drik'}
-                  onChange={(e) => handleChange('calculation_method', e.target.value)}
+                  onChange={(e) => handleChange('calculation_method', e.target.value as Settings['calculation_method'])}
                   className="text-orange-500 focus:ring-orange-500"
                 />
                 <div>
@@ -69,7 +69,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   name="calculation_method"
                   value="Vakya"
                   checked={settings.calculation_method === 'Vakya'}
-                  onChange={(e) => handleChange('calculation_method', e.target.value)}
+                  onChange={(e) => handleChange('calculation_method', e.target.value as Settings['calculation_method'])}
                   className="text-orange-500 focus:ring-orange-500"
                 />
                 <div>
@@ -88,7 +88,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </label>
             <select
               value={settings.locale}
-              onChange={(e) => handleChange('locale', e.target.value)}
+              onChange={(e) => handleChange('locale', e.target.value as Settings['locale'])}
               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             >
               <option value="en">English</option>
@@ -109,7 +109,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </label>
             <select
               value={settings.calendar_system || 'purnimanta'}
-              onChange={(e) => handleChange('calendar_system', e.target.value)}
+              onChange={(e) => handleChange('calendar_system', e.target.value as Settings['calendar_system'])}
               className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             >
               <option value="purnimanta">Purnimanta (North India - Month ends on Full Moon)</option>
@@ -132,7 +132,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   name="time_format"
                   value="12"
                   checked={settings.time_format === '12'}
-                  onChange={(e) => handleChange('time_format', e.target.value)}
+                  onChange={(e) => handleChange('time_format', e.target.value as Settings['time_format'])}
                   className="text-orange-500 focus:ring-orange-500"
                 />
                 <span>12-hour (AM/PM)</span>
@@ -143,7 +143,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   name="time_format"
                   value="24"
                   checked={settings.time_format === '24'}
-                  onChange={(e) => handleChange('time_format', e.target.value)}
+                  onChange={(e) => handleChange('time_format', e.target.value as Settings['time_format'])}
                   className="text-orange-500 focus:ring-orange-500"
                 />
                 <span>24-hour</span>

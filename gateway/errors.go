@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -30,10 +31,7 @@ type ErrorDetails struct {
 // customErrorHandler handles gRPC errors and converts them to HTTP responses
 func customErrorHandler(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, r *http.Request, err error) {
 	// Extract request ID from headers
-	requestID := r.Header.Get("X-Request-Id")
-	if requestID == "" {
-		requestID = generateRequestID()
-	}
+	requestID := requestIDFromRequest(r)
 
 	// Set common headers
 	w.Header().Set("Content-Type", "application/json")
@@ -41,7 +39,7 @@ func customErrorHandler(ctx context.Context, mux *runtime.ServeMux, marshaler ru
 
 	// Convert gRPC error to HTTP status and error response
 	httpStatus, apiError := convertGRPCError(err, requestID, r.URL.Path)
-	
+
 	// Set HTTP status code
 	w.WriteHeader(httpStatus)
 
@@ -50,7 +48,9 @@ func customErrorHandler(ctx context.Context, mux *runtime.ServeMux, marshaler ru
 		logger.Error("Failed to encode error response", "error", err, "request_id", requestID)
 		// Fallback to plain text error
 		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprintf(w, "Internal server error")
+		if writeErr := writePlainErrorFallback(w, "Internal server error"); writeErr != nil {
+			logger.Error("Failed to write fallback error response", "error", writeErr, "request_id", requestID)
+		}
 	}
 
 	// Log the error
@@ -63,6 +63,11 @@ func customErrorHandler(ctx context.Context, mux *runtime.ServeMux, marshaler ru
 		"path", r.URL.Path,
 		"method", r.Method,
 	)
+}
+
+func writePlainErrorFallback(w http.ResponseWriter, message string) error {
+	_, err := w.Write([]byte(message))
+	return err
 }
 
 // convertGRPCError converts a gRPC error to HTTP status code and API error
@@ -114,14 +119,14 @@ func mapGRPCCodeToHTTP(s *status.Status) (int, string, string, map[string]interf
 
 	case codes.NotFound:
 		details = map[string]interface{}{
-			"resource": "The requested resource was not found",
+			"resource":  "The requested resource was not found",
 			"grpc_code": "NOT_FOUND",
 		}
 		return http.StatusNotFound, "RESOURCE_NOT_FOUND", "The requested resource was not found", details
 
 	case codes.AlreadyExists:
 		details = map[string]interface{}{
-			"conflict": "Resource already exists",
+			"conflict":  "Resource already exists",
 			"grpc_code": "ALREADY_EXISTS",
 		}
 		return http.StatusConflict, "RESOURCE_EXISTS", "The resource already exists", details
@@ -157,43 +162,43 @@ func mapGRPCCodeToHTTP(s *status.Status) (int, string, string, map[string]interf
 
 	case codes.OutOfRange:
 		details = map[string]interface{}{
-			"range": "Parameter out of valid range",
+			"range":     "Parameter out of valid range",
 			"grpc_code": "OUT_OF_RANGE",
 		}
 		return http.StatusBadRequest, "PARAMETER_OUT_OF_RANGE", "Parameter value is out of valid range", details
 
 	case codes.Unimplemented:
 		details = map[string]interface{}{
-			"feature": "Feature not implemented",
+			"feature":   "Feature not implemented",
 			"grpc_code": "UNIMPLEMENTED",
 		}
 		return http.StatusNotImplemented, "NOT_IMPLEMENTED", "This feature is not yet implemented", details
 
 	case codes.Internal:
 		details = map[string]interface{}{
-			"server": "Internal server error",
+			"server":    "Internal server error",
 			"grpc_code": "INTERNAL",
 		}
 		return http.StatusInternalServerError, "INTERNAL_ERROR", "An internal server error occurred", details
 
 	case codes.Unavailable:
 		details = map[string]interface{}{
-			"service": "Service temporarily unavailable",
-			"grpc_code": "UNAVAILABLE",
+			"service":     "Service temporarily unavailable",
+			"grpc_code":   "UNAVAILABLE",
 			"retry_after": 60,
 		}
 		return http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable", details
 
 	case codes.DataLoss:
 		details = map[string]interface{}{
-			"data": "Data loss detected",
+			"data":      "Data loss detected",
 			"grpc_code": "DATA_LOSS",
 		}
 		return http.StatusInternalServerError, "DATA_LOSS", "Data loss detected", details
 
 	case codes.DeadlineExceeded:
 		details = map[string]interface{}{
-			"timeout": "Request timeout",
+			"timeout":   "Request timeout",
 			"grpc_code": "DEADLINE_EXCEEDED",
 		}
 		return http.StatusGatewayTimeout, "REQUEST_TIMEOUT", "Request timed out", details
@@ -201,13 +206,13 @@ func mapGRPCCodeToHTTP(s *status.Status) (int, string, string, map[string]interf
 	case codes.Canceled:
 		details = map[string]interface{}{
 			"cancellation": "Request was cancelled",
-			"grpc_code": "CANCELLED",
+			"grpc_code":    "CANCELLED",
 		}
 		return http.StatusRequestTimeout, "REQUEST_CANCELLED", "Request was cancelled", details
 
 	default:
 		details = map[string]interface{}{
-			"unknown": "Unknown error occurred",
+			"unknown":   "Unknown error occurred",
 			"grpc_code": s.Code().String(),
 		}
 		return http.StatusInternalServerError, "UNKNOWN_ERROR", fmt.Sprintf("Unknown error: %s", s.Message()), details
@@ -216,47 +221,18 @@ func mapGRPCCodeToHTTP(s *status.Status) (int, string, string, map[string]interf
 
 // enhanceValidationMessage provides more specific validation error messages
 func enhanceValidationMessage(original string) string {
+	message := strings.ToLower(original)
+
 	switch {
-	case contains(original, "latitude"):
+	case strings.Contains(message, "latitude"):
 		return "Latitude must be between -90 and 90 degrees"
-	case contains(original, "longitude"):
+	case strings.Contains(message, "longitude"):
 		return "Longitude must be between -180 and 180 degrees"
-	case contains(original, "date"):
+	case strings.Contains(message, "date"):
 		return "Date must be in YYYY-MM-DD format"
-	case contains(original, "timezone"):
+	case strings.Contains(message, "timezone"):
 		return "Invalid timezone identifier"
 	default:
 		return original
 	}
-}
-
-// contains checks if a string contains a substring (case-insensitive)
-func contains(str, substr string) bool {
-	return len(str) >= len(substr) && 
-		   (str == substr || 
-		    (len(str) > len(substr) && 
-		     containsIgnoreCase(str, substr)))
-}
-
-func containsIgnoreCase(str, substr string) bool {
-	str = toLower(str)
-	substr = toLower(substr)
-	for i := 0; i <= len(str)-len(substr); i++ {
-		if str[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-func toLower(s string) string {
-	result := make([]byte, len(s))
-	for i := 0; i < len(s); i++ {
-		if s[i] >= 'A' && s[i] <= 'Z' {
-			result[i] = s[i] + 32
-		} else {
-			result[i] = s[i]
-		}
-	}
-	return string(result)
 }

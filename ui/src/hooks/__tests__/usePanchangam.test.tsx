@@ -1,22 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { usePanchangam, usePanchangamRange } from '../usePanchangam';
+import type { Settings } from '../../types/panchangam';
 
 // Mock the API service
-vi.mock('../../services/panchangamApi', () => ({
-  panchangamApi: {
+vi.mock('../../services/api/panchangamApiClient', () => ({
+  panchangamApiClient: {
     getPanchangam: vi.fn(),
     getPanchangamRange: vi.fn(),
   },
 }));
 
-// Import the mocked panchangamApi
-import { panchangamApi } from '../../services/panchangamApi';
-const mockPanchangamApi = panchangamApi as any;
+// Import the mocked API client
+import { panchangamApiClient } from '../../services/api/panchangamApiClient';
+const mockPanchangamApi = vi.mocked(panchangamApiClient);
 
 describe('usePanchangam', () => {
   const mockDate = new Date('2024-01-15');
-  const mockSettings = {
+  const mockSettings: Settings = {
     calculation_method: 'Drik' as const,
     locale: 'en',
     region: 'Tamil Nadu',
@@ -163,11 +164,10 @@ describe('usePanchangam', () => {
 
   describe('abort controller', () => {
     it('should cancel previous requests when new ones are made', async () => {
-      let resolveFirst: (value: any) => void;
-      let resolveSecond: (value: any) => void;
+      let resolveSecond: (value: typeof mockPanchangamData) => void = () => undefined;
 
-      const firstPromise = new Promise(resolve => { resolveFirst = resolve; });
-      const secondPromise = new Promise(resolve => { resolveSecond = resolve; });
+      const firstPromise = new Promise<typeof mockPanchangamData>(() => undefined);
+      const secondPromise = new Promise<typeof mockPanchangamData>(resolve => { resolveSecond = resolve; });
 
       mockPanchangamApi.getPanchangam
         .mockReturnValueOnce(firstPromise)
@@ -183,7 +183,7 @@ describe('usePanchangam', () => {
       rerender({ date: newDate });
 
       // Resolve second request
-      resolveSecond!(mockPanchangamData);
+      resolveSecond(mockPanchangamData);
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -199,7 +199,7 @@ describe('usePanchangam', () => {
 describe('usePanchangamRange', () => {
   const startDate = new Date('2024-01-01');
   const endDate = new Date('2024-01-03');
-  const mockSettings = {
+  const mockSettings: Settings = {
     calculation_method: 'Drik' as const,
     locale: 'en',
     region: 'Tamil Nadu',

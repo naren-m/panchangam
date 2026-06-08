@@ -1,6 +1,19 @@
-import React, { useRef, useEffect, useState } from 'react';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
+import {
+  BackSide,
+  BufferGeometry,
+  Color,
+  Material,
+  Mesh,
+  MeshBasicMaterial,
+  MeshPhongMaterial,
+  Object3D,
+  PerspectiveCamera,
+  Scene,
+  SphereGeometry,
+  WebGLRenderer,
+} from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { 
   SkySphereConfig, 
   CelestialObject, 
@@ -8,8 +21,13 @@ import {
   Observer,
   TimeConfig 
 } from '../../types/skyVisualization';
-import { eclipticToScreen } from '../../utils/astronomy/coordinateTransforms';
 import NakshatraVisualization from './NakshatraVisualization';
+import {
+  addCelestialEquator,
+  addCoordinateGrids,
+  addEclipticLine,
+  addHorizonLine,
+} from './skySphereGuides';
 import ZodiacVisualization from './ZodiacVisualization';
 
 interface SkySphereProps {
@@ -52,7 +70,6 @@ export const SkySphere: React.FC<SkySphereProps> = ({
   config = {},
   celestialObjects = [],
   observer,
-  timeConfig = { date: new Date(), speed: 1, paused: false },
   renderOptions = {},
   currentNakshatra,
   currentRashi,
@@ -60,17 +77,23 @@ export const SkySphere: React.FC<SkySphereProps> = ({
   className
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const sceneRef = useRef<Scene | null>(null);
+  const rendererRef = useRef<WebGLRenderer | null>(null);
+  const cameraRef = useRef<PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const frameIdRef = useRef<number>(0);
   
   const [isWebGLSupported, setIsWebGLSupported] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   
-  const mergedConfig = { ...defaultConfig, ...config };
-  const mergedRenderOptions = { ...defaultRenderOptions, ...renderOptions };
+  const mergedConfig = useMemo(
+    () => ({ ...defaultConfig, ...config }),
+    [config]
+  );
+  const mergedRenderOptions = useMemo(
+    () => ({ ...defaultRenderOptions, ...renderOptions }),
+    [renderOptions]
+  );
 
   // Check WebGL support
   useEffect(() => {
@@ -81,7 +104,7 @@ export const SkySphere: React.FC<SkySphereProps> = ({
         setIsWebGLSupported(false);
         onError?.(new Error('WebGL is not supported in this browser'));
       }
-    } catch (e) {
+    } catch {
       setIsWebGLSupported(false);
       onError?.(new Error('WebGL check failed'));
     }
@@ -89,18 +112,19 @@ export const SkySphere: React.FC<SkySphereProps> = ({
 
   // Initialize Three.js scene
   useEffect(() => {
-    if (!mountRef.current || !isWebGLSupported) return;
+    const mountNode = mountRef.current;
+    if (!mountNode || !isWebGLSupported) return;
 
-    const width = mountRef.current.clientWidth;
-    const height = mountRef.current.clientHeight;
+    const width = mountNode.clientWidth;
+    const height = mountNode.clientHeight;
 
     // Scene setup
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
+    const scene = new Scene();
+    scene.background = new Color(0x000000);
     sceneRef.current = scene;
 
     // Camera setup
-    const camera = new THREE.PerspectiveCamera(
+    const camera = new PerspectiveCamera(
       75, // FOV
       width / height, // Aspect ratio
       0.1, // Near
@@ -110,13 +134,13 @@ export const SkySphere: React.FC<SkySphereProps> = ({
     cameraRef.current = camera;
 
     // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ 
+    const renderer = new WebGLRenderer({
       antialias: true,
-      alpha: true 
+      alpha: true
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
-    mountRef.current.appendChild(renderer.domElement);
+    mountNode.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
     // Controls setup
@@ -129,7 +153,7 @@ export const SkySphere: React.FC<SkySphereProps> = ({
     controlsRef.current = controls;
 
     // Create sky sphere
-    const sphereGeometry = new THREE.SphereGeometry(
+    const sphereGeometry = new SphereGeometry(
       mergedConfig.radius,
       mergedConfig.segments,
       mergedConfig.rings
@@ -138,12 +162,12 @@ export const SkySphere: React.FC<SkySphereProps> = ({
     // Invert the sphere so we see it from inside
     sphereGeometry.scale(-1, 1, 1);
     
-    const sphereMaterial = new THREE.MeshBasicMaterial({
+    const sphereMaterial = new MeshBasicMaterial({
       color: 0x001122,
-      side: THREE.BackSide
+      side: BackSide
     });
     
-    const skySphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    const skySphere = new Mesh(sphereGeometry, sphereMaterial);
     scene.add(skySphere);
 
     // Add coordinate grids
@@ -170,10 +194,10 @@ export const SkySphere: React.FC<SkySphereProps> = ({
 
     // Handle window resize
     const handleResize = () => {
-      if (!mountRef.current || !camera || !renderer) return;
+      if (!camera || !renderer) return;
       
-      const newWidth = mountRef.current.clientWidth;
-      const newHeight = mountRef.current.clientHeight;
+      const newWidth = mountNode.clientWidth;
+      const newHeight = mountNode.clientHeight;
       
       camera.aspect = newWidth / newHeight;
       camera.updateProjectionMatrix();
@@ -205,8 +229,8 @@ export const SkySphere: React.FC<SkySphereProps> = ({
         cancelAnimationFrame(frameIdRef.current);
       }
       
-      if (mountRef.current && renderer) {
-        mountRef.current.removeChild(renderer.domElement);
+      if (renderer.domElement.parentElement === mountNode) {
+        mountNode.removeChild(renderer.domElement);
       }
       
       renderer?.dispose();
@@ -219,7 +243,7 @@ export const SkySphere: React.FC<SkySphereProps> = ({
     if (!sceneRef.current || !celestialObjects.length) return;
 
     // Remove existing celestial objects
-    const objectsToRemove: THREE.Object3D[] = [];
+    const objectsToRemove: Object3D[] = [];
     sceneRef.current.traverse((child) => {
       if (child.userData.isCelestialObject) {
         objectsToRemove.push(child);
@@ -239,34 +263,32 @@ export const SkySphere: React.FC<SkySphereProps> = ({
         const z = mergedConfig.radius * Math.sin(phi) * Math.sin(theta);
 
         // Create object based on type
-        let geometry: THREE.BufferGeometry;
-        let material: THREE.Material;
+        let geometry: BufferGeometry;
+        let material: Material;
         
         if (obj.type === 'star') {
           const size = obj.size || (6 - (obj.magnitude || 0)) * 0.5;
-          geometry = new THREE.SphereGeometry(size, 8, 8);
-          material = new THREE.MeshBasicMaterial({
-            color: obj.color || 0xffffff,
-            emissive: obj.color || 0xffffff,
-            emissiveIntensity: 0.8
+          geometry = new SphereGeometry(size, 8, 8);
+          material = new MeshBasicMaterial({
+            color: obj.color || 0xffffff
           });
         } else if (obj.type === 'planet') {
           const size = obj.size || 2;
-          geometry = new THREE.SphereGeometry(size, 16, 16);
-          material = new THREE.MeshPhongMaterial({
+          geometry = new SphereGeometry(size, 16, 16);
+          material = new MeshPhongMaterial({
             color: obj.color || 0xffaa00,
             emissive: obj.color || 0xffaa00,
             emissiveIntensity: 0.3
           });
         } else {
           // Default for other objects
-          geometry = new THREE.SphereGeometry(1, 8, 8);
-          material = new THREE.MeshBasicMaterial({
+          geometry = new SphereGeometry(1, 8, 8);
+          material = new MeshBasicMaterial({
             color: obj.color || 0xffffff
           });
         }
 
-        const mesh = new THREE.Mesh(geometry, material);
+        const mesh = new Mesh(geometry, material);
         mesh.position.set(x, y, z);
         mesh.userData = { isCelestialObject: true, ...obj };
         
@@ -322,115 +344,5 @@ export const SkySphere: React.FC<SkySphereProps> = ({
     </div>
   );
 };
-
-// Helper functions to add coordinate elements
-function addCoordinateGrids(scene: THREE.Scene, radius: number) {
-  const gridMaterial = new THREE.LineBasicMaterial({ 
-    color: 0x444444, 
-    transparent: true, 
-    opacity: 0.3 
-  });
-
-  // Add latitude lines
-  for (let lat = -80; lat <= 80; lat += 10) {
-    const curve = new THREE.EllipseCurve(
-      0, 0,
-      radius * Math.cos(lat * Math.PI / 180),
-      radius * Math.cos(lat * Math.PI / 180),
-      0, 2 * Math.PI,
-      false,
-      0
-    );
-    
-    const points = curve.getPoints(64);
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, gridMaterial);
-    line.position.y = radius * Math.sin(lat * Math.PI / 180);
-    line.rotation.x = Math.PI / 2;
-    scene.add(line);
-  }
-
-  // Add longitude lines
-  for (let lon = 0; lon < 360; lon += 15) {
-    const points = [];
-    for (let lat = -90; lat <= 90; lat += 5) {
-      const phi = (90 - lat) * Math.PI / 180;
-      const theta = lon * Math.PI / 180;
-      
-      const x = radius * Math.sin(phi) * Math.cos(theta);
-      const y = radius * Math.cos(phi);
-      const z = radius * Math.sin(phi) * Math.sin(theta);
-      
-      points.push(new THREE.Vector3(x, y, z));
-    }
-    
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geometry, gridMaterial);
-    scene.add(line);
-  }
-}
-
-function addEclipticLine(scene: THREE.Scene, radius: number) {
-  const material = new THREE.LineBasicMaterial({ 
-    color: 0xffff00, 
-    linewidth: 2 
-  });
-  
-  const points = [];
-  for (let lon = 0; lon <= 360; lon += 5) {
-    const theta = lon * Math.PI / 180;
-    const x = radius * Math.cos(theta);
-    const z = radius * Math.sin(theta);
-    points.push(new THREE.Vector3(x, 0, z));
-  }
-  
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const line = new THREE.Line(geometry, material);
-  scene.add(line);
-}
-
-function addCelestialEquator(scene: THREE.Scene, radius: number) {
-  const material = new THREE.LineBasicMaterial({ 
-    color: 0x00ffff, 
-    linewidth: 2 
-  });
-  
-  const points = [];
-  for (let lon = 0; lon <= 360; lon += 5) {
-    const theta = lon * Math.PI / 180;
-    const x = radius * Math.cos(theta);
-    const z = radius * Math.sin(theta);
-    points.push(new THREE.Vector3(x, 0, z));
-  }
-  
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const line = new THREE.Line(geometry, material);
-  // Tilt by Earth's obliquity
-  line.rotation.x = 23.44 * Math.PI / 180;
-  scene.add(line);
-}
-
-function addHorizonLine(scene: THREE.Scene, radius: number, latitude: number) {
-  const material = new THREE.LineBasicMaterial({ 
-    color: 0x00ff00, 
-    linewidth: 2,
-    transparent: true,
-    opacity: 0.7
-  });
-  
-  const points = [];
-  for (let az = 0; az <= 360; az += 5) {
-    const theta = az * Math.PI / 180;
-    const x = radius * Math.sin(theta);
-    const z = radius * Math.cos(theta);
-    points.push(new THREE.Vector3(x, 0, z));
-  }
-  
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const line = new THREE.Line(geometry, material);
-  // Rotate based on observer latitude
-  line.rotation.x = (90 - latitude) * Math.PI / 180;
-  scene.add(line);
-}
 
 export default SkySphere;

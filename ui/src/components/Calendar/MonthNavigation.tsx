@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, Calendar, MapPin, Globe } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, Globe, Settings as SettingsIcon } from 'lucide-react';
 import { getMonthName } from '../../utils/dateHelpers';
 import { Settings } from '../../types/panchangam';
 
@@ -46,7 +46,7 @@ export const MonthNavigation: React.FC<MonthNavigationProps> = ({
               {monthName} {year}
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              पञ्चाङ्गम् • Panchangam
+              पञ्चाङ्गम् - Panchangam
             </p>
           </div>
 
@@ -96,7 +96,7 @@ export const MonthNavigation: React.FC<MonthNavigationProps> = ({
             className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             aria-label="Settings"
           >
-            <div className="w-5 h-5 text-gray-600">⚙️</div>
+            <SettingsIcon className="w-5 h-5 text-gray-600" />
           </button>
         </div>
       </div>

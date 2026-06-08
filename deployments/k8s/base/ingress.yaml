@@ -57,7 +57,7 @@ spec:
                   number: 8080
 
           # Health check endpoint
-          - path: /health
+          - path: /api/v1/health
             pathType: Exact
             backend:
               service:

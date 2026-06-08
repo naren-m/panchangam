@@ -1,19 +1,31 @@
-import React from 'react';
+import { useState, type FC } from 'react';
+import { AlertCircle, AlertTriangle, Info, type LucideIcon } from 'lucide-react';
+
+type ErrorMessageType = 'error' | 'warning' | 'info';
 
 interface ErrorMessageProps {
   title?: string;
   message: string;
-  type?: 'error' | 'warning' | 'info';
+  type?: ErrorMessageType;
   onRetry?: () => void;
   onDismiss?: () => void;
   showDetails?: boolean;
   details?: string;
 }
 
-const typeStyles = {
+interface ErrorMessageStyle {
+  container: string;
+  Icon: LucideIcon;
+  iconColor: string;
+  titleColor: string;
+  messageColor: string;
+  buttonColor: string;
+}
+
+const typeStyles: Record<ErrorMessageType, ErrorMessageStyle> = {
   error: {
     container: 'bg-red-50 border-red-200',
-    icon: '❌',
+    Icon: AlertCircle,
     iconColor: 'text-red-600',
     titleColor: 'text-red-800',
     messageColor: 'text-red-700',
@@ -21,7 +33,7 @@ const typeStyles = {
   },
   warning: {
     container: 'bg-yellow-50 border-yellow-200',
-    icon: '⚠️',
+    Icon: AlertTriangle,
     iconColor: 'text-yellow-600',
     titleColor: 'text-yellow-800',
     messageColor: 'text-yellow-700',
@@ -29,7 +41,7 @@ const typeStyles = {
   },
   info: {
     container: 'bg-blue-50 border-blue-200',
-    icon: 'ℹ️',
+    Icon: Info,
     iconColor: 'text-blue-600',
     titleColor: 'text-blue-800',
     messageColor: 'text-blue-700',
@@ -37,7 +49,7 @@ const typeStyles = {
   },
 };
 
-export const ErrorMessage: React.FC<ErrorMessageProps> = ({
+export const ErrorMessage: FC<ErrorMessageProps> = ({
   title,
   message,
   type = 'error',
@@ -46,15 +58,18 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({
   showDetails = false,
   details,
 }) => {
-  const [showDetailText, setShowDetailText] = React.useState(false);
+  const [showDetailText, setShowDetailText] = useState(false);
   const styles = typeStyles[type];
+  const StatusIcon = styles.Icon;
 
   return (
     <div className={`${styles.container} border rounded-lg p-4 mb-4`} role="alert">
       <div className="flex items-start space-x-3">
-        <div className={`${styles.iconColor} flex-shrink-0`}>
-          {styles.icon}
-        </div>
+        <StatusIcon
+          className={`${styles.iconColor} h-5 w-5 flex-shrink-0`}
+          aria-hidden="true"
+          data-testid={`${type}-status-icon`}
+        />
         
         <div className="flex-1 min-w-0">
           {title && (
