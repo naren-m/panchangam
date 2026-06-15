@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TableView } from './TableView';
 import { PanchangamData, Settings } from '../../types/panchangam';
+import { formatDateForApi } from '../../utils/dateHelpers';
 
 const mockSettings: Settings = {
   calculation_method: 'Drik',
@@ -129,6 +130,23 @@ describe('TableView', () => {
     expect(screen.getByText('Makar Sankranti')).toBeInTheDocument();
   });
 
+  it('displays API date strings on their local calendar day', () => {
+    const onDateClick = vi.fn();
+    render(
+      <TableView
+        year={2024}
+        month={0}
+        panchangamData={{
+          '2024-01-15': mockPanchangamData['2024-01-15']
+        }}
+        settings={mockSettings}
+        onDateClick={onDateClick}
+      />
+    );
+
+    expect(screen.getByText('Jan 15, 2024')).toBeInTheDocument();
+  });
+
   it('shows auspicious events', () => {
     const onDateClick = vi.fn();
     render(
@@ -186,7 +204,7 @@ describe('TableView', () => {
 
   it('highlights today row', () => {
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = formatDateForApi(today);
     const todayData: Record<string, PanchangamData> = {
       [todayStr]: {
         date: todayStr,

@@ -246,7 +246,7 @@ quick-test: ## Quick smoke test
 
 quick-check: ## Quick health check
 	@echo "$(BLUE)Quick health check...$(NC)"
-	$(DOCKER_COMPOSE) run --rm $(CONTAINER_NAME) python -c "import requests; print('✅ Modules available')"
+	$(DOCKER_COMPOSE) run --rm $(CONTAINER_NAME) python -c "import requests; print('PASS Modules available')"
 
 ## Development Workflow
 dev-setup: build install-deps ## Setup development environment

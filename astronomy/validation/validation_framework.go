@@ -2,6 +2,7 @@ package validation
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -14,44 +15,44 @@ import (
 
 // ValidationResult represents the result of a validation check
 type ValidationResult struct {
-	TestName        string    `json:"test_name"`
-	Passed          bool      `json:"passed"`
-	Expected        any       `json:"expected"`
-	Actual          any       `json:"actual"`
-	Tolerance       float64   `json:"tolerance"`
-	Error           float64   `json:"error"`
-	ErrorUnit       string    `json:"error_unit"`
-	TestedAt        time.Time `json:"tested_at"`
+	TestName        string        `json:"test_name"`
+	Passed          bool          `json:"passed"`
+	Expected        any           `json:"expected"`
+	Actual          any           `json:"actual"`
+	Tolerance       float64       `json:"tolerance"`
+	Error           float64       `json:"error"`
+	ErrorUnit       string        `json:"error_unit"`
+	TestedAt        time.Time     `json:"tested_at"`
 	Duration        time.Duration `json:"duration"`
-	Notes           string    `json:"notes,omitempty"`
-	Source          string    `json:"source"`          // e.g., "Drik Panchang", "Swiss Ephemeris"
-	CalculationType string    `json:"calculation_type"` // e.g., "Tithi", "Nakshatra", "Sunrise"
+	Notes           string        `json:"notes,omitempty"`
+	Source          string        `json:"source"`           // e.g., "Drik Panchang", "Swiss Ephemeris"
+	CalculationType string        `json:"calculation_type"` // e.g., "Tithi", "Nakshatra", "Sunrise"
 }
 
 // ValidationSuite holds a collection of validation results
 type ValidationSuite struct {
-	Name            string             `json:"name"`
-	Description     string             `json:"description"`
-	Results         []ValidationResult `json:"results"`
-	TotalTests      int                `json:"total_tests"`
-	PassedTests     int                `json:"passed_tests"`
-	FailedTests     int                `json:"failed_tests"`
-	SuccessRate     float64            `json:"success_rate"`
-	ExecutionTime   time.Duration      `json:"execution_time"`
-	TestedAt        time.Time          `json:"tested_at"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	Results       []ValidationResult `json:"results"`
+	TotalTests    int                `json:"total_tests"`
+	PassedTests   int                `json:"passed_tests"`
+	FailedTests   int                `json:"failed_tests"`
+	SuccessRate   float64            `json:"success_rate"`
+	ExecutionTime time.Duration      `json:"execution_time"`
+	TestedAt      time.Time          `json:"tested_at"`
 }
 
 // ReferenceData represents reference data from established sources
 type ReferenceData struct {
-	Source       string                 `json:"source"`
-	Date         time.Time              `json:"date"`
-	Location     astronomy.Location     `json:"location"`
-	Sunrise      time.Time              `json:"sunrise,omitempty"`
-	Sunset       time.Time              `json:"sunset,omitempty"`
-	TithiName    string                 `json:"tithi_name,omitempty"`
-	NakshatraName string                `json:"nakshatra_name,omitempty"`
-	YogaName     string                 `json:"yoga_name,omitempty"`
-	Data         map[string]interface{} `json:"data"` // Additional custom data
+	Source        string                 `json:"source"`
+	Date          time.Time              `json:"date"`
+	Location      astronomy.Location     `json:"location"`
+	Sunrise       time.Time              `json:"sunrise,omitempty"`
+	Sunset        time.Time              `json:"sunset,omitempty"`
+	TithiName     string                 `json:"tithi_name,omitempty"`
+	NakshatraName string                 `json:"nakshatra_name,omitempty"`
+	YogaName      string                 `json:"yoga_name,omitempty"`
+	Data          map[string]interface{} `json:"data"` // Additional custom data
 }
 
 // Validator validates astronomical calculations against reference sources
@@ -61,7 +62,6 @@ type Validator struct {
 	yogaCalc         *astronomy.YogaCalculator
 	karanaCalc       *astronomy.KaranaCalculator
 	varaCalc         *astronomy.VaraCalculator
-	sunriseCalc      *astronomy.SunriseCalculator
 	ephemerisManager *ephemeris.Manager
 	observer         observability.ObserverInterface
 }
@@ -73,7 +73,6 @@ func NewValidator(
 	yogaCalc *astronomy.YogaCalculator,
 	karanaCalc *astronomy.KaranaCalculator,
 	varaCalc *astronomy.VaraCalculator,
-	sunriseCalc *astronomy.SunriseCalculator,
 	ephemerisManager *ephemeris.Manager,
 ) *Validator {
 	return &Validator{
@@ -82,7 +81,6 @@ func NewValidator(
 		yogaCalc:         yogaCalc,
 		karanaCalc:       karanaCalc,
 		varaCalc:         varaCalc,
-		sunriseCalc:      sunriseCalc,
 		ephemerisManager: ephemerisManager,
 		observer:         observability.Observer(),
 	}
@@ -100,11 +98,11 @@ func (v *Validator) ValidateTithi(ctx context.Context, ref ReferenceData, tolera
 		Source:          ref.Source,
 		CalculationType: "Tithi",
 		Tolerance:       tolerance,
-		ErrorUnit:       "minutes",
+		ErrorUnit:       "name mismatch",
 	}
 
 	// Calculate Tithi
-	tithi, err := v.tithiCalc.Calculate(ctx, ref.Date, ref.Location)
+	tithi, err := v.tithiCalc.GetTithiForDate(ctx, ref.Date)
 	if err != nil {
 		result.Passed = false
 		result.Notes = fmt.Sprintf("Calculation error: %v", err)
@@ -115,16 +113,17 @@ func (v *Validator) ValidateTithi(ctx context.Context, ref ReferenceData, tolera
 	result.Expected = ref.TithiName
 	result.Actual = tithi.Name
 	result.Passed = tithi.Name == ref.TithiName
-
-	// Calculate time-based error if possible
-	// This would require more detailed reference data
-	result.Error = 0 // Placeholder
+	if !result.Passed {
+		result.Error = 1
+		result.Notes = fmt.Sprintf("Name mismatch: expected %q, got %q", ref.TithiName, tithi.Name)
+	}
 	result.Duration = time.Since(start)
 
 	span.SetAttributes(
 		attribute.Bool("passed", result.Passed),
 		attribute.String("expected", ref.TithiName),
 		attribute.String("actual", tithi.Name),
+		attribute.Float64("error_name_mismatch", result.Error),
 	)
 
 	return result
@@ -142,11 +141,11 @@ func (v *Validator) ValidateNakshatra(ctx context.Context, ref ReferenceData, to
 		Source:          ref.Source,
 		CalculationType: "Nakshatra",
 		Tolerance:       tolerance,
-		ErrorUnit:       "minutes",
+		ErrorUnit:       "name mismatch",
 	}
 
 	// Calculate Nakshatra
-	nakshatra, err := v.nakshatraCalc.Calculate(ctx, ref.Date, ref.Location)
+	nakshatra, err := v.nakshatraCalc.GetNakshatraForDate(ctx, ref.Date)
 	if err != nil {
 		result.Passed = false
 		result.Notes = fmt.Sprintf("Calculation error: %v", err)
@@ -157,13 +156,17 @@ func (v *Validator) ValidateNakshatra(ctx context.Context, ref ReferenceData, to
 	result.Expected = ref.NakshatraName
 	result.Actual = nakshatra.Name
 	result.Passed = nakshatra.Name == ref.NakshatraName
-	result.Error = 0 // Placeholder
+	if !result.Passed {
+		result.Error = 1
+		result.Notes = fmt.Sprintf("Name mismatch: expected %q, got %q", ref.NakshatraName, nakshatra.Name)
+	}
 	result.Duration = time.Since(start)
 
 	span.SetAttributes(
 		attribute.Bool("passed", result.Passed),
 		attribute.String("expected", ref.NakshatraName),
 		attribute.String("actual", nakshatra.Name),
+		attribute.Float64("error_name_mismatch", result.Error),
 	)
 
 	return result
@@ -185,7 +188,7 @@ func (v *Validator) ValidateSunrise(ctx context.Context, ref ReferenceData, tole
 	}
 
 	// Calculate Sunrise
-	sunrise, err := v.sunriseCalc.CalculateSunrise(ctx, ref.Date, ref.Location)
+	sunrise, err := astronomy.GetSunriseTimeWithContext(ctx, ref.Location, ref.Date)
 	if err != nil {
 		result.Passed = false
 		result.Notes = fmt.Sprintf("Calculation error: %v", err)
@@ -305,13 +308,13 @@ func (v *Validator) RunValidationSuite(ctx context.Context, name string, referen
 	for _, ref := range referenceData {
 		// Validate Tithi if available
 		if ref.TithiName != "" {
-			result := v.ValidateTithi(ctx, ref, 5.0) // 5 minutes tolerance
+			result := v.ValidateTithi(ctx, ref, 0.0)
 			suite.Results = append(suite.Results, result)
 		}
 
 		// Validate Nakshatra if available
 		if ref.NakshatraName != "" {
-			result := v.ValidateNakshatra(ctx, ref, 5.0) // 5 minutes tolerance
+			result := v.ValidateNakshatra(ctx, ref, 0.0)
 			suite.Results = append(suite.Results, result)
 		}
 
@@ -392,7 +395,7 @@ func (suite *ValidationSuite) GenerateReport() string {
 
 // ExportToJSON exports validation suite results to JSON
 func (suite *ValidationSuite) ExportToJSON() ([]byte, error) {
-	return nil, fmt.Errorf("JSON export not yet implemented")
+	return json.MarshalIndent(suite, "", "  ")
 }
 
 // CompareSuites compares two validation suites and returns differences

@@ -138,8 +138,7 @@ Position at Day 0:        Position at Day 27.3:      Position at Day 29.5:
    (New Moon)              (Moon completes orbit)      (New Moon again)
        │                           │                         │
        ▼                           ▼                         ▼
-   ☀️ 🌑                      ☀️                         ☀️ 🌑
-   Sun Moon                   │    🌙                    Sun Moon
+                              Sun Moon                   │    Sun Moon
    (0°)                      27°   Moon at 0°            (29°)
                              Sun has moved!              Moon catches up
 ```
@@ -175,8 +174,7 @@ The Lunar Phase Cycle:
     Δ:  0°        90°        180°        270°        360°/0°
         │          │          │           │           │
         ▼          ▼          ▼           ▼           ▼
-       🌑         🌓         🌕          🌗          🌑
-    New Moon   Quarter    Full Moon   Quarter    New Moon
+       New Moon   Quarter    Full Moon   Quarter    New Moon
               (waxing)               (waning)
 
     Time:  0d        7.4d       14.8d       22.1d       29.5d
@@ -227,14 +225,12 @@ Shukla Paksha (Δ: 0° → 180°)
 ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐
 │  1  │  2  │  3  │  4  │  5  │  6  │  7  │  8  │  9  │ 10  │ 11  │ 12  │ 13  │ 14  │ 15  │
 └─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘
-🌑                             🌓                                                    🌕
 New                          Quarter                                                Full
 
 Krishna Paksha (Δ: 180° → 360°)
 ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐
 │ 16  │ 17  │ 18  │ 19  │ 20  │ 21  │ 22  │ 23  │ 24  │ 25  │ 26  │ 27  │ 28  │ 29  │ 30  │
 └─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘
-🌕                             🌗                                                    🌑
 Full                         Quarter                                                New
 ```
 
@@ -440,13 +436,13 @@ For K in {2, 3, ..., 57}:
 ```text
 Vara = (Julian Day Number + 1) mod 7
 
-  0 → Ravivara    (Sunday)     ☀️ Sun
-  1 → Somavara    (Monday)     ☽ Moon
-  2 → Mangalavara (Tuesday)    ♂ Mars
-  3 → Budhavara   (Wednesday)  ☿ Mercury
-  4 → Guruvara    (Thursday)   ♃ Jupiter
-  5 → Shukravara  (Friday)     ♀ Venus
-  6 → Shanivara   (Saturday)   ♄ Saturn
+  0 → Ravivara    (Sunday)      Sun
+  1 → Somavara    (Monday)     Moon
+  2 → Mangalavara (Tuesday)    Mars
+  3 → Budhavara   (Wednesday)  Mercury
+  4 → Guruvara    (Thursday)   Jupiter
+  5 → Shukravara  (Friday)     Venus
+  6 → Shanivara   (Saturday)   Saturn
 ```
 
 ### 8.2 Why These Names?

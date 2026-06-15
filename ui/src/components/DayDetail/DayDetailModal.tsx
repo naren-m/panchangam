@@ -1,14 +1,13 @@
 import React from 'react';
 import { X, Calendar, MapPin, Clock } from 'lucide-react';
 import { PanchangamData, Settings } from '../../types/panchangam';
-import { formatTime, formatTimeRange } from '../../utils/dateHelpers';
 import { FiveAngas } from './FiveAngas';
 import { MuhurtaTimeline } from './MuhurtaTimeline';
 import { EventsList } from './EventsList';
 import { LunarTimings } from './LunarTimings';
 import { TraditionalPeriods } from './TraditionalPeriods';
-import { SkeletonDayDetail, LoadingSpinner } from '../common/Loading';
-import { ErrorMessage } from '../common/Error';
+import { ErrorMessage } from '../common/Error/ErrorMessage';
+import { SkeletonDayDetail } from '../common/Loading/SkeletonDayDetail';
 
 interface DayDetailModalProps {
   date: Date;

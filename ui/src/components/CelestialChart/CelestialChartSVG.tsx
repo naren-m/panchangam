@@ -8,15 +8,15 @@
 import React, { useCallback, useMemo } from 'react';
 import type {
   CelestialChartSVGProps,
-  HoveredElement,
-  SelectedElement,
   Point,
-  PadaInfo
 } from './types';
 import { CHART_COLORS } from './types';
-import { RashiRing, NakshatraRing, PadaRing } from './rings';
-import { CelestialBody, TithiArc } from './markers';
-import { ChartTooltip } from './tooltips';
+import { CelestialBody } from './markers/CelestialBody';
+import { TithiArc } from './markers/TithiArc';
+import { NakshatraRing } from './rings/NakshatraRing';
+import { PadaRing } from './rings/PadaRing';
+import { RashiRing } from './rings/RashiRing';
+import { ChartTooltip } from './tooltips/ChartTooltip';
 import {
   getSunMarkerInfo,
   getMoonMarkerInfo,
@@ -173,7 +173,7 @@ export const CelestialChartSVG: React.FC<CelestialChartSVGProps> = ({
     }
   }, [moonMarker, onElementHover]);
 
-  const handleTithiHover = useCallback((hovered: boolean, position: Point) => {
+  const handleTithiHover = useCallback((hovered: boolean) => {
     if (hovered) {
       onElementHover({
         type: 'tithi',

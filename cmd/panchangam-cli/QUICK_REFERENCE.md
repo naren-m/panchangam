@@ -11,7 +11,7 @@ go build -o panchangam-cli ./cmd/panchangam-cli
 |---------|---------|---------|
 | `tithi` | Get lunar day | `panchangam-cli tithi -l mumbai` |
 | `sun` | Sunrise/sunset times | `panchangam-cli sun -l tokyo --detailed` |
-| `health` | Check service status | `panchangam-cli health` |
+| `health` | Check local ephemeris health | `panchangam-cli health` |
 | `version` | Show version info | `panchangam-cli version` |
 | `locations` | List city presets | `panchangam-cli locations` |
 

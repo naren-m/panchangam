@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GraphView } from './GraphView';
 import { PanchangamData, Settings } from '../../types/panchangam';
+import { formatDateForApi } from '../../utils/dateHelpers';
 
 const mockSettings: Settings = {
   calculation_method: 'Drik',
@@ -175,14 +176,31 @@ describe('GraphView', () => {
 
     expect(screen.getByText(/Festival Days/)).toBeInTheDocument();
     // Festivals are rendered with bullets and may appear multiple times
-    const makarElements = screen.getAllByText((content, element) =>
+    const makarElements = screen.getAllByText((_content, element) =>
       element?.textContent?.includes('Makar Sankranti') || false
     );
     expect(makarElements.length).toBeGreaterThan(0);
-    const pongalElements = screen.getAllByText((content, element) =>
+    const pongalElements = screen.getAllByText((_content, element) =>
       element?.textContent?.includes('Pongal') || false
     );
     expect(pongalElements.length).toBeGreaterThan(0);
+  });
+
+  it('displays API date strings on their local festival day', () => {
+    const onDateClick = vi.fn();
+    render(
+      <GraphView
+        year={2024}
+        month={0}
+        panchangamData={{
+          '2024-01-15': mockPanchangamData['2024-01-15']
+        }}
+        settings={mockSettings}
+        onDateClick={onDateClick}
+      />
+    );
+
+    expect(screen.getByText('Mon, Jan 15')).toBeInTheDocument();
   });
 
   it('displays month summary statistics', () => {
@@ -216,7 +234,7 @@ describe('GraphView', () => {
       />
     );
 
-    const festivalElements = screen.getAllByText((content, element) =>
+    const festivalElements = screen.getAllByText((_content, element) =>
       element?.textContent?.includes('Makar Sankranti') || false
     );
     // Find the one that's in a clickable card (festival days section)
@@ -350,9 +368,33 @@ describe('GraphView', () => {
     expect(svgs.length).toBeGreaterThan(0);
   });
 
+  it('renders finite sunrise and sunset trend points for one day', () => {
+    const onDateClick = vi.fn();
+    const singleDayData: Record<string, PanchangamData> = {
+      '2024-01-15': mockPanchangamData['2024-01-15']
+    };
+
+    const { container } = render(
+      <GraphView
+        year={2024}
+        month={0}
+        panchangamData={singleDayData}
+        settings={mockSettings}
+        onDateClick={onDateClick}
+      />
+    );
+
+    const trendLines = container.querySelectorAll('svg[viewBox="0 0 800 200"] polyline');
+
+    expect(trendLines).toHaveLength(2);
+    trendLines.forEach((line) => {
+      expect(line.getAttribute('points')).not.toContain('NaN');
+    });
+  });
+
   it('highlights today in festival section', () => {
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = formatDateForApi(today);
     const todayData: Record<string, PanchangamData> = {
       [todayStr]: {
         date: todayStr,

@@ -12,19 +12,19 @@ import (
 
 // VaraInfo represents a Vara (weekday) with its properties
 type VaraInfo struct {
-	Number          int       `json:"number"`           // 1-7 (Sunday=1, Monday=2, etc.)
-	Name            string    `json:"name"`             // Sanskrit name
-	PlanetaryLord   string    `json:"planetary_lord"`   // Ruling planet
-	Quality         string    `json:"quality"`          // General quality/nature
-	Color           string    `json:"color"`            // Associated color
-	Deity           string    `json:"deity"`            // Presiding deity
-	StartTime       time.Time `json:"start_time"`       // Sunrise time when Vara begins
-	EndTime         time.Time `json:"end_time"`         // Next sunrise when Vara ends
-	Duration        float64   `json:"duration"`         // Duration in hours
-	GregorianDay    string    `json:"gregorian_day"`    // English weekday name
-	IsAuspicious    bool      `json:"is_auspicious"`    // General auspiciousness
-	CurrentHora     int       `json:"current_hora"`     // Current hora (1-24)
-	HoraPlanet      string    `json:"hora_planet"`      // Planet ruling current hora
+	Number        int       `json:"number"`         // 1-7 (Sunday=1, Monday=2, etc.)
+	Name          string    `json:"name"`           // Sanskrit name
+	PlanetaryLord string    `json:"planetary_lord"` // Ruling planet
+	Quality       string    `json:"quality"`        // General quality/nature
+	Color         string    `json:"color"`          // Associated color
+	Deity         string    `json:"deity"`          // Presiding deity
+	StartTime     time.Time `json:"start_time"`     // Sunrise time when Vara begins
+	EndTime       time.Time `json:"end_time"`       // Next sunrise when Vara ends
+	Duration      float64   `json:"duration"`       // Duration in hours
+	GregorianDay  string    `json:"gregorian_day"`  // English weekday name
+	IsAuspicious  bool      `json:"is_auspicious"`  // General auspiciousness
+	CurrentHora   int       `json:"current_hora"`   // Current hora (1-24)
+	HoraPlanet    string    `json:"hora_planet"`    // Planet ruling current hora
 }
 
 // VaraCalculator handles Vara calculations
@@ -81,7 +81,7 @@ func (vc *VaraCalculator) GetVaraForDate(ctx context.Context, date time.Time, lo
 
 	// Calculate sunrise times for current and next day
 	ctx, sunriseSpan := vc.observer.CreateSpan(ctx, "calculateSunriseTimes")
-	
+
 	// Current day sunrise
 	currentSunTimes, err := CalculateSunTimesWithContext(ctx, location, date)
 	if err != nil {
@@ -146,11 +146,11 @@ func (vc *VaraCalculator) calculateVaraFromSunrise(ctx context.Context, currentS
 
 	// In Hindu calendar, the day changes at sunrise, not midnight
 	// So we need to determine which Vara (weekday) is active based on sunrise
-	
+
 	// Get the Gregorian weekday for the sunrise date
 	// Note: We use the sunrise date to determine the Vara
 	sunriseDate := currentSunrise
-	
+
 	// Calculate Vara number (1-7, Sunday=1)
 	// Go's time.Weekday() returns Sunday=0, Monday=1, etc.
 	// We convert to traditional Hindu numbering where Sunday=1
@@ -186,19 +186,19 @@ func (vc *VaraCalculator) calculateVaraFromSunrise(ctx context.Context, currentS
 	duration := nextSunrise.Sub(currentSunrise).Hours()
 
 	vara := &VaraInfo{
-		Number:          varaNumber,
-		Name:            varaDetails.Name,
-		PlanetaryLord:   varaDetails.PlanetaryLord,
-		Quality:         varaDetails.Quality,
-		Color:           varaDetails.Color,
-		Deity:           varaDetails.Deity,
-		StartTime:       currentSunrise,
-		EndTime:         nextSunrise,
-		Duration:        duration,
-		GregorianDay:    varaDetails.GregorianDay,
-		IsAuspicious:    varaDetails.IsAuspicious,
-		CurrentHora:     currentHora,
-		HoraPlanet:      horaPlanet,
+		Number:        varaNumber,
+		Name:          varaDetails.Name,
+		PlanetaryLord: varaDetails.PlanetaryLord,
+		Quality:       varaDetails.Quality,
+		Color:         varaDetails.Color,
+		Deity:         varaDetails.Deity,
+		StartTime:     currentSunrise,
+		EndTime:       nextSunrise,
+		Duration:      duration,
+		GregorianDay:  varaDetails.GregorianDay,
+		IsAuspicious:  varaDetails.IsAuspicious,
+		CurrentHora:   currentHora,
+		HoraPlanet:    horaPlanet,
 	}
 
 	span.AddEvent("Vara calculation completed", trace.WithAttributes(
@@ -225,7 +225,7 @@ func (vc *VaraCalculator) calculateCurrentHora(ctx context.Context, currentSunri
 
 	// Calculate the total daylight duration
 	totalDuration := nextSunrise.Sub(currentSunrise)
-	
+
 	// Each day is divided into 24 horas (planetary hours)
 	// Each hora is 1/24 of the total day duration
 	horaDuration := totalDuration / 24

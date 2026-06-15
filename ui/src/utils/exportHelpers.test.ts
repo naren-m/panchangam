@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { MockInstance } from 'vitest';
 import { exportToCSV, exportToJSON, exportAnalyticsData } from './exportHelpers';
 import { PanchangamData, Settings } from '../types/panchangam';
 
@@ -54,27 +55,46 @@ const mockPanchangamData: Record<string, PanchangamData> = {
   }
 };
 
+function readBlobText(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(blob);
+  });
+}
+
 describe('exportHelpers', () => {
-  let createElementSpy: any;
-  let clickSpy: any;
-  let appendChildSpy: any;
-  let removeChildSpy: any;
+  let mockLink: HTMLAnchorElement;
+  let createElementSpy: MockInstance<[tagName: string, options?: ElementCreationOptions], HTMLElement>;
+  let setAttributeSpy: MockInstance<[qualifiedName: string, value: string], void>;
+  let clickSpy: MockInstance<[], void>;
+  let removeChildSpy: MockInstance<[child: Node], Node>;
+  let createdBlob: Blob | undefined;
+
+  const getDownloadFilename = (): string => {
+    const downloadCall = setAttributeSpy.mock.calls.find(([name]) => name === 'download');
+    expect(downloadCall).toBeDefined();
+    return downloadCall?.[1] ?? '';
+  };
 
   beforeEach(() => {
     // Mock DOM elements for download
-    clickSpy = vi.fn();
-    const mockLink = {
-      setAttribute: vi.fn(),
-      style: {},
-      click: clickSpy
-    };
+    mockLink = document.createElement('a');
+    setAttributeSpy = vi.spyOn(mockLink, 'setAttribute');
+    clickSpy = vi.spyOn(mockLink, 'click').mockImplementation(() => undefined);
 
-    createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockLink as any);
-    appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as any);
-    removeChildSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as any);
+    createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockLink);
+    vi.spyOn(document.body, 'appendChild').mockImplementation(node => node);
+    removeChildSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(node => node);
 
     // Mock URL.createObjectURL
-    global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+    createdBlob = undefined;
+    globalThis.URL.createObjectURL = vi.fn((blob: Blob) => {
+      createdBlob = blob;
+      return 'blob:mock-url';
+    });
   });
 
   afterEach(() => {
@@ -98,12 +118,9 @@ describe('exportHelpers', () => {
     it('sets correct filename for CSV export', () => {
       exportToCSV(mockPanchangamData, mockSettings, 2024, 0);
 
-      const mockLink = createElementSpy.mock.results[0].value;
-      const setAttributeCalls = mockLink.setAttribute.mock.calls;
-      const downloadCall = setAttributeCalls.find((call: any) => call[0] === 'download');
-      expect(downloadCall).toBeDefined();
-      expect(downloadCall[1]).toContain('.csv');
-      expect(downloadCall[1]).toContain('2024-01');
+      const filename = getDownloadFilename();
+      expect(filename).toContain('.csv');
+      expect(filename).toContain('2024-01');
     });
 
     it('includes festivals in CSV export', () => {
@@ -138,12 +155,9 @@ describe('exportHelpers', () => {
     it('sets correct filename for JSON export', () => {
       exportToJSON(mockPanchangamData, mockSettings, 2024, 0);
 
-      const mockLink = createElementSpy.mock.results[0].value;
-      const setAttributeCalls = mockLink.setAttribute.mock.calls;
-      const downloadCall = setAttributeCalls.find((call: any) => call[0] === 'download');
-      expect(downloadCall).toBeDefined();
-      expect(downloadCall[1]).toContain('.json');
-      expect(downloadCall[1]).toContain('2024-01');
+      const filename = getDownloadFilename();
+      expect(filename).toContain('.json');
+      expect(filename).toContain('2024-01');
     });
 
     it('includes location in metadata', () => {
@@ -180,17 +194,15 @@ describe('exportHelpers', () => {
 
     it('creates appropriate file based on format parameter', () => {
       exportAnalyticsData(mockPanchangamData, mockSettings, 2024, 0, 'csv');
-      const mockLink = createElementSpy.mock.results[0].value;
-      let downloadCall = mockLink.setAttribute.mock.calls.find((call: any) => call[0] === 'download');
-      expect(downloadCall[1]).toContain('.csv');
+      let filename = getDownloadFilename();
+      expect(filename).toContain('.csv');
 
       // Reset mocks
-      createElementSpy.mockClear();
+      setAttributeSpy.mockClear();
 
       exportAnalyticsData(mockPanchangamData, mockSettings, 2024, 0, 'json');
-      const mockLink2 = createElementSpy.mock.results[0].value;
-      downloadCall = mockLink2.setAttribute.mock.calls.find((call: any) => call[0] === 'download');
-      expect(downloadCall[1]).toContain('.json');
+      filename = getDownloadFilename();
+      expect(filename).toContain('.json');
     });
   });
 
@@ -198,6 +210,41 @@ describe('exportHelpers', () => {
     it('formats data correctly with quotes for CSV', () => {
       exportToCSV(mockPanchangamData, mockSettings, 2024, 0);
       expect(clickSpy).toHaveBeenCalled();
+    });
+
+    it('escapes quotes inside CSV cells', async () => {
+      exportToCSV({
+        '2024-01-15': {
+          ...mockPanchangamData['2024-01-15'],
+          tithi: 'Shukla "Special" Panchami',
+          events: [
+            {
+              name: 'Abhijit "Best" Muhurta',
+              time: '12:00',
+              event_type: 'ABHIJIT_MUHURTA',
+              quality: 'auspicious'
+            }
+          ],
+        }
+      }, mockSettings, 2024, 0);
+
+      expect(createdBlob).toBeDefined();
+      const csvContent = await readBlobText(createdBlob as Blob);
+
+      expect(csvContent).toContain('"Shukla ""Special"" Panchami"');
+      expect(csvContent).toContain('"Abhijit ""Best"" Muhurta (12:00)"');
+    });
+
+    it('exports API date strings on their local calendar day', async () => {
+      exportToCSV({
+        '2024-01-15': mockPanchangamData['2024-01-15']
+      }, mockSettings, 2024, 0);
+
+      expect(createdBlob).toBeDefined();
+      const csvContent = await readBlobText(createdBlob as Blob);
+
+      expect(csvContent).toContain('"01/15/2024"');
+      expect(csvContent).not.toContain('"01/14/2024"');
     });
 
     it('includes all required columns', () => {
@@ -217,20 +264,14 @@ describe('exportHelpers', () => {
       };
 
       exportToCSV(mockPanchangamData, settingsWithSpecialChars, 2024, 0);
-      const mockLink = createElementSpy.mock.results[0].value;
 
-      const setAttributeCalls = mockLink.setAttribute.mock.calls;
-      const downloadCall = setAttributeCalls.find((call: any) => call[0] === 'download');
-      expect(downloadCall[1]).toContain('San_Francisco__CA___USA');
+      expect(getDownloadFilename()).toContain('San_Francisco__CA___USA');
     });
 
     it('formats month with leading zero', () => {
       exportToCSV(mockPanchangamData, mockSettings, 2024, 0);
-      const mockLink = createElementSpy.mock.results[0].value;
 
-      const setAttributeCalls = mockLink.setAttribute.mock.calls;
-      const downloadCall = setAttributeCalls.find((call: any) => call[0] === 'download');
-      expect(downloadCall[1]).toContain('2024-01');
+      expect(getDownloadFilename()).toContain('2024-01');
     });
   });
 });

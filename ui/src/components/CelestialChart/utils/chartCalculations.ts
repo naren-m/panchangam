@@ -9,7 +9,6 @@ import type {
   CelestialBodyInfo,
   TithiArcInfo,
   PadaInfo,
-  Point,
 } from '../types';
 import type {
   PanchangamElements,
@@ -22,6 +21,8 @@ import {
   createArcPath,
   normalizeAngle
 } from './geometryHelpers';
+import { calculatePanchangamElements } from '../../EclipticBeltVisualization/utils/panchangamCalculator';
+import { getCalendarDayOfYear } from '../../../utils/dateHelpers';
 import {
   CHART_COLORS,
   NAVAMSHA_SEQUENCE,
@@ -40,18 +41,18 @@ const RASHI_DATA: Array<{
   element: 'Fire' | 'Earth' | 'Air' | 'Water';
   ruler: string;
 }> = [
-  { name: 'Mesha', westernName: 'Aries', symbol: '♈', element: 'Fire', ruler: 'Mars' },
-  { name: 'Vrishabha', westernName: 'Taurus', symbol: '♉', element: 'Earth', ruler: 'Venus' },
-  { name: 'Mithuna', westernName: 'Gemini', symbol: '♊', element: 'Air', ruler: 'Mercury' },
-  { name: 'Karka', westernName: 'Cancer', symbol: '♋', element: 'Water', ruler: 'Moon' },
-  { name: 'Simha', westernName: 'Leo', symbol: '♌', element: 'Fire', ruler: 'Sun' },
-  { name: 'Kanya', westernName: 'Virgo', symbol: '♍', element: 'Earth', ruler: 'Mercury' },
-  { name: 'Tula', westernName: 'Libra', symbol: '♎', element: 'Air', ruler: 'Venus' },
-  { name: 'Vrishchika', westernName: 'Scorpio', symbol: '♏', element: 'Water', ruler: 'Mars' },
-  { name: 'Dhanu', westernName: 'Sagittarius', symbol: '♐', element: 'Fire', ruler: 'Jupiter' },
-  { name: 'Makara', westernName: 'Capricorn', symbol: '♑', element: 'Earth', ruler: 'Saturn' },
-  { name: 'Kumbha', westernName: 'Aquarius', symbol: '♒', element: 'Air', ruler: 'Saturn' },
-  { name: 'Meena', westernName: 'Pisces', symbol: '♓', element: 'Water', ruler: 'Jupiter' },
+  { name: 'Mesha', westernName: 'Aries', symbol: '', element: 'Fire', ruler: 'Mars' },
+  { name: 'Vrishabha', westernName: 'Taurus', symbol: '', element: 'Earth', ruler: 'Venus' },
+  { name: 'Mithuna', westernName: 'Gemini', symbol: '', element: 'Air', ruler: 'Mercury' },
+  { name: 'Karka', westernName: 'Cancer', symbol: '', element: 'Water', ruler: 'Moon' },
+  { name: 'Simha', westernName: 'Leo', symbol: '', element: 'Fire', ruler: 'Sun' },
+  { name: 'Kanya', westernName: 'Virgo', symbol: '', element: 'Earth', ruler: 'Mercury' },
+  { name: 'Tula', westernName: 'Libra', symbol: '', element: 'Air', ruler: 'Venus' },
+  { name: 'Vrishchika', westernName: 'Scorpio', symbol: '', element: 'Water', ruler: 'Mars' },
+  { name: 'Dhanu', westernName: 'Sagittarius', symbol: '', element: 'Fire', ruler: 'Jupiter' },
+  { name: 'Makara', westernName: 'Capricorn', symbol: '', element: 'Earth', ruler: 'Saturn' },
+  { name: 'Kumbha', westernName: 'Aquarius', symbol: '', element: 'Air', ruler: 'Saturn' },
+  { name: 'Meena', westernName: 'Pisces', symbol: '', element: 'Water', ruler: 'Jupiter' },
 ];
 
 /**
@@ -116,6 +117,22 @@ const NAKSHATRA_DATA: Array<{
 ];
 
 const DEGREES_PER_NAKSHATRA = 360 / 27; // 13.333...
+
+/**
+ * Estimate chart-ready panchangam data from the selected date.
+ */
+export const calculateChartPanchangamForDate = (date: Date): PanchangamElements => {
+  const dayOfYear = getCalendarDayOfYear(date);
+
+  const sunLongitude = (280 + dayOfYear) % 360;
+  const moonLongitude = (
+    (dayOfYear * 13.2) +
+    (date.getHours() * 0.55) +
+    (date.getMonth() * 28)
+  ) % 360;
+
+  return calculatePanchangamElements(sunLongitude, moonLongitude);
+};
 
 /**
  * Get all nakshatra segments for rendering
@@ -211,7 +228,7 @@ export const getSunMarkerInfo = (
     type: 'sun',
     longitude,
     position,
-    symbol: '☉',
+    symbol: '',
     color: CHART_COLORS.sun,
     size: 24,
     label: `Sun in ${panchangam.sunRashi.name}`,
@@ -274,9 +291,6 @@ export const getTithiArcInfo = (
 ): TithiArcInfo => {
   const sunLongitude = panchangam.sunPosition.longitude;
   const moonLongitude = panchangam.moonPosition.longitude;
-
-  // Calculate the shorter arc between Sun and Moon
-  let angleDiff = normalizeAngle(moonLongitude - sunLongitude);
 
   // Generate arc path
   const arcRadius = dimensions.celestialOrbit;

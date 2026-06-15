@@ -92,11 +92,11 @@ func TestConvertGRPCError(t *testing.T) {
 			expectedMsg:    "An internal server error occurred",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			httpStatus, apiError := convertGRPCError(tt.grpcError, "test-123", "/api/v1/test")
-			
+
 			assert.Equal(t, tt.expectedStatus, httpStatus)
 			assert.Equal(t, tt.expectedCode, apiError.Error.Code)
 			assert.Equal(t, tt.expectedMsg, apiError.Error.Message)
@@ -117,6 +117,10 @@ func TestEnhanceValidationMessage(t *testing.T) {
 			expected: "Latitude must be between -90 and 90 degrees",
 		},
 		{
+			input:    "LATITUDE is invalid",
+			expected: "Latitude must be between -90 and 90 degrees",
+		},
+		{
 			input:    "longitude out of range",
 			expected: "Longitude must be between -180 and 180 degrees",
 		},
@@ -133,7 +137,7 @@ func TestEnhanceValidationMessage(t *testing.T) {
 			expected: "some other error",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			result := enhanceValidationMessage(tt.input)
@@ -146,21 +150,21 @@ func TestCustomErrorHandler(t *testing.T) {
 	// Create a test request
 	req := httptest.NewRequest("GET", "/api/v1/test", nil)
 	req.Header.Set("X-Request-Id", "test-request-123")
-	
+
 	// Create a test response writer
 	w := httptest.NewRecorder()
-	
+
 	// Create test error
 	testErr := status.Error(codes.InvalidArgument, "test error")
-	
+
 	// Call custom error handler
 	customErrorHandler(context.Background(), runtime.NewServeMux(), nil, w, req, testErr)
-	
+
 	// Check response
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 	assert.Equal(t, "test-request-123", w.Header().Get("X-Request-Id"))
-	
+
 	// Parse response body
 	var errResp APIError
 	err := json.Unmarshal(w.Body.Bytes(), &errResp)
@@ -170,21 +174,30 @@ func TestCustomErrorHandler(t *testing.T) {
 	assert.Equal(t, "test-request-123", errResp.Error.RequestID)
 }
 
+func TestWritePlainErrorFallbackReturnsWriteError(t *testing.T) {
+	err := writePlainErrorFallback(errorResponseWriter{}, "Internal server error")
+
+	if err == nil {
+		t.Fatal("expected write error")
+	}
+	assert.Contains(t, err.Error(), "write failed")
+}
+
 func TestWriteErrorResponse(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/v1/test", nil)
 	w := httptest.NewRecorder()
-	
+
 	details := map[string]interface{}{
 		"field": "date",
 		"value": "invalid",
 	}
-	
+
 	writeErrorResponse(w, req, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid date format", details)
-	
+
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 	assert.NotEmpty(t, w.Header().Get("X-Request-Id"))
-	
+
 	var errResp APIError
 	err := json.Unmarshal(w.Body.Bytes(), &errResp)
 	assert.NoError(t, err)
@@ -194,42 +207,19 @@ func TestWriteErrorResponse(t *testing.T) {
 	assert.Equal(t, "invalid", errResp.Error.Details["value"])
 }
 
-func TestContainsIgnoreCase(t *testing.T) {
-	tests := []struct {
-		str      string
-		substr   string
-		expected bool
-	}{
-		{"latitude is invalid", "latitude", true},
-		{"LATITUDE is invalid", "latitude", true},
-		{"Latitude is invalid", "LATITUDE", true},
-		{"something else", "latitude", false},
-		{"lat", "latitude", false},
-		{"", "latitude", false},
-		{"latitude", "", true},
-	}
-	
-	for _, tt := range tests {
-		t.Run(tt.str+"-"+tt.substr, func(t *testing.T) {
-			result := contains(tt.str, tt.substr)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestHandleGRPCError(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/v1/panchangam", nil)
 	req.Header.Set("X-Request-Id", "test-456")
 	w := httptest.NewRecorder()
-	
+
 	grpcErr := status.Error(codes.NotFound, "panchangam data not found")
-	
+
 	handleGRPCError(w, req, grpcErr)
-	
+
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 	assert.Equal(t, "test-456", w.Header().Get("X-Request-Id"))
-	
+
 	var errResp APIError
 	err := json.Unmarshal(w.Body.Bytes(), &errResp)
 	assert.NoError(t, err)
@@ -240,7 +230,7 @@ func TestHandleGRPCError(t *testing.T) {
 // Benchmark tests
 func BenchmarkConvertGRPCError(b *testing.B) {
 	err := status.Error(codes.InvalidArgument, "test error")
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		convertGRPCError(err, "test-123", "/api/v1/test")
@@ -255,7 +245,7 @@ func BenchmarkEnhanceValidationMessage(b *testing.B) {
 		"unknown timezone",
 		"some other error",
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		enhanceValidationMessage(messages[i%len(messages)])

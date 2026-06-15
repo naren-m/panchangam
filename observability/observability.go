@@ -25,6 +25,7 @@ import (
 var resource *sdkresource.Resource
 var initResourcesOnce sync.Once
 var initObserverOnce sync.Once
+var observerMu sync.RWMutex
 
 // Wrappers for OpenTelemetry trace package
 var WithAttributes = trace.WithAttributes
@@ -49,12 +50,21 @@ var oi *observer
 func NewLocalObserver() ObserverInterface {
 	// Initialize the TracerProvider and Tracer.
 	initObserverOnce.Do(func() {
-		tp, _ := initStdoutProvider()
+		tp, err := initStdoutProvider()
+		if err != nil {
+			slog.Error("failed to initialize local observer", "error", err)
+			return
+		}
+
+		observerMu.Lock()
+		defer observerMu.Unlock()
 		oi = &observer{
 			tp: tp,
 		}
 	})
 
+	observerMu.RLock()
+	defer observerMu.RUnlock()
 	return oi
 }
 
@@ -66,30 +76,38 @@ func NewObserver(address string) (ObserverInterface, error) {
 	initObserverOnce.Do(func() {
 		if address == "" {
 			tp, err = initStdoutProvider()
-			oi = &observer{
-				tp: tp,
-			}
 		} else {
 			tp, err = initTracerProvider(address)
-			oi = &observer{
-				tp: tp,
-			}
+		}
+		if err != nil {
+			return
+		}
+
+		observerMu.Lock()
+		defer observerMu.Unlock()
+		oi = &observer{
+			tp: tp,
 		}
 	})
 
+	observerMu.RLock()
+	defer observerMu.RUnlock()
 	return oi, err
 }
 
-// Observer returns the observer instance. 
+// Observer returns the observer instance.
 // If no observer has been initialized, it will create a local observer with stdout output.
 func Observer() ObserverInterface {
-	if oi == nil {
+	observerMu.RLock()
+	current := oi
+	observerMu.RUnlock()
+	if current == nil {
 		// Auto-initialize with local observer if not already initialized
 		// This provides a safe default instead of panicking
 		return NewLocalObserver()
 	}
 
-	return oi
+	return current
 }
 
 // Shutdown stops the observer.
@@ -166,7 +184,7 @@ func initResource() *sdkresource.Resource {
 func initStdoutProvider() (*sdktrace.TracerProvider, error) {
 	exporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
-		panic(fmt.Sprintf("failed to initialize stdouttrace export pipeline: %v", err))
+		return nil, fmt.Errorf("failed to initialize stdouttrace export pipeline: %w", err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
@@ -209,12 +227,12 @@ func initTracerProvider(address string) (*sdktrace.TracerProvider, error) {
 	return tp, nil
 }
 
-func InitMeterProvider() *sdkmetric.MeterProvider {
+func InitMeterProvider() (*sdkmetric.MeterProvider, error) {
 	ctx := context.Background()
 
 	exporter, err := otlpmetricgrpc.New(ctx)
 	if err != nil {
-		panic(fmt.Sprintf("new otlp metric grpc exporter failed: %v", err))
+		return nil, fmt.Errorf("new otlp metric grpc exporter: %w", err)
 	}
 
 	mp := sdkmetric.NewMeterProvider(
@@ -223,5 +241,5 @@ func InitMeterProvider() *sdkmetric.MeterProvider {
 	)
 	otel.SetMeterProvider(mp)
 
-	return mp
+	return mp, nil
 }

@@ -2,6 +2,7 @@ package implementations
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +32,11 @@ func TestTamilNaduRegionalPlugin(t *testing.T) {
 	info := plugin.GetInfo()
 	if info.Name != "tamil_nadu_regional_plugin" {
 		t.Errorf("Expected plugin name 'tamil_nadu_regional_plugin', got %s", info.Name)
+	}
+	for _, capability := range info.Capabilities {
+		if capability == string(api.CapabilityMuhurta) {
+			t.Fatal("Tamil Nadu regional plugin should not advertise unsupported muhurta capability")
+		}
 	}
 
 	// Test initialization
@@ -317,11 +323,68 @@ func TestMaharashtraRegionalPlugin(t *testing.T) {
 	}
 }
 
+func TestMaharashtraRegionalPluginDoesNotAdvertiseUnsupportedEvents(t *testing.T) {
+	plugin := NewMaharashtraRegionalPlugin()
+	info := plugin.GetInfo()
+
+	for _, capability := range info.Capabilities {
+		if capability == string(api.CapabilityEvent) {
+			t.Fatal("Maharashtra regional plugin should not advertise unsupported event capability")
+		}
+	}
+
+	if _, ok := info.Metadata["festivals"]; ok {
+		t.Fatal("Maharashtra regional plugin should not list festivals until it returns regional events")
+	}
+}
+
+func TestMaharashtraRegionalPluginReturnsClearErrorForUnsupportedEvents(t *testing.T) {
+	plugin := NewMaharashtraRegionalPlugin()
+	if err := plugin.Initialize(context.Background(), map[string]interface{}{}); err != nil {
+		t.Fatalf("failed to initialize plugin: %v", err)
+	}
+
+	events, err := plugin.GetRegionalEvents(context.Background(), testDateRegional, testLocationTN)
+	if err == nil {
+		t.Fatal("expected unsupported regional event call to return an error")
+	}
+	if !strings.Contains(err.Error(), "regional events are unavailable") {
+		t.Fatalf("expected unsupported regional event error, got %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("expected no events from unsupported regional call, got %d", len(events))
+	}
+}
+
+func TestRegionalPluginsDoNotAdvertiseEventPluginCapability(t *testing.T) {
+	plugins := []api.RegionalExtension{
+		NewTamilNaduRegionalPlugin(),
+		NewKeralaRegionalPlugin(),
+		NewBengalRegionalPlugin(),
+		NewGujaratRegionalPlugin(),
+		NewMaharashtraRegionalPlugin(),
+	}
+
+	for _, plugin := range plugins {
+		t.Run(plugin.GetInfo().Name, func(t *testing.T) {
+			if _, ok := interface{}(plugin).(api.EventPlugin); ok {
+				t.Fatal("test expects regional events to stay behind the RegionalExtension contract")
+			}
+
+			for _, capability := range plugin.GetInfo().Capabilities {
+				if capability == string(api.CapabilityEvent) {
+					t.Fatalf("%s should not advertise event capability without implementing EventPlugin", plugin.GetInfo().Name)
+				}
+			}
+		})
+	}
+}
+
 func TestAllRegionalPluginsCapabilities(t *testing.T) {
 	plugins := []struct {
-		name   string
-		plugin api.RegionalExtension
-		region api.Region
+		name     string
+		plugin   api.RegionalExtension
+		region   api.Region
 		calendar api.CalendarSystem
 	}{
 		{"Tamil Nadu", NewTamilNaduRegionalPlugin(), api.RegionTamilNadu, api.CalendarAmanta},
@@ -349,6 +412,35 @@ func TestAllRegionalPluginsCapabilities(t *testing.T) {
 			names := p.plugin.GetRegionalNames("en")
 			if names == nil {
 				t.Errorf("%s: Expected regional names, got nil", p.name)
+			}
+		})
+	}
+}
+
+func TestRegionalPluginsReturnClearErrorForUnsupportedMuhurtas(t *testing.T) {
+	plugins := []api.RegionalExtension{
+		NewTamilNaduRegionalPlugin(),
+		NewKeralaRegionalPlugin(),
+		NewBengalRegionalPlugin(),
+		NewGujaratRegionalPlugin(),
+		NewMaharashtraRegionalPlugin(),
+	}
+
+	for _, plugin := range plugins {
+		t.Run(plugin.GetInfo().Name, func(t *testing.T) {
+			if err := plugin.Initialize(context.Background(), map[string]interface{}{}); err != nil {
+				t.Fatalf("failed to initialize plugin: %v", err)
+			}
+
+			muhurtas, err := plugin.GetRegionalMuhurtas(context.Background(), testDateRegional, testLocationTN)
+			if err == nil {
+				t.Fatal("expected unsupported regional muhurta call to return an error")
+			}
+			if !strings.Contains(err.Error(), "regional muhurtas are unavailable") {
+				t.Fatalf("expected unsupported regional muhurta error, got %v", err)
+			}
+			if len(muhurtas) != 0 {
+				t.Fatalf("expected no muhurtas from unsupported regional call, got %d", len(muhurtas))
 			}
 		})
 	}

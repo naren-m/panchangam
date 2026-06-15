@@ -5,8 +5,9 @@
 # Examples:
 #   ./deploy.sh production kubernetes
 #   ./deploy.sh staging docker-compose
+#   ./deploy.sh rollback docker-compose
 
-set -e
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'
@@ -20,6 +21,11 @@ ENVIRONMENT="${1:-staging}"
 PLATFORM="${2:-kubernetes}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+KUBERNETES_DEPLOYMENTS=(
+    panchangam-grpc
+    panchangam-gateway
+    panchangam-frontend
+)
 
 # Logging functions
 log_info() {
@@ -95,34 +101,6 @@ pre_deployment_checks() {
     log_success "Pre-deployment checks passed"
 }
 
-# Database migration
-run_migrations() {
-    log_info "Running database migrations..."
-
-    if [ "$PLATFORM" = "kubernetes" ]; then
-        kubectl run migration-job \
-            --namespace=panchangam \
-            --image=migrate/migrate:latest \
-            --rm -i --restart=Never \
-            --command -- migrate \
-            -path /migrations \
-            -database "postgres://panchangam:${DB_PASSWORD}@postgres-primary:5432/panchangam?sslmode=disable" \
-            up
-    else
-        cd "${PROJECT_ROOT}"
-        docker-compose -f docker-compose.prod.yml run --rm \
-            -e DB_HOST=postgres \
-            -e DB_PORT=5432 \
-            -e DB_NAME=panchangam \
-            -e DB_USER=panchangam \
-            -e DB_PASSWORD="${DB_PASSWORD}" \
-            backend-gateway \
-            sh -c "cd /app/deployments/migrations && ./migrate.sh up"
-    fi
-
-    log_success "Database migrations completed"
-}
-
 # Deploy to Kubernetes
 deploy_kubernetes() {
     log_info "Deploying to Kubernetes ($ENVIRONMENT)..."
@@ -134,9 +112,9 @@ deploy_kubernetes() {
 
     # Wait for rollout
     log_info "Waiting for deployment rollout..."
-    kubectl rollout status deployment/panchangam-grpc -n panchangam --timeout=5m
-    kubectl rollout status deployment/panchangam-gateway -n panchangam --timeout=5m
-    kubectl rollout status deployment/panchangam-frontend -n panchangam --timeout=5m
+    for deployment in "${KUBERNETES_DEPLOYMENTS[@]}"; do
+        kubectl rollout status "deployment/$deployment" -n panchangam --timeout=5m
+    done
 
     log_success "Kubernetes deployment completed"
 }
@@ -149,7 +127,24 @@ deploy_docker_compose() {
 
     # Load environment variables
     if [ -f ".env.${ENVIRONMENT}" ]; then
-        export $(cat ".env.${ENVIRONMENT}" | grep -v '^#' | xargs)
+        while IFS= read -r line || [ -n "$line" ]; do
+            case "$line" in
+                ""|\#*) continue ;;
+            esac
+
+            if [[ "$line" != *=* ]]; then
+                log_warning "Skipping invalid env line: $line"
+                continue
+            fi
+
+            key="${line%%=*}"
+            if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+                log_warning "Skipping invalid env key: $key"
+                continue
+            fi
+
+            export "$line"
+        done < ".env.${ENVIRONMENT}"
     fi
 
     # Pull latest images
@@ -200,7 +195,7 @@ run_smoke_tests() {
     fi
 
     # Test API health endpoint
-    if curl -f "${API_URL}/health" > /dev/null 2>&1; then
+    if curl -f "${API_URL}/api/v1/health" > /dev/null 2>&1; then
         log_success "API health check passed"
     else
         log_error "API health check failed"
@@ -220,12 +215,22 @@ run_smoke_tests() {
 
 # Rollback function
 rollback() {
+    if [ "$PLATFORM" = "kubernetes" ] && ! command -v kubectl &> /dev/null; then
+        log_error "kubectl is not installed"
+        exit 1
+    fi
+
+    if [ "$PLATFORM" = "docker-compose" ] && ! command -v docker-compose &> /dev/null; then
+        log_error "docker-compose is not installed"
+        exit 1
+    fi
+
     log_warning "Rolling back deployment..."
 
     if [ "$PLATFORM" = "kubernetes" ]; then
-        kubectl rollout undo deployment/panchangam-grpc -n panchangam
-        kubectl rollout undo deployment/panchangam-gateway -n panchangam
-        kubectl rollout undo deployment/panchangam-frontend -n panchangam
+        for deployment in "${KUBERNETES_DEPLOYMENTS[@]}"; do
+            kubectl rollout undo "deployment/$deployment" -n panchangam
+        done
     else
         docker-compose -f docker-compose.prod.yml down
         # Restore previous version
@@ -244,17 +249,18 @@ main() {
     log_info "Platform: $PLATFORM"
     log_info "==================================="
 
+    if [ "$ENVIRONMENT" = "rollback" ]; then
+        validate_platform
+        rollback
+        exit 0
+    fi
+
     # Validate inputs
     validate_environment
     validate_platform
 
     # Run checks
     pre_deployment_checks
-
-    # Run migrations
-    if [ "$ENVIRONMENT" != "development" ]; then
-        run_migrations
-    fi
 
     # Deploy based on platform
     if [ "$PLATFORM" = "kubernetes" ]; then

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { PanchangamData } from '../types/panchangam';
+import { formatDateForApi } from '../utils/dateHelpers';
 
 interface UseDayDetailOptions {
   selectedDate: Date | null;
@@ -18,13 +19,13 @@ export const useDayDetail = ({
 }: UseDayDetailOptions) => {
   const dayDetailData = useMemo(() => {
     if (!selectedDate) return null;
-    const dateStr = selectedDate.toISOString().split('T')[0];
+    const dateStr = formatDateForApi(selectedDate);
     return panchangamData[dateStr] || null;
   }, [selectedDate, panchangamData]);
 
   const hasDataForDate = useMemo(() => {
     if (!selectedDate) return false;
-    const dateStr = selectedDate.toISOString().split('T')[0];
+    const dateStr = formatDateForApi(selectedDate);
     return dateStr in panchangamData;
   }, [selectedDate, panchangamData]);
 

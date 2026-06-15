@@ -42,7 +42,7 @@ func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.T
 	observer := observability.Observer()
 	ctx, span := observer.CreateSpan(ctx, "CalculateSunTimes")
 	defer span.End()
-	
+
 	// Add span attributes for tracing
 	span.SetAttributes(
 		attribute.Float64("location.latitude", loc.Latitude),
@@ -50,9 +50,9 @@ func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.T
 		attribute.String("date", date.Format("2006-01-02")),
 		attribute.String("timezone", date.Location().String()),
 	)
-	
+
 	year, month, day := date.Date()
-	
+
 	// Convert to Julian day number
 	ctx, julianSpan := observer.CreateSpan(ctx, "calculateJulianDay")
 	jd := julianDayNumber(year, int(month), day)
@@ -63,35 +63,35 @@ func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.T
 		attribute.Int("day", day),
 	)
 	julianSpan.End()
-	
+
 	// Calculate centuries since J2000.0
 	n := jd - 2451545.0
 	span.SetAttributes(attribute.Float64("centuries_since_j2000", n))
-	
+
 	// Solar position calculations
 	ctx, solarSpan := observer.CreateSpan(ctx, "calculateSolarPosition")
-	
+
 	// Mean longitude of the Sun
 	L := math.Mod(280.460+0.9856474*n, 360.0)
-	
+
 	// Mean anomaly of the Sun
 	g := math.Mod(357.528+0.9856003*n, 360.0) * DegToRad
-	
+
 	// Ecliptic longitude of the Sun
 	lambda := L + 1.915*math.Sin(g) + 0.020*math.Sin(2*g)
-	
+
 	// Obliquity of the ecliptic
 	epsilon := 23.439 - 0.0000004*n
-	
+
 	// Right ascension
 	alpha := math.Atan2(math.Cos(epsilon*DegToRad)*math.Sin(lambda*DegToRad), math.Cos(lambda*DegToRad)) * RadToDeg
-	
+
 	// Declination
 	delta := math.Asin(math.Sin(epsilon*DegToRad)*math.Sin(lambda*DegToRad)) * RadToDeg
-	
+
 	// Equation of time (in minutes)
 	EqT := 4 * (L - alpha)
-	
+
 	solarSpan.SetAttributes(
 		attribute.Float64("solar.mean_longitude", L),
 		attribute.Float64("solar.mean_anomaly_rad", g),
@@ -102,28 +102,28 @@ func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.T
 		attribute.Float64("solar.equation_of_time", EqT),
 	)
 	solarSpan.End()
-	
+
 	// Hour angle for sunrise/sunset
 	ctx, hourAngleSpan := observer.CreateSpan(ctx, "calculateHourAngle")
 	latRad := loc.Latitude * DegToRad
 	deltaRad := delta * DegToRad
-	
+
 	// Calculate hour angle
 	cosH := (math.Cos(90.833*DegToRad) - math.Sin(latRad)*math.Sin(deltaRad)) / (math.Cos(latRad) * math.Cos(deltaRad))
-	
+
 	hourAngleSpan.SetAttributes(
 		attribute.Float64("hour_angle.cos_h", cosH),
 		attribute.Float64("latitude_rad", latRad),
 		attribute.Float64("declination_rad", deltaRad),
 	)
-	
+
 	// Check for polar day or polar night
 	if cosH > 1 {
 		// Polar night - sun never rises
 		hourAngleSpan.SetAttributes(attribute.String("condition", "polar_night"))
 		hourAngleSpan.AddEvent("Polar night detected - sun never rises")
 		hourAngleSpan.End()
-		
+
 		result := &SunTimes{
 			Sunrise: time.Date(year, month, day, 12, 0, 0, 0, date.Location()),
 			Sunset:  time.Date(year, month, day, 12, 0, 0, 0, date.Location()),
@@ -139,7 +139,7 @@ func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.T
 		hourAngleSpan.SetAttributes(attribute.String("condition", "polar_day"))
 		hourAngleSpan.AddEvent("Polar day detected - sun never sets")
 		hourAngleSpan.End()
-		
+
 		result := &SunTimes{
 			Sunrise: time.Date(year, month, day, 0, 0, 0, 0, date.Location()),
 			Sunset:  time.Date(year, month, day, 23, 59, 59, 0, date.Location()),
@@ -151,7 +151,7 @@ func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.T
 		))
 		return result, nil
 	}
-	
+
 	// Hour angle in degrees
 	H := math.Acos(cosH) * RadToDeg
 	hourAngleSpan.SetAttributes(
@@ -159,44 +159,44 @@ func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.T
 		attribute.String("condition", "normal"),
 	)
 	hourAngleSpan.End()
-	
+
 	// Solar noon calculations
 	ctx, solarNoonSpan := observer.CreateSpan(ctx, "calculateSolarNoon")
 	solarNoon := 12.0 - loc.Longitude/15.0 - EqT/60.0
-	
+
 	// Sunrise and sunset times (in decimal hours UTC)
 	sunriseDecimal := solarNoon - H/15.0
 	sunsetDecimal := solarNoon + H/15.0
-	
+
 	solarNoonSpan.SetAttributes(
 		attribute.Float64("solar_noon", solarNoon),
 		attribute.Float64("sunrise_decimal", sunriseDecimal),
 		attribute.Float64("sunset_decimal", sunsetDecimal),
 	)
 	solarNoonSpan.End()
-	
+
 	// Convert to time
 	_, conversionSpan := observer.CreateSpan(ctx, "convertToTime")
 	sunriseTime := decimalHoursToTime(sunriseDecimal, year, month, day, time.UTC)
 	sunsetTime := decimalHoursToTime(sunsetDecimal, year, month, day, time.UTC)
-	
+
 	conversionSpan.SetAttributes(
 		attribute.String("sunrise_time", sunriseTime.Format("15:04:05")),
 		attribute.String("sunset_time", sunsetTime.Format("15:04:05")),
 	)
 	conversionSpan.End()
-	
+
 	result := &SunTimes{
 		Sunrise: sunriseTime,
 		Sunset:  sunsetTime,
 	}
-	
+
 	// Calculate day length for metrics
 	dayLength := sunsetTime.Sub(sunriseTime)
 	if dayLength < 0 {
 		dayLength = dayLength + 24*time.Hour
 	}
-	
+
 	span.SetAttributes(
 		attribute.String("result_type", "normal"),
 		attribute.Float64("day_length_hours", dayLength.Hours()),
@@ -208,7 +208,7 @@ func CalculateSunTimesWithContext(ctx context.Context, loc Location, date time.T
 		attribute.String("sunset", result.Sunset.Format("15:04:05")),
 		attribute.Float64("day_length_hours", dayLength.Hours()),
 	))
-	
+
 	return result, nil
 }
 
@@ -217,19 +217,19 @@ func julianDate(date time.Time) float64 {
 	year := date.Year()
 	month := int(date.Month())
 	day := date.Day()
-	
+
 	if month <= 2 {
 		year--
 		month += 12
 	}
-	
+
 	a := year / 100
 	b := 2 - a + a/4
-	
-	jd := math.Floor(365.25*(float64(year)+4716)) + 
-		math.Floor(30.6001*(float64(month)+1)) + 
+
+	jd := math.Floor(365.25*(float64(year)+4716)) +
+		math.Floor(30.6001*(float64(month)+1)) +
 		float64(day) + float64(b) - 1524.5
-	
+
 	return jd
 }
 
@@ -243,26 +243,26 @@ func solarPositionWithContext(ctx context.Context, jd float64) (float64, float64
 	observer := observability.Observer()
 	_, span := observer.CreateSpan(ctx, "solarPosition")
 	defer span.End()
-	
+
 	span.SetAttributes(attribute.Float64("julian_day", jd))
-	
+
 	n := jd - 2451545.0
 	L := math.Mod(280.460+0.9856474*n, 360)
 	g := math.Mod(357.528+0.9856003*n, 360) * DegToRad
-	
+
 	// Solar ecliptic longitude
 	lambda := L + 1.915*math.Sin(g) + 0.020*math.Sin(2*g)
-	
+
 	// Right ascension
 	ra := math.Atan2(math.Cos(23.44*DegToRad)*math.Sin(lambda*DegToRad), math.Cos(lambda*DegToRad)) * RadToDeg
 	ra = math.Mod(ra+360, 360)
-	
+
 	// Equation of time (in minutes)
 	eqTime := 4 * (L - ra)
-	
+
 	// Solar declination
 	decl := math.Asin(math.Sin(23.44*DegToRad) * math.Sin(lambda*DegToRad))
-	
+
 	span.SetAttributes(
 		attribute.Float64("centuries_since_j2000", n),
 		attribute.Float64("mean_longitude", L),
@@ -272,12 +272,12 @@ func solarPositionWithContext(ctx context.Context, jd float64) (float64, float64
 		attribute.Float64("equation_of_time", eqTime),
 		attribute.Float64("declination_rad", decl),
 	)
-	
+
 	span.AddEvent("Solar position calculated", trace.WithAttributes(
 		attribute.Float64("equation_of_time", eqTime),
 		attribute.Float64("declination_rad", decl),
 	))
-	
+
 	return eqTime, decl
 }
 
@@ -291,7 +291,7 @@ func calculateRiseSetWithContext(ctx context.Context, latitude, longitude, jd, e
 	observer := observability.Observer()
 	_, span := observer.CreateSpan(ctx, "calculateRiseSet")
 	defer span.End()
-	
+
 	span.SetAttributes(
 		attribute.Float64("latitude", latitude),
 		attribute.Float64("longitude", longitude),
@@ -299,19 +299,19 @@ func calculateRiseSetWithContext(ctx context.Context, latitude, longitude, jd, e
 		attribute.Float64("equation_of_time", eqTime),
 		attribute.Float64("declination", decl),
 	)
-	
+
 	latRad := latitude * DegToRad
-	
+
 	// Hour angle with solar depression angle
-	cosH := (math.Cos(SolarDepressionAngle*DegToRad) - math.Sin(latRad)*math.Sin(decl)) / 
+	cosH := (math.Cos(SolarDepressionAngle*DegToRad) - math.Sin(latRad)*math.Sin(decl)) /
 		(math.Cos(latRad) * math.Cos(decl))
-	
+
 	span.SetAttributes(
 		attribute.Float64("latitude_rad", latRad),
 		attribute.Float64("cos_hour_angle", cosH),
 		attribute.Float64("solar_depression_angle", SolarDepressionAngle),
 	)
-	
+
 	// Check for polar day or polar night
 	if cosH > 1 {
 		// Polar night - sun never rises
@@ -324,20 +324,20 @@ func calculateRiseSetWithContext(ctx context.Context, latitude, longitude, jd, e
 		span.AddEvent("Polar day - sun never sets")
 		return 0, 24 * 60
 	}
-	
+
 	H := math.Acos(cosH) * RadToDeg
-	
+
 	// Time corrections (equation of time and longitude correction)
 	timeCorrection := eqTime + longitude*4
-	
+
 	// Sunrise and sunset times (minutes from midnight UTC)
 	sunrise := 720 - 4*H - timeCorrection
 	sunset := 720 + 4*H - timeCorrection
-	
+
 	// Ensure times are within 0-1440 minutes (24 hours)
 	sunrise = math.Mod(sunrise+1440, 1440)
 	sunset = math.Mod(sunset+1440, 1440)
-	
+
 	span.SetAttributes(
 		attribute.String("condition", "normal"),
 		attribute.Float64("hour_angle_degrees", H),
@@ -345,12 +345,12 @@ func calculateRiseSetWithContext(ctx context.Context, latitude, longitude, jd, e
 		attribute.Float64("sunrise_minutes", sunrise),
 		attribute.Float64("sunset_minutes", sunset),
 	)
-	
+
 	span.AddEvent("Rise/set times calculated", trace.WithAttributes(
 		attribute.Float64("sunrise_minutes", sunrise),
 		attribute.Float64("sunset_minutes", sunset),
 	))
-	
+
 	return sunrise, sunset
 }
 
@@ -364,24 +364,24 @@ func GetSunriseTimeWithContext(ctx context.Context, loc Location, date time.Time
 	observer := observability.Observer()
 	ctx, span := observer.CreateSpan(ctx, "GetSunriseTime")
 	defer span.End()
-	
+
 	span.SetAttributes(
 		attribute.Float64("location.latitude", loc.Latitude),
 		attribute.Float64("location.longitude", loc.Longitude),
 		attribute.String("date", date.Format("2006-01-02")),
 	)
-	
+
 	sunTimes, err := CalculateSunTimesWithContext(ctx, loc, date)
 	if err != nil {
 		span.RecordError(err)
 		return time.Time{}, err
 	}
-	
+
 	span.SetAttributes(attribute.String("sunrise", sunTimes.Sunrise.Format("15:04:05")))
 	span.AddEvent("Sunrise time extracted", trace.WithAttributes(
 		attribute.String("sunrise", sunTimes.Sunrise.Format("15:04:05")),
 	))
-	
+
 	return sunTimes.Sunrise, nil
 }
 
@@ -395,24 +395,24 @@ func GetSunsetTimeWithContext(ctx context.Context, loc Location, date time.Time)
 	observer := observability.Observer()
 	ctx, span := observer.CreateSpan(ctx, "GetSunsetTime")
 	defer span.End()
-	
+
 	span.SetAttributes(
 		attribute.Float64("location.latitude", loc.Latitude),
 		attribute.Float64("location.longitude", loc.Longitude),
 		attribute.String("date", date.Format("2006-01-02")),
 	)
-	
+
 	sunTimes, err := CalculateSunTimesWithContext(ctx, loc, date)
 	if err != nil {
 		span.RecordError(err)
 		return time.Time{}, err
 	}
-	
+
 	span.SetAttributes(attribute.String("sunset", sunTimes.Sunset.Format("15:04:05")))
 	span.AddEvent("Sunset time extracted", trace.WithAttributes(
 		attribute.String("sunset", sunTimes.Sunset.Format("15:04:05")),
 	))
-	
+
 	return sunTimes.Sunset, nil
 }
 
@@ -422,14 +422,14 @@ func julianDayNumber(year, month, day int) float64 {
 		year--
 		month += 12
 	}
-	
+
 	a := year / 100
 	b := 2 - a + a/4
-	
-	jd := math.Floor(365.25*(float64(year)+4716)) + 
-		math.Floor(30.6001*(float64(month)+1)) + 
+
+	jd := math.Floor(365.25*(float64(year)+4716)) +
+		math.Floor(30.6001*(float64(month)+1)) +
 		float64(day) + float64(b) - 1524.5
-	
+
 	return jd
 }
 
@@ -437,11 +437,10 @@ func julianDayNumber(year, month, day int) float64 {
 func decimalHoursToTime(decimalHours float64, year int, month time.Month, day int, loc *time.Location) time.Time {
 	// Ensure the decimal hours is within 0-24 range
 	decimalHours = math.Mod(decimalHours+24, 24)
-	
+
 	hours := int(decimalHours)
 	minutes := int((decimalHours - float64(hours)) * 60)
-	seconds := int(((decimalHours - float64(hours)) * 60 - float64(minutes)) * 60)
-	
+	seconds := int(((decimalHours-float64(hours))*60 - float64(minutes)) * 60)
+
 	return time.Date(year, month, day, hours, minutes, seconds, 0, loc)
 }
-

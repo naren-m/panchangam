@@ -4,7 +4,28 @@ import { PanchangamApiError } from '../types';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+globalThis.fetch = mockFetch;
+
+async function expectApiError(
+  request: Promise<unknown>,
+  code: string,
+  status?: number
+): Promise<void> {
+  let caughtError: unknown;
+
+  try {
+    await request;
+  } catch (error) {
+    caughtError = error;
+  }
+
+  expect(caughtError).toBeInstanceOf(PanchangamApiError);
+  expect((caughtError as PanchangamApiError).code).toBe(code);
+
+  if (status !== undefined) {
+    expect((caughtError as PanchangamApiError).status).toBe(status);
+  }
+}
 
 // Mock AbortSignal.timeout
 Object.defineProperty(AbortSignal, 'timeout', {
@@ -30,6 +51,7 @@ describe('ApiClient', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -37,7 +59,7 @@ describe('ApiClient', () => {
     it('should use default configuration', () => {
       const defaultClient = new ApiClient();
       const config = defaultClient.getConfig();
-      
+
       expect(config.baseURL).toBeDefined();
       expect(config.timeout).toBe(30000);
       expect(config.retries).toBe(3);
@@ -46,7 +68,7 @@ describe('ApiClient', () => {
 
     it('should merge custom configuration', () => {
       const config = client.getConfig();
-      
+
       expect(config.baseURL).toBe('https://api.test.com');
       expect(config.timeout).toBe(5000);
       expect(config.retries).toBe(2);
@@ -54,7 +76,7 @@ describe('ApiClient', () => {
 
     it('should update configuration', () => {
       client.updateConfig({ timeout: 10000 });
-      
+
       expect(client.getConfig().timeout).toBe(10000);
     });
   });
@@ -90,7 +112,7 @@ describe('ApiClient', () => {
 
       const fetchCall = mockFetch.mock.calls[0];
       const url = new URL(fetchCall[0]);
-      
+
       expect(url.searchParams.get('param1')).toBe('value1');
       expect(url.searchParams.get('param2')).toBe('value2');
     });
@@ -109,13 +131,37 @@ describe('ApiClient', () => {
 
       expect(response.data).toBe(textResponse);
     });
+
+    it('should not log successful responses when debug logging is enabled', async () => {
+      vi.stubEnv('VITE_LOG_LEVEL', 'debug');
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+      const debugClient = new ApiClient({
+        baseURL: 'https://api.test.com',
+        timeout: 5000,
+        retries: 0,
+        retryDelay: 1
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers([['content-type', 'application/json']]),
+        json: () => Promise.resolve({ ok: true })
+      });
+
+      const response = await debugClient.get('/test');
+
+      expect(response.data).toEqual({ ok: true });
+      expect(debugSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe('POST requests', () => {
     it('should make successful POST request with data', async () => {
       const requestData = { name: 'test' };
       const responseData = { id: 1, name: 'test' };
-      
+
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 201,
@@ -129,7 +175,7 @@ describe('ApiClient', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(response.data).toEqual(responseData);
       expect(response.status).toBe(201);
-      
+
       const fetchCall = mockFetch.mock.calls[0];
       const options = fetchCall[1];
       expect(options.method).toBe('POST');
@@ -138,6 +184,17 @@ describe('ApiClient', () => {
   });
 
   describe('Error handling', () => {
+    let noRetryClient: ApiClient;
+
+    beforeEach(() => {
+      noRetryClient = new ApiClient({
+        baseURL: 'https://api.test.com',
+        timeout: 5000,
+        retries: 0,
+        retryDelay: 100
+      });
+    });
+
     it('should handle HTTP 404 errors', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -147,15 +204,7 @@ describe('ApiClient', () => {
         json: () => Promise.resolve({ error: { message: 'Resource not found' } })
       });
 
-      await expect(client.get('/test')).rejects.toThrow(PanchangamApiError);
-      
-      try {
-        await client.get('/test');
-      } catch (error) {
-        expect(error).toBeInstanceOf(PanchangamApiError);
-        expect((error as PanchangamApiError).code).toBe('NOT_FOUND');
-        expect((error as PanchangamApiError).status).toBe(404);
-      }
+      await expectApiError(noRetryClient.get('/test'), 'NOT_FOUND', 404);
     });
 
     it('should handle HTTP 500 errors', async () => {
@@ -167,27 +216,14 @@ describe('ApiClient', () => {
         json: () => Promise.resolve({})
       });
 
-      await expect(client.get('/test')).rejects.toThrow(PanchangamApiError);
-      
-      try {
-        await client.get('/test');
-      } catch (error) {
-        expect((error as PanchangamApiError).code).toBe('SERVER_ERROR');
-        expect((error as PanchangamApiError).status).toBe(500);
-      }
+      await expectApiError(noRetryClient.get('/test'), 'SERVER_ERROR', 500);
     });
 
     it('should handle network errors', async () => {
       const networkError = new TypeError('Failed to fetch');
       mockFetch.mockRejectedValueOnce(networkError);
 
-      await expect(client.get('/test')).rejects.toThrow(PanchangamApiError);
-      
-      try {
-        await client.get('/test');
-      } catch (error) {
-        expect((error as PanchangamApiError).code).toBe('NETWORK_ERROR');
-      }
+      await expectApiError(noRetryClient.get('/test'), 'NETWORK_ERROR');
     });
 
     it('should handle timeout errors', async () => {
@@ -195,13 +231,7 @@ describe('ApiClient', () => {
       timeoutError.name = 'AbortError';
       mockFetch.mockRejectedValueOnce(timeoutError);
 
-      await expect(client.get('/test')).rejects.toThrow(PanchangamApiError);
-      
-      try {
-        await client.get('/test');
-      } catch (error) {
-        expect((error as PanchangamApiError).code).toBe('REQUEST_TIMEOUT');
-      }
+      await expectApiError(noRetryClient.get('/test'), 'REQUEST_TIMEOUT');
     });
   });
 
@@ -246,14 +276,8 @@ describe('ApiClient', () => {
         json: () => Promise.resolve({})
       });
 
-      try {
-        await client.get('/test');
-      } catch (error) {
-        expect(error).toBeInstanceOf(PanchangamApiError);
-        expect((error as PanchangamApiError).code).toBe('INVALID_REQUEST');
-        expect((error as PanchangamApiError).status).toBe(400);
-      }
-      
+      await expectApiError(client.get('/test'), 'INVALID_REQUEST', 400);
+
       // Should not retry on client errors
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
@@ -268,9 +292,41 @@ describe('ApiClient', () => {
       });
 
       await expect(client.get('/test')).rejects.toThrow(PanchangamApiError);
-      
+
       // Should try initial request + 2 retries = 3 total calls
       expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('should not log retry attempts when debug logging is enabled', async () => {
+      vi.stubEnv('VITE_LOG_LEVEL', 'debug');
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const retryClient = new ApiClient({
+        baseURL: 'https://api.test.com',
+        timeout: 5000,
+        retries: 1,
+        retryDelay: 1
+      });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+          headers: new Headers(),
+          json: () => Promise.resolve({})
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers([['content-type', 'application/json']]),
+          json: () => Promise.resolve({ success: true })
+        });
+
+      const response = await retryClient.get('/test');
+
+      expect(response.data).toEqual({ success: true });
+      expect(warnSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -312,10 +368,13 @@ describe('ApiClient', () => {
       // Add custom response interceptor
       client.addResponseInterceptor((response) => ({
         ...response,
-        data: { ...response.data, intercepted: true }
+        data: {
+          ...(response.data as Record<string, unknown>),
+          intercepted: true
+        }
       }));
 
-      const response = await client.get('/test');
+      const response = await client.get<Record<string, unknown>>('/test');
 
       expect(response.data).toEqual({ original: 'data', intercepted: true });
     });
@@ -335,9 +394,38 @@ describe('ApiClient', () => {
 
       const fetchCall = mockFetch.mock.calls[0];
       const options = fetchCall[1];
-      
+
       expect(options.headers['X-Request-ID']).toMatch(/^req_\d+_/);
       expect(options.headers['X-Timestamp']).toBeDefined();
+    });
+
+    it('should use the sent request ID on errors', async () => {
+      const noRetryClient = new ApiClient({
+        baseURL: 'https://api.test.com',
+        timeout: 5000,
+        retries: 0,
+        retryDelay: 1
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        headers: new Headers(),
+        json: () => Promise.resolve({})
+      });
+
+      let caughtError: unknown;
+      try {
+        await noRetryClient.get('/test');
+      } catch (error) {
+        caughtError = error;
+      }
+
+      const fetchCall = mockFetch.mock.calls[0];
+      const options = fetchCall[1];
+
+      expect(caughtError).toBeInstanceOf(PanchangamApiError);
+      expect((caughtError as PanchangamApiError).requestId).toBe(options.headers['X-Request-ID']);
     });
   });
 });

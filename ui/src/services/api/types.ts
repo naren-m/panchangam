@@ -7,16 +7,16 @@ export interface ApiClientConfig {
   headers: Record<string, string>;
 }
 
-export interface ApiRequest<T = any> {
+export interface ApiRequest<T = unknown> {
   url: string;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   data?: T;
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
   headers?: Record<string, string>;
   timeout?: number;
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data: T;
   status: number;
   statusText: string;
@@ -27,7 +27,7 @@ export interface ApiResponse<T = any> {
 export interface ApiError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
   requestId: string;
   timestamp: string;
   path: string;
@@ -38,6 +38,7 @@ export class PanchangamApiError extends Error {
   public readonly code: string;
   public readonly requestId?: string;
   public readonly status?: number;
+  public retryCount?: number;
 
   constructor(message: string, code: string = 'UNKNOWN_ERROR', requestId?: string, status?: number) {
     super(message);
@@ -50,5 +51,5 @@ export class PanchangamApiError extends Error {
 
 // Request/Response interceptor types
 export type RequestInterceptor = (request: ApiRequest) => ApiRequest | Promise<ApiRequest>;
-export type ResponseInterceptor = (response: ApiResponse) => ApiResponse | Promise<ApiResponse>;
-export type ErrorInterceptor = (error: any) => any;
+export type ResponseInterceptor = (response: ApiResponse<unknown>) => ApiResponse<unknown> | Promise<ApiResponse<unknown>>;
+export type ErrorInterceptor = (error: PanchangamApiError) => PanchangamApiError | Promise<PanchangamApiError>;

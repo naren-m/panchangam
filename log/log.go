@@ -7,17 +7,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"log/slog"
 	"os"
-	"sync"
-	"time"
 )
 
 var logger *slog.Logger
-var initOnce sync.Once
 
 func init() {
-	initOnce.Do(func() {
-		logger = slog.New(NewHandler(slog.NewTextHandler(os.Stdout, nil)))
-	})
+	logger = slog.New(NewHandler(slog.NewTextHandler(os.Stdout, nil)))
 }
 
 func Logger() *slog.Logger {
@@ -59,14 +54,14 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 				}
 				return true
 			})
-			
+
 			// Add log level as span attribute
 			spanAttrs = append(spanAttrs, attribute.String("log.level", r.Level.String()))
-			
+
 			// Create span event with attributes
 			eventName := fmt.Sprintf("log.%s", r.Level.String())
 			span.AddEvent(eventName, observability.WithAttributes(spanAttrs...))
-			
+
 			// For errors, also record the error on the span
 			if r.Level >= slog.LevelError {
 				// Try to extract error from attributes
@@ -78,7 +73,7 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 					}
 					return true
 				})
-				
+
 				if errorAttr.Key != "" {
 					if err, ok := errorAttr.Value.Any().(error); ok {
 						span.RecordError(err)
@@ -101,20 +96,20 @@ func convertSlogAttrToSpanAttr(key string, attr slog.Value) (attribute.KeyValue,
 	var kv attribute.KeyValue
 	switch attr.Kind() {
 	case slog.KindString:
-		kv = attribute.String(key, attr.Any().(string))
+		kv = attribute.String(key, attr.String())
 	case slog.KindBool:
-		kv = attribute.Bool(key, attr.Any().(bool))
+		kv = attribute.Bool(key, attr.Bool())
 	case slog.KindInt64:
-		kv = attribute.Int64(key, attr.Any().(int64))
+		kv = attribute.Int64(key, attr.Int64())
 	case slog.KindUint64:
 		// OpenTelemetry does not support Uint64 directly, convert to Int64
-		kv = attribute.Int64(key, int64(attr.Any().(uint64)))
+		kv = attribute.Int64(key, int64(attr.Uint64()))
 	case slog.KindFloat64:
-		kv = attribute.Float64(key, attr.Any().(float64))
+		kv = attribute.Float64(key, attr.Float64())
 	case slog.KindDuration:
-		kv = attribute.String(key, attr.Any().(time.Duration).String())
+		kv = attribute.String(key, attr.Duration().String())
 	case slog.KindTime:
-		kv = attribute.String(key, attr.Any().(time.Time).String())
+		kv = attribute.String(key, attr.Time().String())
 	default:
 		// For unsupported types, or in case of any errors, encode as a string
 		kv = attribute.String(key, fmt.Sprint(attr.Any()))

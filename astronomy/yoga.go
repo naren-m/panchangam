@@ -16,24 +16,24 @@ import (
 type YogaQuality string
 
 const (
-	YogaQualityAuspicious    YogaQuality = "Auspicious"
-	YogaQualityInauspicious  YogaQuality = "Inauspicious"
-	YogaQualityMixed         YogaQuality = "Mixed"
-	YogaQualityNeutral       YogaQuality = "Neutral"
+	YogaQualityAuspicious   YogaQuality = "Auspicious"
+	YogaQualityInauspicious YogaQuality = "Inauspicious"
+	YogaQualityMixed        YogaQuality = "Mixed"
+	YogaQualityNeutral      YogaQuality = "Neutral"
 )
 
 // YogaInfo represents a Yoga with its properties
 type YogaInfo struct {
-	Number        int         `json:"number"`          // 1-27
-	Name          string      `json:"name"`            // Sanskrit name
-	Quality       YogaQuality `json:"quality"`         // Auspicious nature
-	Description   string      `json:"description"`     // Meaning and effects
-	StartTime     time.Time   `json:"start_time"`      // When this Yoga begins
-	EndTime       time.Time   `json:"end_time"`        // When this Yoga ends
-	Duration      float64     `json:"duration"`        // Duration in hours
-	SunLongitude  float64     `json:"sun_longitude"`   // Sun's longitude in degrees
-	MoonLongitude float64     `json:"moon_longitude"`  // Moon's longitude in degrees
-	CombinedValue float64     `json:"combined_value"`  // Sum of Sun and Moon longitudes
+	Number        int         `json:"number"`         // 1-27
+	Name          string      `json:"name"`           // Sanskrit name
+	Quality       YogaQuality `json:"quality"`        // Auspicious nature
+	Description   string      `json:"description"`    // Meaning and effects
+	StartTime     time.Time   `json:"start_time"`     // When this Yoga begins
+	EndTime       time.Time   `json:"end_time"`       // When this Yoga ends
+	Duration      float64     `json:"duration"`       // Duration in hours
+	SunLongitude  float64     `json:"sun_longitude"`  // Sun's longitude in degrees
+	MoonLongitude float64     `json:"moon_longitude"` // Moon's longitude in degrees
+	CombinedValue float64     `json:"combined_value"` // Sum of Sun and Moon longitudes
 }
 
 // YogaCalculator handles Yoga calculations
@@ -126,7 +126,7 @@ func (yc *YogaCalculator) GetYogaForDate(ctx context.Context, date time.Time) (*
 	posSpan.End()
 
 	// Calculate Yoga
-	yoga, err := yc.calculateYogaFromLongitudes(ctx, sunLong, moonLong, date)
+	yoga, err := yc.calculateYogaFromLongitudes(ctx, sunLong, moonLong, noonDate)
 	if err != nil {
 		span.RecordError(err)
 		return nil, err
@@ -148,6 +148,51 @@ func (yc *YogaCalculator) GetYogaForDate(ctx context.Context, date time.Time) (*
 	return yoga, nil
 }
 
+// GetYogaForTime calculates the Yoga at an exact time.
+func (yc *YogaCalculator) GetYogaForTime(ctx context.Context, dateTime time.Time) (*YogaInfo, error) {
+	ctx, span := yc.observer.CreateSpan(ctx, "YogaCalculator.GetYogaForTime")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("date_time", dateTime.Format(time.RFC3339)),
+		attribute.String("timezone", dateTime.Location().String()),
+	)
+
+	jd := ephemeris.TimeToJulianDay(dateTime)
+	span.SetAttributes(attribute.Float64("julian_day", float64(jd)))
+
+	ctx, posSpan := yc.observer.CreateSpan(ctx, "getYogaPositions")
+	positions, err := yc.ephemerisManager.GetPlanetaryPositions(ctx, jd)
+	if err != nil {
+		posSpan.RecordError(err)
+		posSpan.End()
+		span.RecordError(err)
+		return nil, fmt.Errorf("failed to get planetary positions: %w", err)
+	}
+
+	sunLong := positions.Sun.Longitude
+	moonLong := positions.Moon.Longitude
+	posSpan.SetAttributes(
+		attribute.Float64("sun_longitude", sunLong),
+		attribute.Float64("moon_longitude", moonLong),
+	)
+	posSpan.End()
+
+	yoga, err := yc.calculateYogaFromLongitudes(ctx, sunLong, moonLong, dateTime)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+
+	span.SetAttributes(
+		attribute.Int("yoga_number", yoga.Number),
+		attribute.String("yoga_name", yoga.Name),
+		attribute.String("yoga_quality", string(yoga.Quality)),
+	)
+
+	return yoga, nil
+}
+
 // calculateYogaFromLongitudes calculates Yoga from Sun and Moon longitudes
 func (yc *YogaCalculator) calculateYogaFromLongitudes(ctx context.Context, sunLong, moonLong float64, referenceDate time.Time) (*YogaInfo, error) {
 	ctx, span := yc.observer.CreateSpan(ctx, "YogaCalculator.calculateYogaFromLongitudes")
@@ -159,9 +204,9 @@ func (yc *YogaCalculator) calculateYogaFromLongitudes(ctx context.Context, sunLo
 		attribute.String("reference_date", referenceDate.Format("2006-01-02")),
 	)
 
-	// Normalize longitudes to 0-360 degrees
-	normalizedSunLong := normalizeLongitude(sunLong)
-	normalizedMoonLong := normalizeLongitude(moonLong)
+	// Panchangam yoga uses sidereal sun and moon longitudes.
+	normalizedSunLong := siderealLongitude(sunLong, referenceDate)
+	normalizedMoonLong := siderealLongitude(moonLong, referenceDate)
 
 	// Calculate the sum of Sun and Moon longitudes
 	combinedValue := normalizedSunLong + normalizedMoonLong
@@ -174,13 +219,14 @@ func (yc *YogaCalculator) calculateYogaFromLongitudes(ctx context.Context, sunLo
 	span.SetAttributes(
 		attribute.Float64("normalized_sun_longitude", normalizedSunLong),
 		attribute.Float64("normalized_moon_longitude", normalizedMoonLong),
+		attribute.Float64("ayanamsha", lahiriAyanamsha(referenceDate)),
 		attribute.Float64("combined_value", combinedValue),
 	)
 
 	// Each Yoga spans 13°20' (13.333... degrees), same as Nakshatra
 	// There are 27 Yogas covering the full 360° zodiac
 	yogaSpan := 360.0 / 27.0 // 13.333... degrees
-	
+
 	// Calculate Yoga number (1-27)
 	yogaFloat := combinedValue / yogaSpan
 	yogaNumber := int(yogaFloat) + 1
@@ -259,9 +305,7 @@ func (yc *YogaCalculator) calculateYogaTimes(ctx context.Context, yogaFloat floa
 	// Estimate when this Yoga started and will end
 	timeIntoYoga := time.Duration(yogaProgress * float64(avgYogaDuration))
 
-	// Start time is reference time minus how far we are into the Yoga
-	noonRef := time.Date(referenceDate.Year(), referenceDate.Month(), referenceDate.Day(), 12, 0, 0, 0, referenceDate.Location())
-	startTime = noonRef.Add(-timeIntoYoga)
+	startTime = referenceDate.Add(-timeIntoYoga)
 	endTime = startTime.Add(avgYogaDuration)
 
 	span.SetAttributes(

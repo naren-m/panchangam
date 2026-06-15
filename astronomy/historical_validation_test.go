@@ -14,19 +14,19 @@ import (
 func TestHistoricalValidation(t *testing.T) {
 	// Initialize observability for testing
 	observability.NewLocalObserver()
-	
+
 	// Test date: January 15, 2020 (historical date)
 	testDate := time.Date(2020, 1, 15, 0, 0, 0, 0, time.UTC)
-	
+
 	tests := []struct {
-		name              string
-		continent         string
-		location          Location
-		expectedSunrise   time.Time
-		expectedSunset    time.Time
-		tolerance         time.Duration
-		source            string
-		notes             string
+		name            string
+		continent       string
+		location        Location
+		expectedSunrise time.Time
+		expectedSunset  time.Time
+		tolerance       time.Duration
+		source          string
+		notes           string
 	}{
 		{
 			name:      "New York - North America",
@@ -87,7 +87,7 @@ func TestHistoricalValidation(t *testing.T) {
 				Latitude:  19.0760,
 				Longitude: 72.8777,
 			},
-			expectedSunrise: time.Date(2020, 1, 15, 1, 44, 0, 0, time.UTC), // 7:14 IST = 1:44 UTC
+			expectedSunrise: time.Date(2020, 1, 15, 1, 44, 0, 0, time.UTC),  // 7:14 IST = 1:44 UTC
 			expectedSunset:  time.Date(2020, 1, 15, 12, 51, 0, 0, time.UTC), // 6:21 IST = 12:51 UTC
 			tolerance:       15 * time.Minute,
 			source:          "TimeAndDate.com",
@@ -101,7 +101,7 @@ func TestHistoricalValidation(t *testing.T) {
 				Longitude: 18.4241,
 			},
 			expectedSunrise: time.Date(2020, 1, 15, 3, 50, 0, 0, time.UTC), // 5:50 SAST = 3:50 UTC
-			expectedSunset:  time.Date(2020, 1, 15, 18, 0, 0, 0, time.UTC),  // 8:00 SAST = 18:00 UTC
+			expectedSunset:  time.Date(2020, 1, 15, 18, 0, 0, 0, time.UTC), // 8:00 SAST = 18:00 UTC
 			tolerance:       15 * time.Minute,
 			source:          "TimeAndDate.com",
 			notes:           "SAST timezone (UTC+2), summer in southern hemisphere",
@@ -117,7 +117,7 @@ func TestHistoricalValidation(t *testing.T) {
 
 			// Convert our calculated times to UTC for comparison
 			// (Our algorithm returns times in the input date's timezone, which is UTC)
-			
+
 			// Check sunrise accuracy
 			sunriseDiff := sunTimes.Sunrise.Sub(tt.expectedSunrise)
 			if sunriseDiff < 0 {
@@ -127,7 +127,7 @@ func TestHistoricalValidation(t *testing.T) {
 			if sunriseDiff > 12*time.Hour {
 				sunriseDiff = 24*time.Hour - sunriseDiff
 			}
-			
+
 			// Check sunset accuracy
 			sunsetDiff := sunTimes.Sunset.Sub(tt.expectedSunset)
 			if sunsetDiff < 0 {
@@ -185,7 +185,7 @@ func TestHistoricalValidationDifferentDates(t *testing.T) {
 		Latitude:  40.7128,
 		Longitude: -74.0060,
 	}
-	
+
 	tests := []struct {
 		name            string
 		date            time.Time
@@ -198,7 +198,7 @@ func TestHistoricalValidationDifferentDates(t *testing.T) {
 			name:            "New York - Summer Solstice 2019",
 			date:            time.Date(2019, 6, 21, 0, 0, 0, 0, time.UTC),
 			expectedSunrise: time.Date(2019, 6, 21, 9, 25, 0, 0, time.UTC), // 5:25 EDT = 9:25 UTC
-			expectedSunset:  time.Date(2019, 6, 21, 0, 30, 0, 0, time.UTC),  // 8:30 EDT = 0:30 UTC (next day)
+			expectedSunset:  time.Date(2019, 6, 21, 0, 30, 0, 0, time.UTC), // 8:30 EDT = 0:30 UTC (next day)
 			tolerance:       20 * time.Minute,
 			source:          "TimeAndDate.com approximation",
 		},
@@ -230,7 +230,7 @@ func TestHistoricalValidationDifferentDates(t *testing.T) {
 			if sunriseDiff < 0 {
 				sunriseDiff = -sunriseDiff
 			}
-			
+
 			sunsetDiff := sunTimes.Sunset.Sub(tt.expectedSunset)
 			if sunsetDiff < 0 {
 				sunsetDiff = -sunsetDiff
@@ -238,13 +238,13 @@ func TestHistoricalValidationDifferentDates(t *testing.T) {
 
 			t.Logf("=== %s ===", tt.name)
 			t.Logf("Date: %s", tt.date.Format("2006-01-02"))
-			t.Logf("Expected Sunrise: %s, Got: %s, Diff: %v", 
-				tt.expectedSunrise.Format("15:04:05"), 
-				sunTimes.Sunrise.Format("15:04:05"), 
+			t.Logf("Expected Sunrise: %s, Got: %s, Diff: %v",
+				tt.expectedSunrise.Format("15:04:05"),
+				sunTimes.Sunrise.Format("15:04:05"),
 				sunriseDiff)
-			t.Logf("Expected Sunset: %s, Got: %s, Diff: %v", 
-				tt.expectedSunset.Format("15:04:05"), 
-				sunTimes.Sunset.Format("15:04:05"), 
+			t.Logf("Expected Sunset: %s, Got: %s, Diff: %v",
+				tt.expectedSunset.Format("15:04:05"),
+				sunTimes.Sunset.Format("15:04:05"),
 				sunsetDiff)
 
 			assert.True(t, sunriseDiff <= tt.tolerance,
@@ -258,7 +258,7 @@ func TestHistoricalValidationDifferentDates(t *testing.T) {
 // TestExtremeLatitudes tests locations near polar regions
 func TestExtremeLatitudes(t *testing.T) {
 	testDate := time.Date(2020, 1, 15, 0, 0, 0, 0, time.UTC)
-	
+
 	tests := []struct {
 		name     string
 		location Location
@@ -301,7 +301,7 @@ func TestExtremeLatitudes(t *testing.T) {
 			t.Logf("Location: %.4f°N, %.4f°E", tt.location.Latitude, tt.location.Longitude)
 			t.Logf("Sunrise: %s", sunTimes.Sunrise.Format("15:04:05"))
 			t.Logf("Sunset: %s", sunTimes.Sunset.Format("15:04:05"))
-			
+
 			dayLength := sunTimes.Sunset.Sub(sunTimes.Sunrise)
 			if dayLength < 0 {
 				dayLength = dayLength + 24*time.Hour

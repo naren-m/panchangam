@@ -3,6 +3,7 @@ import { panchangamApiClient } from '../panchangamApiClient';
 import { PanchangamApiError } from '../types';
 import { requestCache } from '../requestCache';
 import * as matchers from '@testing-library/jest-dom/matchers';
+import type { GetPanchangamRequest } from '../../../types/panchangam';
 
 expect.extend(matchers);
 
@@ -15,11 +16,13 @@ vi.mock('../client', () => ({
 
 import { apiClient } from '../client';
 
-const mockApiClient = apiClient as any;
+const mockApiClient = vi.mocked(apiClient);
 
 describe('PanchangamApiClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     // Clear request cache to prevent test pollution
     requestCache.clear();
   });
@@ -29,7 +32,7 @@ describe('PanchangamApiClient', () => {
   });
 
   describe('getPanchangam', () => {
-    const validRequest = {
+    const validRequest: GetPanchangamRequest = {
       date: '2024-01-15',
       latitude: 13.0827,
       longitude: 80.2707,
@@ -143,6 +146,8 @@ describe('PanchangamApiClient', () => {
       expect(result.nakshatra).toBe('Please check connection');
       expect(result.date).toBe('2024-01-15');
       expect(result.vara).toBe('Monday'); // Calculated from date
+      expect(console.error).not.toHaveBeenCalled();
+      expect(console.warn).not.toHaveBeenCalled();
     });
 
     it('should handle API errors', async () => {
@@ -187,11 +192,13 @@ describe('PanchangamApiClient', () => {
 
       // Should return fallback data
       expect(result.tithi).toBe('API Unavailable');
+      expect(console.error).not.toHaveBeenCalled();
+      expect(console.warn).not.toHaveBeenCalled();
     });
   });
 
   describe('getPanchangamRange', () => {
-    const baseRequest = {
+    const baseRequest: Omit<GetPanchangamRequest, 'date'> = {
       latitude: 13.0827,
       longitude: 80.2707,
       timezone: 'Asia/Kolkata',
@@ -221,6 +228,31 @@ describe('PanchangamApiClient', () => {
       expect(result[0].date).toBe('2024-01-01');
       expect(result[1].date).toBe('2024-01-02');
       expect(mockApiClient.get).toHaveBeenCalledTimes(2);
+    });
+
+    it('fetches each local calendar date across daylight-saving changes', async () => {
+      mockApiClient.get.mockImplementation((_endpoint, params) => Promise.resolve({
+        data: {
+          date: params?.date as string,
+          tithi: 'Pratipada',
+          nakshatra: 'Ashwini',
+          yoga: 'Vishkumbha',
+          karana: 'Bava',
+          sunrise_time: '06:30:00',
+          sunset_time: '18:15:00',
+          events: []
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        requestId: 'dst-range-id'
+      }));
+
+      await panchangamApiClient.getPanchangamRange('2024-03-09', '2024-03-11', baseRequest);
+
+      const requestedDates = mockApiClient.get.mock.calls.map(([, params]) => params?.date);
+
+      expect(requestedDates).toEqual(['2024-03-09', '2024-03-10', '2024-03-11']);
     });
 
     it('should validate date range', async () => {
@@ -256,6 +288,7 @@ describe('PanchangamApiClient', () => {
       // Should return only successful results (second request failed and should not use fallback for range queries)
       expect(result).toHaveLength(1);
       expect(result[0].date).toBe('2024-01-01');
+      expect(console.error).not.toHaveBeenCalled();
     });
   });
 

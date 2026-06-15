@@ -32,7 +32,7 @@ OPTIONS:
 
 EXAMPLES:
     $0 -e staging
-    $0 -e production -u https://api.panchangam.example.com
+    $0 -e production -u https://api.panchangam.app
     $0 --verbose --timeout 600
 
 EOF
@@ -42,14 +42,29 @@ EOF
 while [[ $# -gt 0 ]]; do
     case $1 in
         -e|--environment)
+            if [ "$#" -lt 2 ] || [[ "$2" == -* ]]; then
+                echo -e "${RED}Error: --environment requires a value${NC}"
+                usage
+                exit 1
+            fi
             ENVIRONMENT="$2"
             shift 2
             ;;
         -u|--url)
+            if [ "$#" -lt 2 ] || [[ "$2" == -* ]]; then
+                echo -e "${RED}Error: --url requires a value${NC}"
+                usage
+                exit 1
+            fi
             BASE_URL="$2"
             shift 2
             ;;
         -t|--timeout)
+            if [ "$#" -lt 2 ] || [[ "$2" == -* ]]; then
+                echo -e "${RED}Error: --timeout requires a value${NC}"
+                usage
+                exit 1
+            fi
             TIMEOUT="$2"
             shift 2
             ;;
@@ -68,6 +83,18 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ ! "$ENVIRONMENT" =~ ^(staging|production)$ ]]; then
+    echo -e "${RED}Error: Environment must be 'staging' or 'production'${NC}"
+    usage
+    exit 1
+fi
+
+if [[ ! "$TIMEOUT" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: --timeout must be a whole number of seconds${NC}"
+    usage
+    exit 1
+fi
 
 # Helper functions
 log_info() {
@@ -97,9 +124,9 @@ detect_base_url() {
     if [ -n "$BASE_URL" ]; then
         return
     fi
-    
+
     if [ "$ENVIRONMENT" = "production" ]; then
-        BASE_URL="https://api.panchangam.example.com"
+        BASE_URL="https://api.panchangam.app"
     else
         # Try to get from kubectl
         if command -v kubectl &> /dev/null; then
@@ -114,29 +141,29 @@ detect_base_url() {
             BASE_URL="http://localhost:8080"
         fi
     fi
-    
+
     log_info "Auto-detected base URL: $BASE_URL"
 }
 
 # Health check validation
 validate_health_check() {
     log_info "Validating health check endpoint..."
-    
+
     local health_url="$BASE_URL/api/v1/health"
     local start_time=$(date +%s)
     local max_time=$((start_time + TIMEOUT))
-    
+
     while [ $(date +%s) -lt $max_time ]; do
         log_verbose "Testing health endpoint: $health_url"
-        
+
         local response
-        response=$(curl -s -w "\n%{http_code}" "$health_url" 2>/dev/null || echo -e "\n000")
-        local body=$(echo "$response" | head -n -1)
-        local status_code=$(echo "$response" | tail -n 1)
-        
+        response=$(curl -s -w "\n%{http_code}" "$health_url" 2>/dev/null || printf '\n000\n')
+        local body=$(printf '%s\n' "$response" | sed '$d')
+        local status_code=$(printf '%s\n' "$response" | tail -n 1)
+
         log_verbose "Response status: $status_code"
         log_verbose "Response body: $body"
-        
+
         if [ "$status_code" = "200" ]; then
             if echo "$body" | grep -q "healthy"; then
                 log_success "Health check passed"
@@ -145,11 +172,11 @@ validate_health_check() {
                 log_warning "Health endpoint returned 200 but body doesn't contain 'healthy'"
             fi
         fi
-        
+
         log_verbose "Health check failed, retrying in 5 seconds..."
         sleep 5
     done
-    
+
     log_error "Health check failed after $TIMEOUT seconds"
     return 1
 }
@@ -157,47 +184,47 @@ validate_health_check() {
 # API functionality validation
 validate_api_functionality() {
     log_info "Validating API functionality..."
-    
+
     local test_cases=(
         # Test case format: "description|endpoint|expected_field"
         "Basic panchangam calculation|/api/v1/panchangam?date=2024-01-15&lat=12.9716&lng=77.5946|tithi"
-        "Different location|/api/v1/panchangam?date=2024-06-21&lat=40.7128&lng=-74.0060&tz=America/New_York|nakshatra" 
+        "Different location|/api/v1/panchangam?date=2024-06-21&lat=40.7128&lng=-74.0060&tz=America/New_York|nakshatra"
         "UK location|/api/v1/panchangam?date=2024-12-21&lat=51.5074&lng=-0.1278&tz=Europe/London|yoga"
     )
-    
+
     local passed=0
     local total=${#test_cases[@]}
-    
+
     for test_case in "${test_cases[@]}"; do
         IFS='|' read -r description endpoint expected_field <<< "$test_case"
-        
+
         log_verbose "Testing: $description"
         log_verbose "Endpoint: $BASE_URL$endpoint"
-        
+
         local response
-        response=$(curl -s -w "\n%{http_code}" "$BASE_URL$endpoint" 2>/dev/null || echo -e "\n000")
-        local body=$(echo "$response" | head -n -1)
-        local status_code=$(echo "$response" | tail -n 1)
-        
+        response=$(curl -s -w "\n%{http_code}" "$BASE_URL$endpoint" 2>/dev/null || printf '\n000\n')
+        local body=$(printf '%s\n' "$response" | sed '$d')
+        local status_code=$(printf '%s\n' "$response" | tail -n 1)
+
         log_verbose "Response status: $status_code"
-        
+
         if [ "$status_code" = "200" ]; then
             if echo "$body" | grep -q "\"$expected_field\""; then
-                log_success "✅ $description"
-                ((passed++))
+                log_success "PASS: $description"
+                passed=$((passed + 1))
             else
-                log_error "❌ $description - Expected field '$expected_field' not found"
+                log_error "FAIL: $description - Expected field '$expected_field' not found"
                 log_verbose "Response body: $body"
             fi
         else
-            log_error "❌ $description - HTTP $status_code"
+            log_error "FAIL: $description - HTTP $status_code"
             log_verbose "Response body: $body"
         fi
     done
-    
+
     log_info "API functionality tests: $passed/$total passed"
-    
-    if [ $passed -eq $total ]; then
+
+    if [ "$passed" -eq "$total" ]; then
         return 0
     else
         return 1
@@ -207,37 +234,37 @@ validate_api_functionality() {
 # Performance validation
 validate_performance() {
     log_info "Validating API performance..."
-    
+
     local endpoint="$BASE_URL/api/v1/panchangam?date=2024-01-15&lat=12.9716&lng=77.5946"
     local iterations=10
     local total_time=0
     local successful_requests=0
-    
+
     for i in $(seq 1 $iterations); do
         log_verbose "Performance test iteration $i/$iterations"
-        
-        local start_time=$(date +%s.%3N)
+
         local response
-        response=$(curl -s -w "\n%{http_code}" "$endpoint" 2>/dev/null || echo -e "\n000")
-        local end_time=$(date +%s.%3N)
-        local status_code=$(echo "$response" | tail -n 1)
-        
+        response=$(curl -s -w "\n%{time_total}\n%{http_code}" "$endpoint" 2>/dev/null || printf '\n0\n000\n')
+        local request_time
+        request_time=$(printf '%s\n' "$response" | tail -n 2 | head -n 1)
+        local status_code
+        status_code=$(printf '%s\n' "$response" | tail -n 1)
+
         if [ "$status_code" = "200" ]; then
-            local request_time=$(echo "$end_time - $start_time" | bc)
             total_time=$(echo "$total_time + $request_time" | bc)
-            ((successful_requests++))
+            successful_requests=$((successful_requests + 1))
             log_verbose "Request $i: ${request_time}s"
         else
             log_verbose "Request $i failed with status $status_code"
         fi
     done
-    
-    if [ $successful_requests -gt 0 ]; then
+
+    if [ "$successful_requests" -gt 0 ]; then
         local avg_time=$(echo "scale=3; $total_time / $successful_requests" | bc)
         log_info "Performance results:"
         log_info "  Successful requests: $successful_requests/$iterations"
         log_info "  Average response time: ${avg_time}s"
-        
+
         # Check if average time is acceptable (< 5 seconds)
         if (( $(echo "$avg_time < 5.0" | bc -l) )); then
             log_success "Performance validation passed"
@@ -255,37 +282,37 @@ validate_performance() {
 # Error handling validation
 validate_error_handling() {
     log_info "Validating error handling..."
-    
+
     local error_test_cases=(
         # Test case format: "description|endpoint|expected_status"
         "Missing date parameter|/api/v1/panchangam?lat=12.9716&lng=77.5946|400"
         "Invalid latitude|/api/v1/panchangam?date=2024-01-15&lat=999&lng=77.5946|400"
         "Invalid date format|/api/v1/panchangam?date=invalid&lat=12.9716&lng=77.5946|400"
     )
-    
+
     local passed=0
     local total=${#error_test_cases[@]}
-    
+
     for test_case in "${error_test_cases[@]}"; do
         IFS='|' read -r description endpoint expected_status <<< "$test_case"
-        
+
         log_verbose "Testing error case: $description"
-        
+
         local response
-        response=$(curl -s -w "\n%{http_code}" "$BASE_URL$endpoint" 2>/dev/null || echo -e "\n000")
-        local status_code=$(echo "$response" | tail -n 1)
-        
+        response=$(curl -s -w "\n%{http_code}" "$BASE_URL$endpoint" 2>/dev/null || printf '\n000\n')
+        local status_code=$(printf '%s\n' "$response" | tail -n 1)
+
         if [ "$status_code" = "$expected_status" ]; then
-            log_success "✅ $description"
-            ((passed++))
+            log_success "PASS: $description"
+            passed=$((passed + 1))
         else
-            log_error "❌ $description - Expected $expected_status, got $status_code"
+            log_error "FAIL: $description - Expected $expected_status, got $status_code"
         fi
     done
-    
+
     log_info "Error handling tests: $passed/$total passed"
-    
-    if [ $passed -eq $total ]; then
+
+    if [ "$passed" -eq "$total" ]; then
         return 0
     else
         return 1
@@ -295,10 +322,10 @@ validate_error_handling() {
 # Frontend validation (if accessible)
 validate_frontend() {
     log_info "Validating frontend accessibility..."
-    
+
     local frontend_url
     if [ "$ENVIRONMENT" = "production" ]; then
-        frontend_url="https://panchangam.example.com"
+        frontend_url="https://panchangam.app"
     else
         # Try to detect frontend URL
         if command -v kubectl &> /dev/null; then
@@ -313,15 +340,15 @@ validate_frontend() {
             frontend_url="http://localhost:80"
         fi
     fi
-    
+
     log_verbose "Testing frontend URL: $frontend_url"
-    
+
     local response
-    response=$(curl -s -w "\n%{http_code}" "$frontend_url" 2>/dev/null || echo -e "\n000")
-    local status_code=$(echo "$response" | tail -n 1)
-    
+    response=$(curl -s -w "\n%{http_code}" "$frontend_url" 2>/dev/null || printf '\n000\n')
+    local status_code=$(printf '%s\n' "$response" | tail -n 1)
+
     if [ "$status_code" = "200" ]; then
-        local body=$(echo "$response" | head -n -1)
+        local body=$(printf '%s\n' "$response" | sed '$d')
         if echo "$body" | grep -q -i "panchangam"; then
             log_success "Frontend validation passed"
             return 0
@@ -342,21 +369,21 @@ generate_report() {
     local performance_status=$3
     local error_status=$4
     local frontend_status=$5
-    
+
     echo
     log_info "=== DEPLOYMENT VALIDATION REPORT ==="
     log_info "Environment: $ENVIRONMENT"
     log_info "Base URL: $BASE_URL"
     log_info "Timestamp: $(date)"
     echo
-    
+
     # Status indicators
-    local health_indicator=$( [ $health_status -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL" )
-    local api_indicator=$( [ $api_status -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL" )
-    local performance_indicator=$( [ $performance_status -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL" )
-    local error_indicator=$( [ $error_status -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL" )
-    local frontend_indicator=$( [ $frontend_status -eq 0 ] && echo "✅ PASS" || echo "⚠️  WARN" )
-    
+    local health_indicator=$( [ "$health_status" -eq 0 ] && echo "PASS" || echo "FAIL" )
+    local api_indicator=$( [ "$api_status" -eq 0 ] && echo "PASS" || echo "FAIL" )
+    local performance_indicator=$( [ "$performance_status" -eq 0 ] && echo "PASS" || echo "FAIL" )
+    local error_indicator=$( [ "$error_status" -eq 0 ] && echo "PASS" || echo "FAIL" )
+    local frontend_indicator=$( [ "$frontend_status" -eq 0 ] && echo "PASS" || echo "WARN" )
+
     echo "| Test Category        | Status       |"
     echo "|---------------------|--------------|"
     echo "| Health Check        | $health_indicator   |"
@@ -365,13 +392,13 @@ generate_report() {
     echo "| Error Handling      | $error_indicator   |"
     echo "| Frontend Access     | $frontend_indicator   |"
     echo
-    
+
     # Overall status
-    if [ $health_status -eq 0 ] && [ $api_status -eq 0 ] && [ $performance_status -eq 0 ] && [ $error_status -eq 0 ]; then
-        log_success "🎉 DEPLOYMENT VALIDATION SUCCESSFUL"
+    if [ "$health_status" -eq 0 ] && [ "$api_status" -eq 0 ] && [ "$performance_status" -eq 0 ] && [ "$error_status" -eq 0 ]; then
+        log_success "DEPLOYMENT VALIDATION SUCCESSFUL"
         return 0
     else
-        log_error "💥 DEPLOYMENT VALIDATION FAILED"
+        log_error "DEPLOYMENT VALIDATION FAILED"
         return 1
     fi
 }
@@ -379,24 +406,24 @@ generate_report() {
 # Main validation flow
 main() {
     log_info "Starting deployment validation for $ENVIRONMENT environment"
-    
+
     detect_base_url
-    
+
     # Run all validation tests
     local health_status=1
     local api_status=1
     local performance_status=1
     local error_status=1
     local frontend_status=1
-    
+
     validate_health_check && health_status=0
     validate_api_functionality && api_status=0
     validate_performance && performance_status=0
     validate_error_handling && error_status=0
     validate_frontend && frontend_status=0
-    
+
     # Generate final report
-    generate_report $health_status $api_status $performance_status $error_status $frontend_status
+    generate_report "$health_status" "$api_status" "$performance_status" "$error_status" "$frontend_status"
 }
 
 # Check if bc is available for calculations

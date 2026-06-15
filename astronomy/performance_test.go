@@ -35,7 +35,7 @@ func BenchmarkPanchangamPerformance(b *testing.B) {
 	varaCalc := NewVaraCalculator()
 
 	b.ResetTimer()
-	
+
 	start := time.Now()
 	for i := 0; i < b.N; i++ {
 		// Calculate all 5 Panchangam elements
@@ -43,20 +43,20 @@ func BenchmarkPanchangamPerformance(b *testing.B) {
 		_, _ = nakshatraCalc.GetNakshatraFromLongitude(ctx, mockPositions.Moon.Longitude, testDate)
 		_, _ = yogaCalc.GetYogaFromLongitudes(ctx, mockPositions.Sun.Longitude, mockPositions.Moon.Longitude, testDate)
 		_, _ = karanaCalc.GetKaranaFromLongitudes(ctx, mockPositions.Sun.Longitude, mockPositions.Moon.Longitude, testDate)
-		
+
 		// Vara calculation (simplified)
 		sunrise := time.Date(2024, 1, 15, 6, 30, 0, 0, time.UTC)
 		nextSunrise := time.Date(2024, 1, 16, 6, 31, 0, 0, time.UTC)
 		_, _ = varaCalc.GetVaraFromGregorianDay(ctx, testDate.Weekday(), sunrise, nextSunrise, testDate)
 	}
 	elapsed := time.Since(start)
-	
+
 	b.StopTimer()
-	
+
 	// Calculate average time per complete Panchangam calculation
 	avgTime := elapsed / time.Duration(b.N)
 	b.Logf("Average time per complete Panchangam calculation: %v", avgTime)
-	
+
 	// Check if we meet the <100ms requirement
 	if avgTime > 100*time.Millisecond {
 		b.Logf("WARNING: Performance target not met. Average: %v > 100ms target", avgTime)

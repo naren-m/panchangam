@@ -26,7 +26,7 @@ Coverage metrics:
 
 - **Standard Library**: `testing` package
 - **Assertions**: `github.com/stretchr/testify/assert` and `testify/require`
-- **Mocking**: `testify/mock` or interfaces for dependency injection
+- **Test doubles**: Use simple fakes only when a real dependency makes the test slow or flaky
 
 ### Running Tests
 
@@ -186,41 +186,29 @@ func TestSunriseCalculation(t *testing.T) {
 }
 ```
 
-#### 3. Use Mocks for External Dependencies
+#### 3. Test the Current Service API
+
+Service tests should call `Panchangam.Get` through `NewPanchangamServer()`.
 
 ```go
-// Define interface for dependency
-type EphemerisProvider interface {
-    GetPlanetPosition(planet string, date time.Time) (float64, error)
-}
+func TestPanchangamGet(t *testing.T) {
+    ctx := context.Background()
+    server := NewPanchangamServer()
+    req := &ppb.GetPanchangamRequest{
+        Date:      "2024-01-01",
+        Latitude:  19.0760,
+        Longitude: 72.8777,
+        Timezone:  "Asia/Kolkata",
+        Region:    "IN",
+        Locale:    "en",
+    }
 
-// Create mock
-type MockEphemerisProvider struct {
-    mock.Mock
-}
-
-func (m *MockEphemerisProvider) GetPlanetPosition(planet string, date time.Time) (float64, error) {
-    args := m.Called(planet, date)
-    return args.Get(0).(float64), args.Error(1)
-}
-
-// Test with mock
-func TestPanchangamCalculation(t *testing.T) {
-    mockProvider := new(MockEphemerisProvider)
-    date := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-
-    // Set expectations
-    mockProvider.On("GetPlanetPosition", "Sun", date).Return(280.0, nil)
-    mockProvider.On("GetPlanetPosition", "Moon", date).Return(320.0, nil)
-
-    service := NewPanchangamService(mockProvider)
-    result, err := service.CalculateDaily(date)
+    resp, err := server.Get(ctx, req)
 
     require.NoError(t, err)
-    assert.NotNil(t, result)
-
-    // Verify all expectations were met
-    mockProvider.AssertExpectations(t)
+    require.NotNil(t, resp)
+    require.NotNil(t, resp.PanchangamData)
+    assert.NotEmpty(t, resp.PanchangamData.Tithi)
 }
 ```
 
@@ -228,19 +216,29 @@ func TestPanchangamCalculation(t *testing.T) {
 
 ```go
 func TestConcurrentCalculations(t *testing.T) {
+    ctx := context.Background()
+    server := NewPanchangamServer()
     dates := []time.Time{
         time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
         time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
         time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC),
     }
 
-    results := make(chan *PanchangamData, len(dates))
+    results := make(chan *ppb.PanchangamData, len(dates))
 
     for _, date := range dates {
         go func(d time.Time) {
-            data, err := CalculatePanchangam(d)
+            req := &ppb.GetPanchangamRequest{
+                Date:      d.Format("2006-01-02"),
+                Latitude:  19.0760,
+                Longitude: 72.8777,
+                Timezone:  "Asia/Kolkata",
+                Region:    "IN",
+                Locale:    "en",
+            }
+            resp, err := server.Get(ctx, req)
             require.NoError(t, err)
-            results <- data
+            results <- resp.PanchangamData
         }(date)
     }
 
@@ -262,12 +260,20 @@ func BenchmarkTithiCalculation(b *testing.B) {
 }
 
 func BenchmarkPanchangamGeneration(b *testing.B) {
-    date := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-    location := Location{Lat: 19.0760, Lon: 72.8777}
+    ctx := context.Background()
+    server := NewPanchangamServer()
+    req := &ppb.GetPanchangamRequest{
+        Date:      "2024-01-01",
+        Latitude:  19.0760,
+        Longitude: 72.8777,
+        Timezone:  "Asia/Kolkata",
+        Region:    "IN",
+        Locale:    "en",
+    }
 
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
-        CalculatePanchangam(date, location)
+        _, _ = server.Get(ctx, req)
     }
 }
 ```
@@ -313,52 +319,76 @@ npm run test:ui
 npm test -- --watch
 
 # Run specific test file
-npm test PanchangamDisplay.test.tsx
+npm test MonthNavigation.test.tsx
 ```
 
 ### Test File Structure
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { PanchangamDisplay } from './PanchangamDisplay';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MonthNavigation } from '../Calendar/MonthNavigation';
+import type { Settings } from '../../types/panchangam';
 
-describe('PanchangamDisplay', () => {
+describe('MonthNavigation', () => {
+    const onPrevMonth = vi.fn();
+    const onNextMonth = vi.fn();
+
+    const settings: Settings = {
+        calculation_method: 'Drik',
+        locale: 'en',
+        region: 'Karnataka',
+        time_format: '12',
+        location: {
+            latitude: 12.9716,
+            longitude: 77.5946,
+            timezone: 'Asia/Kolkata',
+            name: 'Bangalore',
+            region: 'Karnataka',
+        },
+    };
+
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
-    it('should render Panchangam data correctly', async () => {
-        const mockData = {
-            tithi: { number: 1, name: 'Pratipada', progress: 0.5 },
-            nakshatra: { number: 1, name: 'Ashwini' },
-        };
-
-        // Mock API call
-        vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-            ok: true,
-            json: async () => mockData,
-        } as Response);
-
-        render(<PanchangamDisplay date={new Date('2024-01-01')} />);
-
-        await waitFor(() => {
-            expect(screen.getByText('Pratipada')).toBeInTheDocument();
-            expect(screen.getByText('Ashwini')).toBeInTheDocument();
-        });
-    });
-
-    it('should handle errors gracefully', async () => {
-        vi.spyOn(global, 'fetch').mockRejectedValueOnce(
-            new Error('Network error')
+    it('renders the selected month and location', () => {
+        render(
+            <MonthNavigation
+                year={2024}
+                month={0}
+                settings={settings}
+                onPrevMonth={onPrevMonth}
+                onNextMonth={onNextMonth}
+                onToday={vi.fn()}
+                onLocationClick={vi.fn()}
+                onSettingsClick={vi.fn()}
+            />
         );
 
-        render(<PanchangamDisplay date={new Date('2024-01-01')} />);
+        expect(screen.getByText(/January/i)).toBeInTheDocument();
+        expect(screen.getByText(/Bangalore/i)).toBeInTheDocument();
+    });
 
-        await waitFor(() => {
-            expect(screen.getByText(/error/i)).toBeInTheDocument();
-        });
+    it('calls navigation handlers', () => {
+        render(
+            <MonthNavigation
+                year={2024}
+                month={0}
+                settings={settings}
+                onPrevMonth={onPrevMonth}
+                onNextMonth={onNextMonth}
+                onToday={vi.fn()}
+                onLocationClick={vi.fn()}
+                onSettingsClick={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: /previous/i }));
+        fireEvent.click(screen.getByRole('button', { name: /next/i }));
+
+        expect(onPrevMonth).toHaveBeenCalledTimes(1);
+        expect(onNextMonth).toHaveBeenCalledTimes(1);
     });
 });
 ```
@@ -369,44 +399,52 @@ describe('PanchangamDisplay', () => {
 
 ```typescript
 it('should change date when user clicks next button', async () => {
-    const user = userEvent.setup();
-    const onDateChange = vi.fn();
+    const onNextMonth = vi.fn();
 
     render(
-        <DateNavigator
-            date={new Date('2024-01-01')}
-            onDateChange={onDateChange}
+        <MonthNavigation
+            year={2024}
+            month={0}
+            settings={settings}
+            onPrevMonth={vi.fn()}
+            onNextMonth={onNextMonth}
+            onToday={vi.fn()}
+            onLocationClick={vi.fn()}
+            onSettingsClick={vi.fn()}
         />
     );
 
     const nextButton = screen.getByRole('button', { name: /next/i });
-    await user.click(nextButton);
+    fireEvent.click(nextButton);
 
-    expect(onDateChange).toHaveBeenCalledWith(new Date('2024-01-02'));
+    expect(onNextMonth).toHaveBeenCalledTimes(1);
 });
 ```
 
 #### 2. Test Async Operations
 
 ```typescript
-it('should load Panchangam data on mount', async () => {
-    const mockData = { tithi: { name: 'Pratipada' } };
-
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockData,
-    } as Response);
-
-    render(<PanchangamDisplay date={new Date('2024-01-01')} />);
-
-    // Initially shows loading
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
-
-    // Wait for data to load
-    await waitFor(() => {
-        expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
-        expect(screen.getByText('Pratipada')).toBeInTheDocument();
+it('should load Panchangam data', async () => {
+    panchangamApiClient.getPanchangam.mockResolvedValue({
+        date: '2024-01-15',
+        tithi: 'Panchami',
+        nakshatra: 'Rohini',
+        yoga: 'Vishkumbha',
+        karana: 'Bava',
+        sunrise_time: '06:30:00',
+        sunset_time: '18:15:00',
+        events: [],
     });
+
+    const { result } = renderHook(() => usePanchangam(date, settings));
+
+    expect(result.current.loading).toBe(true);
+
+    await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.data?.tithi).toBe('Panchami');
 });
 ```
 
@@ -414,19 +452,16 @@ it('should load Panchangam data on mount', async () => {
 
 ```typescript
 it('should show error message when API fails', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    panchangamApiClient.getPanchangam.mockRejectedValue(new Error('API Error'));
 
-    vi.spyOn(global, 'fetch').mockRejectedValueOnce(
-        new Error('API Error')
-    );
-
-    render(<PanchangamDisplay date={new Date('2024-01-01')} />);
+    const { result } = renderHook(() => usePanchangam(date, settings));
 
     await waitFor(() => {
-        expect(screen.getByRole('alert')).toHaveTextContent(/error/i);
+        expect(result.current.loading).toBe(false);
     });
 
-    consoleErrorSpy.mockRestore();
+    expect(result.current.errorState.hasError).toBe(true);
+    expect(result.current.errorState.message).toBe('API Error');
 });
 ```
 
@@ -435,45 +470,40 @@ it('should show error message when API fails', async () => {
 ```typescript
 import { renderHook, waitFor } from '@testing-library/react';
 
-describe('usePanchangamData', () => {
+describe('usePanchangam', () => {
     it('should fetch data on mount', async () => {
-        const mockData = { tithi: { name: 'Pratipada' } };
-
-        vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-            ok: true,
-            json: async () => mockData,
-        } as Response);
+        const data = { date: '2024-01-15', tithi: 'Panchami' };
+        panchangamApiClient.getPanchangam.mockResolvedValue(data);
 
         const { result } = renderHook(() =>
-            usePanchangamData(new Date('2024-01-01'))
+            usePanchangam(new Date('2024-01-15'), settings)
         );
 
         expect(result.current.loading).toBe(true);
 
         await waitFor(() => {
             expect(result.current.loading).toBe(false);
-            expect(result.current.data).toEqual(mockData);
+            expect(result.current.data).toEqual(data);
             expect(result.current.error).toBeNull();
         });
     });
 });
 ```
 
-#### 5. Snapshot Testing (Use Sparingly)
+#### 5. Keep Component Tests Focused
 
 ```typescript
-it('should match snapshot', () => {
-    const { container } = render(
-        <TithiCard tithi={{ number: 1, name: 'Pratipada', progress: 0.5 }} />
-    );
+it('renders settings choices', () => {
+    render(<SettingsPanel settings={settings} onSettingsChange={vi.fn()} onClose={vi.fn()} />);
 
-    expect(container).toMatchSnapshot();
+    expect(screen.getByText('Calculation Method')).toBeInTheDocument();
+    expect(screen.getByText('Language')).toBeInTheDocument();
 });
 ```
 
 ### Coverage Configuration
 
-Add to `vitest.config.ts`:
+Keep coverage settings in `ui/vite.config.ts` under `test.coverage`:
 
 ```typescript
 export default defineConfig({
@@ -501,29 +531,32 @@ export default defineConfig({
 ### Backend Integration Tests
 
 ```go
-func TestPanchangamServiceIntegration(t *testing.T) {
+func TestPanchangamGetIntegration(t *testing.T) {
     // Skip in short mode
     if testing.Short() {
         t.Skip("skipping integration test")
     }
 
-    // Setup
-    ephemeris := ephemeris.NewSwissEphemeris()
-    service := NewPanchangamService(ephemeris)
+    ctx := context.Background()
+    server := NewPanchangamServer()
+    req := &ppb.GetPanchangamRequest{
+        Date:      "2024-01-01",
+        Latitude:  19.0760,
+        Longitude: 72.8777,
+        Timezone:  "Asia/Kolkata",
+        Region:    "IN",
+        Locale:    "en",
+    }
 
-    // Test
-    date := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-    location := Location{Lat: 19.0760, Lon: 72.8777}
-
-    result, err := service.CalculateDaily(date, location)
+    result, err := server.Get(ctx, req)
 
     require.NoError(t, err)
     assert.NotNil(t, result)
-    assert.Equal(t, date, result.Date)
+    assert.NotNil(t, result.PanchangamData)
 
-    // Validate data ranges
-    assert.GreaterOrEqual(t, result.Tithi.Number, 1)
-    assert.LessOrEqual(t, result.Tithi.Number, 30)
+    assert.NotEmpty(t, result.PanchangamData.Date)
+    assert.NotEmpty(t, result.PanchangamData.Tithi)
+    assert.NotEmpty(t, result.PanchangamData.Nakshatra)
 }
 ```
 
@@ -554,7 +587,7 @@ test('should display Panchangam for selected date', async ({ page }) => {
 
 ### What to Test
 
-✅ **DO Test:**
+PASS **DO Test:**
 - All public functions and methods
 - Edge cases and boundary conditions
 - Error handling and validation
@@ -563,7 +596,7 @@ test('should display Panchangam for selected date', async ({ page }) => {
 - Async operations and promises
 - State management
 
-❌ **DON'T Test:**
+FAIL **DON'T Test:**
 - Third-party library internals
 - Simple getters/setters without logic
 - Configuration files
@@ -621,7 +654,7 @@ Before submitting a PR:
 - [ ] Error scenarios are tested
 - [ ] No flaky tests
 - [ ] Tests are well-named and clear
-- [ ] Mocks are used appropriately
+- [ ] Test doubles are simple and only used when needed
 - [ ] Integration tests pass
 - [ ] Performance benchmarks run (if applicable)
 

@@ -1,8 +1,24 @@
 import React, { useMemo } from 'react';
-import * as THREE from 'three';
+import {
+  BufferGeometry,
+  CanvasTexture,
+  Color,
+  DoubleSide,
+  Line,
+  LineBasicMaterial,
+  Mesh,
+  MeshBasicMaterial,
+  Object3D,
+  RingGeometry,
+  Scene,
+  SphereGeometry,
+  Sprite,
+  SpriteMaterial,
+  Vector3,
+} from 'three';
 
 interface ZodiacVisualizationProps {
-  scene: THREE.Scene;
+  scene: Scene;
   radius: number;
   showLabels: boolean;
   showBoundaries: boolean;
@@ -11,18 +27,18 @@ interface ZodiacVisualizationProps {
 
 // Zodiac (Rashi) data with astronomical information
 const ZODIAC_INFO = [
-  { id: 1, name: 'Mesha', western: 'Aries', symbol: '♈', element: 'Fire', ruler: 'Mars', color: '#FF6B6B' },
-  { id: 2, name: 'Vrishabha', western: 'Taurus', symbol: '♉', element: 'Earth', ruler: 'Venus', color: '#4ECDC4' },
-  { id: 3, name: 'Mithuna', western: 'Gemini', symbol: '♊', element: 'Air', ruler: 'Mercury', color: '#45B7D1' },
-  { id: 4, name: 'Karka', western: 'Cancer', symbol: '♋', element: 'Water', ruler: 'Moon', color: '#96CEB4' },
-  { id: 5, name: 'Simha', western: 'Leo', symbol: '♌', element: 'Fire', ruler: 'Sun', color: '#FECA57' },
-  { id: 6, name: 'Kanya', western: 'Virgo', symbol: '♍', element: 'Earth', ruler: 'Mercury', color: '#FF9FF3' },
-  { id: 7, name: 'Tula', western: 'Libra', symbol: '♎', element: 'Air', ruler: 'Venus', color: '#54A0FF' },
-  { id: 8, name: 'Vrishchika', western: 'Scorpio', symbol: '♏', element: 'Water', ruler: 'Mars', color: '#5F27CD' },
-  { id: 9, name: 'Dhanus', western: 'Sagittarius', symbol: '♐', element: 'Fire', ruler: 'Jupiter', color: '#00D2D3' },
-  { id: 10, name: 'Makara', western: 'Capricorn', symbol: '♑', element: 'Earth', ruler: 'Saturn', color: '#FF6348' },
-  { id: 11, name: 'Kumbha', western: 'Aquarius', symbol: '♒', element: 'Air', ruler: 'Saturn', color: '#FF9F43' },
-  { id: 12, name: 'Meena', western: 'Pisces', symbol: '♓', element: 'Water', ruler: 'Jupiter', color: '#70A1FF' }
+  { id: 1, name: 'Mesha', western: 'Aries', symbol: '', element: 'Fire', ruler: 'Mars', color: '#FF6B6B' },
+  { id: 2, name: 'Vrishabha', western: 'Taurus', symbol: '', element: 'Earth', ruler: 'Venus', color: '#4ECDC4' },
+  { id: 3, name: 'Mithuna', western: 'Gemini', symbol: '', element: 'Air', ruler: 'Mercury', color: '#45B7D1' },
+  { id: 4, name: 'Karka', western: 'Cancer', symbol: '', element: 'Water', ruler: 'Moon', color: '#96CEB4' },
+  { id: 5, name: 'Simha', western: 'Leo', symbol: '', element: 'Fire', ruler: 'Sun', color: '#FECA57' },
+  { id: 6, name: 'Kanya', western: 'Virgo', symbol: '', element: 'Earth', ruler: 'Mercury', color: '#FF9FF3' },
+  { id: 7, name: 'Tula', western: 'Libra', symbol: '', element: 'Air', ruler: 'Venus', color: '#54A0FF' },
+  { id: 8, name: 'Vrishchika', western: 'Scorpio', symbol: '', element: 'Water', ruler: 'Mars', color: '#5F27CD' },
+  { id: 9, name: 'Dhanus', western: 'Sagittarius', symbol: '', element: 'Fire', ruler: 'Jupiter', color: '#00D2D3' },
+  { id: 10, name: 'Makara', western: 'Capricorn', symbol: '', element: 'Earth', ruler: 'Saturn', color: '#FF6348' },
+  { id: 11, name: 'Kumbha', western: 'Aquarius', symbol: '', element: 'Air', ruler: 'Saturn', color: '#FF9F43' },
+  { id: 12, name: 'Meena', western: 'Pisces', symbol: '', element: 'Water', ruler: 'Jupiter', color: '#70A1FF' }
 ];
 
 export const ZodiacVisualization: React.FC<ZodiacVisualizationProps> = ({
@@ -34,7 +50,7 @@ export const ZodiacVisualization: React.FC<ZodiacVisualizationProps> = ({
 }) => {
   
   const zodiacObjects = useMemo(() => {
-    const objects: THREE.Object3D[] = [];
+    const objects: Object3D[] = [];
     
     // Each zodiac sign spans 30 degrees (360/12)
     const rashiSpan = 360 / 12;
@@ -48,15 +64,15 @@ export const ZodiacVisualization: React.FC<ZodiacVisualizationProps> = ({
       
       // Create Zodiac boundary arcs
       if (showBoundaries) {
-        const boundaryMaterial = new THREE.LineBasicMaterial({
-          color: isCurrentRashi ? 0xffffff : new THREE.Color(rashi.color).getHex(),
+        const boundaryMaterial = new LineBasicMaterial({
+          color: isCurrentRashi ? 0xffffff : new Color(rashi.color).getHex(),
           linewidth: isCurrentRashi ? 4 : 2,
           transparent: true,
           opacity: isCurrentRashi ? 1.0 : 0.8
         });
         
         // Create zodiac boundary lines - these are meridian lines from pole to pole
-        const meridianPoints: THREE.Vector3[] = [];
+        const meridianPoints: Vector3[] = [];
         
         // Draw meridian lines at start and end of zodiac sign
         [startLongitude, endLongitude].forEach(longitude => {
@@ -68,19 +84,19 @@ export const ZodiacVisualization: React.FC<ZodiacVisualizationProps> = ({
             const y = radius * Math.cos(phi);
             const z = radius * Math.sin(phi) * Math.sin(theta);
             
-            meridianPoints.push(new THREE.Vector3(x, y, z));
+            meridianPoints.push(new Vector3(x, y, z));
           }
           
           // Add separator between start and end line
           if (longitude === startLongitude) {
-            meridianPoints.push(new THREE.Vector3(NaN, NaN, NaN)); // Line break
+            meridianPoints.push(new Vector3(NaN, NaN, NaN)); // Line break
           }
         });
         
-        const boundaryGeometry = new THREE.BufferGeometry().setFromPoints(
+        const boundaryGeometry = new BufferGeometry().setFromPoints(
           meridianPoints.filter(p => !isNaN(p.x))
         );
-        const boundaryLine = new THREE.Line(boundaryGeometry, boundaryMaterial);
+        const boundaryLine = new Line(boundaryGeometry, boundaryMaterial);
         boundaryLine.userData = { 
           type: 'zodiac_boundary', 
           rashiId: rashi.id,
@@ -92,21 +108,21 @@ export const ZodiacVisualization: React.FC<ZodiacVisualizationProps> = ({
       // Create Zodiac sector fill (optional)
       if (showBoundaries) {
         // Create a subtle sector fill on the ecliptic plane
-        const sectorGeometry = new THREE.RingGeometry(
+        const sectorGeometry = new RingGeometry(
           radius * 0.98, 
           radius * 1.02, 
           Math.floor(startLongitude * 2), 
           Math.floor(rashiSpan * 2)
         );
         
-        const sectorMaterial = new THREE.MeshBasicMaterial({
-          color: new THREE.Color(rashi.color).getHex(),
+        const sectorMaterial = new MeshBasicMaterial({
+          color: new Color(rashi.color).getHex(),
           transparent: true,
           opacity: isCurrentRashi ? 0.2 : 0.1,
-          side: THREE.DoubleSide
+          side: DoubleSide
         });
         
-        const sector = new THREE.Mesh(sectorGeometry, sectorMaterial);
+        const sector = new Mesh(sectorGeometry, sectorMaterial);
         sector.rotation.x = Math.PI / 2; // Rotate to lie on ecliptic plane
         sector.userData = {
           type: 'zodiac_sector',
@@ -117,20 +133,18 @@ export const ZodiacVisualization: React.FC<ZodiacVisualizationProps> = ({
       }
       
       // Create Zodiac symbol markers
-      const markerGeometry = new THREE.SphereGeometry(
+      const markerGeometry = new SphereGeometry(
         isCurrentRashi ? 1.2 : 0.8, 
         16, 
         16
       );
-      const markerMaterial = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(rashi.color).getHex(),
-        emissive: new THREE.Color(rashi.color).getHex(),
-        emissiveIntensity: isCurrentRashi ? 1.0 : 0.5,
+      const markerMaterial = new MeshBasicMaterial({
+        color: new Color(rashi.color).getHex(),
         transparent: true,
         opacity: isCurrentRashi ? 1.0 : 0.8
       });
       
-      const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+      const marker = new Mesh(markerGeometry, markerMaterial);
       
       // Position marker at center of zodiac sign on ecliptic
       const theta = centerLongitude * Math.PI / 180;
@@ -177,14 +191,14 @@ export const ZodiacVisualization: React.FC<ZodiacVisualizationProps> = ({
         context.fillStyle = isCurrentRashi ? '#cccccc' : '#999999';
         context.fillText(`${rashi.western} (${rashi.element})`, canvas.width / 2, canvas.height / 2 + 8);
         
-        const texture = new THREE.CanvasTexture(canvas);
-        const labelMaterial = new THREE.SpriteMaterial({
+        const texture = new CanvasTexture(canvas);
+        const labelMaterial = new SpriteMaterial({
           map: texture,
           transparent: true,
           alphaTest: 0.1
         });
         
-        const label = new THREE.Sprite(labelMaterial);
+        const label = new Sprite(labelMaterial);
         label.scale.set(6, 1.5, 1);
         
         // Position label slightly outside the marker
@@ -209,7 +223,7 @@ export const ZodiacVisualization: React.FC<ZodiacVisualizationProps> = ({
   // Add objects to scene
   React.useEffect(() => {
     // Remove existing zodiac objects
-    const objectsToRemove: THREE.Object3D[] = [];
+    const objectsToRemove: Object3D[] = [];
     scene.traverse((child) => {
       if (child.userData.type && child.userData.type.startsWith('zodiac_')) {
         objectsToRemove.push(child);
@@ -224,7 +238,7 @@ export const ZodiacVisualization: React.FC<ZodiacVisualizationProps> = ({
       // Cleanup
       zodiacObjects.forEach(obj => {
         scene.remove(obj);
-        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj instanceof Mesh || obj instanceof Line) {
           obj.geometry.dispose();
           if (Array.isArray(obj.material)) {
             obj.material.forEach(mat => mat.dispose());

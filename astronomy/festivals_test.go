@@ -8,15 +8,15 @@ import (
 
 func TestNewFestivalCalendar(t *testing.T) {
 	fc := NewFestivalCalendar()
-	
+
 	if fc == nil {
 		t.Fatal("Festival calendar should not be nil")
 	}
-	
+
 	if len(fc.fixedFestivals) == 0 {
 		t.Error("Fixed festivals should be initialized")
 	}
-	
+
 	if len(fc.lunarFestivals) == 0 {
 		t.Error("Lunar festivals should be initialized")
 	}
@@ -25,13 +25,13 @@ func TestNewFestivalCalendar(t *testing.T) {
 func TestGetFestivalsForDate(t *testing.T) {
 	fc := NewFestivalCalendar()
 	ctx := context.Background()
-	
+
 	testCases := []struct {
-		name         string
-		date         time.Time
-		tithiNumber  int
-		expectCount  int
-		expectNames  []string
+		name        string
+		date        time.Time
+		tithiNumber int
+		expectCount int
+		expectNames []string
 	}{
 		{
 			name:        "Republic Day",
@@ -76,21 +76,21 @@ func TestGetFestivalsForDate(t *testing.T) {
 			expectNames: []string{},
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			festivals, err := fc.GetFestivalsForDate(ctx, tc.date, tc.tithiNumber)
 			if err != nil {
 				t.Fatalf("Failed to get festivals for date: %v", err)
 			}
-			
+
 			if len(festivals) != tc.expectCount {
 				t.Errorf("Expected %d festivals, got %d", tc.expectCount, len(festivals))
 				for i, f := range festivals {
 					t.Logf("Festival %d: %s", i, f.Name)
 				}
 			}
-			
+
 			// Check if expected festival names are present
 			for _, expectedName := range tc.expectNames {
 				found := false
@@ -110,12 +110,12 @@ func TestGetFestivalsForDate(t *testing.T) {
 
 func TestGetSeasonalFestivals(t *testing.T) {
 	fc := NewFestivalCalendar()
-	
+
 	testCases := []struct {
-		name         string
-		date         time.Time
-		expectName   string
-		shouldFind   bool
+		name       string
+		date       time.Time
+		expectName string
+		shouldFind bool
 	}{
 		{
 			name:       "Spring Equinox",
@@ -148,39 +148,39 @@ func TestGetSeasonalFestivals(t *testing.T) {
 			shouldFind: false,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			festivals := fc.getSeasonalFestivals(tc.date)
-			
+
 			if tc.shouldFind {
 				if len(festivals) == 0 {
 					t.Errorf("Expected to find seasonal festival, but got none")
 					return
 				}
-				
+
 				found := false
 				for _, festival := range festivals {
 					if festival.Name == tc.expectName {
 						found = true
-						
+
 						// Validate festival details
 						if festival.Type != "seasonal" {
 							t.Errorf("Expected seasonal festival type, got %s", festival.Type)
 						}
-						
+
 						if festival.Significance == "" {
 							t.Error("Festival should have significance")
 						}
-						
+
 						if len(festival.Observances) == 0 {
 							t.Error("Festival should have observances")
 						}
-						
+
 						break
 					}
 				}
-				
+
 				if !found {
 					t.Errorf("Expected to find festival '%s'", tc.expectName)
 				}
@@ -195,11 +195,11 @@ func TestGetSeasonalFestivals(t *testing.T) {
 
 func TestGetMonthSpecificName(t *testing.T) {
 	fc := NewFestivalCalendar()
-	
+
 	testCases := []struct {
-		baseName    string
-		month       time.Month
-		expected    string
+		baseName string
+		month    time.Month
+		expected string
 	}{
 		{"Ekadashi", time.May, "Vaishakha Mohini Ekadashi"},
 		{"Ekadashi", time.July, "Ashadha Yogini Ekadashi"},
@@ -207,15 +207,15 @@ func TestGetMonthSpecificName(t *testing.T) {
 		{"Purnima", time.May, "Buddha Purnima"},
 		{"Amavasya", time.October, "Diwali Amavasya"},
 		{"Amavasya", time.January, "Amavasya"}, // No special name
-		{"Unknown", time.January, "Unknown"}, // Unknown festival
+		{"Unknown", time.January, "Unknown"},   // Unknown festival
 	}
-	
+
 	for _, tc := range testCases {
 		date := time.Date(2024, tc.month, 15, 0, 0, 0, 0, time.UTC)
 		result := fc.getMonthSpecificName(tc.baseName, date, 15)
-		
+
 		if result != tc.expected {
-			t.Errorf("Expected '%s' for %s in %s, got '%s'", 
+			t.Errorf("Expected '%s' for %s in %s, got '%s'",
 				tc.expected, tc.baseName, tc.month, result)
 		}
 	}
@@ -224,15 +224,15 @@ func TestGetMonthSpecificName(t *testing.T) {
 func TestGetUpcomingFestivals(t *testing.T) {
 	fc := NewFestivalCalendar()
 	ctx := context.Background()
-	
+
 	// Test upcoming festivals for a week
 	startDate := time.Date(2024, 1, 25, 0, 0, 0, 0, time.UTC) // Day before Republic Day
 	festivals, err := fc.GetUpcomingFestivals(ctx, startDate, 7)
-	
+
 	if err != nil {
 		t.Fatalf("Failed to get upcoming festivals: %v", err)
 	}
-	
+
 	// Should find at least Republic Day
 	found := false
 	for _, festival := range festivals {
@@ -241,35 +241,35 @@ func TestGetUpcomingFestivals(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Error("Should find Republic Day in upcoming festivals")
 	}
-	
+
 	t.Logf("Found %d upcoming festivals in 7 days", len(festivals))
 	for _, festival := range festivals {
-		t.Logf("  %s on %s (%s)", 
-			festival.Name, 
-			festival.Date.Format("2006-01-02"), 
+		t.Logf("  %s on %s (%s)",
+			festival.Name,
+			festival.Date.Format("2006-01-02"),
 			festival.Type)
 	}
 }
 
 func TestGetFestivalNamesForDate(t *testing.T) {
 	ctx := context.Background()
-	
+
 	// Test Republic Day
 	date := time.Date(2024, 1, 26, 0, 0, 0, 0, time.UTC)
 	names, err := GetFestivalNamesForDate(ctx, date, 15)
-	
+
 	if err != nil {
 		t.Fatalf("Failed to get festival names: %v", err)
 	}
-	
+
 	if len(names) == 0 {
 		t.Error("Should find festivals on Republic Day")
 	}
-	
+
 	found := false
 	for _, name := range names {
 		if name == "Republic Day" {
@@ -277,18 +277,18 @@ func TestGetFestivalNamesForDate(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Error("Should find Republic Day")
 	}
-	
+
 	t.Logf("Festivals on %s: %v", date.Format("2006-01-02"), names)
 }
 
 func TestFestivalTypes(t *testing.T) {
 	fc := NewFestivalCalendar()
 	ctx := context.Background()
-	
+
 	// Test that all festivals have valid types
 	validTypes := map[string]bool{
 		"major":    true,
@@ -297,30 +297,30 @@ func TestFestivalTypes(t *testing.T) {
 		"regional": true,
 		"seasonal": true,
 	}
-	
+
 	// Test a few dates
 	dates := []time.Time{
 		time.Date(2024, 1, 26, 0, 0, 0, 0, time.UTC), // Republic Day
 		time.Date(2024, 5, 15, 0, 0, 0, 0, time.UTC), // Ekadashi
 		time.Date(2024, 6, 21, 0, 0, 0, 0, time.UTC), // Summer Solstice
 	}
-	
+
 	for _, date := range dates {
 		festivals, err := fc.GetFestivalsForDate(ctx, date, 11)
 		if err != nil {
 			t.Fatalf("Failed to get festivals: %v", err)
 		}
-		
+
 		for _, festival := range festivals {
 			if !validTypes[festival.Type] {
-				t.Errorf("Invalid festival type '%s' for festival '%s'", 
+				t.Errorf("Invalid festival type '%s' for festival '%s'",
 					festival.Type, festival.Name)
 			}
-			
+
 			if festival.Name == "" {
 				t.Error("Festival name should not be empty")
 			}
-			
+
 			if festival.Significance == "" {
 				t.Errorf("Festival '%s' should have significance", festival.Name)
 			}
@@ -332,7 +332,7 @@ func BenchmarkGetFestivalsForDate(b *testing.B) {
 	fc := NewFestivalCalendar()
 	ctx := context.Background()
 	date := time.Date(2024, 1, 26, 0, 0, 0, 0, time.UTC)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := fc.GetFestivalsForDate(ctx, date, 15)
@@ -346,7 +346,7 @@ func BenchmarkGetUpcomingFestivals(b *testing.B) {
 	fc := NewFestivalCalendar()
 	ctx := context.Background()
 	startDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := fc.GetUpcomingFestivals(ctx, startDate, 30)

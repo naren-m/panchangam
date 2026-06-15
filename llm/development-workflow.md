@@ -291,14 +291,14 @@ Before merging:
 
 **Good Feedback**:
 ```
-❌ "This is wrong"
-✅ "Consider using CalculateNakshatra() instead of inline calculation here to improve maintainability and reusability."
+FAIL "This is wrong"
+PASS "Consider using CalculateNakshatra() instead of inline calculation here to improve maintainability and reusability."
 
-❌ "Needs tests"
-✅ "Could you add a test case for when moonLongitude > 360°? This edge case isn't currently covered."
+FAIL "Needs tests"
+PASS "Could you add a test case for when moonLongitude > 360°? This edge case isn't currently covered."
 
-❌ "Bad naming"
-✅ "The variable name 'x' isn't very descriptive. Consider renaming to 'tithiProgress' to make the code more readable."
+FAIL "Bad naming"
+PASS "The variable name 'x' isn't very descriptive. Consider renaming to 'tithiProgress' to make the code more readable."
 ```
 
 **Categories**:

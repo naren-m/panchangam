@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PanchangamData, Settings } from '../types/panchangam';
 import { panchangamApiClient } from '../services/api/panchangamApiClient';
-import { formatDateForApi } from '../utils/dateHelpers';
+import { countCalendarDaysInclusive, formatDateForApi, getCalendarDayDifference } from '../utils/dateHelpers';
 
 interface LoadingPhase {
   phase: 'today' | 'priority' | 'remaining' | 'complete';
@@ -26,6 +26,24 @@ interface UseProgressivePanchangamReturn {
   retry: () => void;
 }
 
+const NETWORK_ERROR_CODES = new Set(['NETWORK_ERROR', 'REQUEST_TIMEOUT']);
+const NETWORK_ERROR_MESSAGE_PARTS = ['Failed to fetch', 'Network', 'timeout', 'connect'];
+
+function isNetworkErrorReason(reason: unknown): boolean {
+  if (!reason || typeof reason !== 'object') {
+    return false;
+  }
+
+  const error = reason as { code?: unknown; message?: unknown };
+  if (typeof error.code === 'string' && NETWORK_ERROR_CODES.has(error.code)) {
+    return true;
+  }
+
+  const message = error.message;
+  return typeof message === 'string' &&
+    NETWORK_ERROR_MESSAGE_PARTS.some(messagePart => message.includes(messagePart));
+}
+
 /**
  * Hook for truly progressive loading of panchangam data
  * Phase 1: Load today's data first for immediate display
@@ -39,7 +57,6 @@ export function useProgressivePanchangam(
 ): UseProgressivePanchangamReturn {
   const [allData, setAllData] = useState<Record<string, PanchangamData>>({});
   const [loadedCount, setLoadedCount] = useState(0);
-  const [progress, setProgress] = useState(0);
   const [todayLoaded, setTodayLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,50 +71,57 @@ export function useProgressivePanchangam(
   });
   const abortControllerRef = useRef<AbortController | null>(null);
   const todayLoadedRef = useRef(false);
-  
-  // Calculate total days
-  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  
+
+  // Calculate total calendar days without daylight-saving time drift.
+  const totalDays = countCalendarDaysInclusive(startDate, endDate);
+  const visibleLoadedCount = Math.min(loadedCount, totalDays);
+  const progress = totalDays > 0 ? (visibleLoadedCount / totalDays) * 100 : 0;
+
   // Generate date arrays for progressive loading
   const getDatesForProgressiveLoading = useCallback(() => {
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    
+    const todayStr = formatDateForApi(today);
+
     // All dates in the range
     const allDates: Date[] = [];
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       allDates.push(new Date(d));
     }
-    
+
     // Phase 1: Today (if in range)
-    const todayDates = allDates.filter(d => 
-      d.toISOString().split('T')[0] === todayStr
+    const todayDates = allDates.filter(d =>
+      formatDateForApi(d) === todayStr
     );
-    
+
     // Phase 2: Priority dates (±5 days from today, excluding today)
     const priorityDates = allDates.filter(d => {
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatDateForApi(d);
       if (dateStr === todayStr) return false;
-      
-      const daysDiff = Math.abs((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      const daysDiff = Math.abs(getCalendarDayDifference(today, d));
       return daysDiff <= 5;
     });
-    
+
     // Phase 3: Remaining dates
     const remainingDates = allDates.filter(d => {
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatDateForApi(d);
       if (dateStr === todayStr) return false;
-      
-      const daysDiff = Math.abs((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      const daysDiff = Math.abs(getCalendarDayDifference(today, d));
       return daysDiff > 5;
     });
-    
+
     return { todayDates, priorityDates, remainingDates, allDates };
   }, [startDate, endDate]);
-  
+
   // Fetch data for a specific set of dates
-  const fetchDatesData = useCallback(async (dates: Date[], phase: LoadingPhase['phase']): Promise<{ success: number; failed: number; isNetworkError: boolean }> => {
-    if (dates.length === 0) return { success: 0, failed: 0, isNetworkError: false };
+  const fetchDatesData = useCallback(async (
+    dates: Date[],
+    signal: AbortSignal
+  ): Promise<{ success: number; failed: number; isNetworkError: boolean }> => {
+    if (dates.length === 0 || signal.aborted) {
+      return { success: 0, failed: 0, isNetworkError: false };
+    }
 
     let totalSuccess = 0;
     let totalFailed = 0;
@@ -113,7 +137,7 @@ export function useProgressivePanchangam(
       }
 
       for (const batch of batches) {
-        if (abortControllerRef.current?.signal.aborted) {
+        if (signal.aborted) {
           return { success: totalSuccess, failed: totalFailed, isNetworkError: detectedNetworkError };
         }
 
@@ -130,6 +154,9 @@ export function useProgressivePanchangam(
         );
 
         const results = await Promise.allSettled(promises);
+        if (signal.aborted) {
+          return { success: totalSuccess, failed: totalFailed, isNetworkError: detectedNetworkError };
+        }
 
         // Process results and track failures
         const newData: Record<string, PanchangamData> = {};
@@ -140,18 +167,7 @@ export function useProgressivePanchangam(
             totalSuccess++;
           } else {
             totalFailed++;
-            // Check if this is a network error
-            const reason = result.reason;
-            if (reason && (
-              reason.code === 'NETWORK_ERROR' ||
-              reason.code === 'REQUEST_TIMEOUT' ||
-              (reason.message && (
-                reason.message.includes('Failed to fetch') ||
-                reason.message.includes('Network') ||
-                reason.message.includes('timeout') ||
-                reason.message.includes('connect')
-              ))
-            )) {
+            if (isNetworkErrorReason(result.reason)) {
               detectedNetworkError = true;
             }
           }
@@ -162,21 +178,20 @@ export function useProgressivePanchangam(
         setLoadedCount(prev => prev + Object.keys(newData).length);
 
         // Check if today is loaded (using ref to avoid dependency cycle)
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = formatDateForApi(new Date());
         if (newData[todayStr] && !todayLoadedRef.current) {
           todayLoadedRef.current = true;
           setTodayLoaded(true);
         }
       }
-    } catch (err) {
-      console.error(`Error fetching ${phase} data:`, err);
+    } catch {
       totalFailed = dates.length;
       detectedNetworkError = true;
     }
 
     return { success: totalSuccess, failed: totalFailed, isNetworkError: detectedNetworkError };
   }, [settings]); // Note: todayLoaded check uses ref to avoid dependency cycle
-  
+
   // Main progressive loading function
   const loadProgressively = useCallback(async () => {
     if (abortControllerRef.current) {
@@ -184,13 +199,13 @@ export function useProgressivePanchangam(
     }
 
     abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
     setLoading(true);
     setError(null);
     setErrorState({ hasError: false, message: null, isNetworkError: false });
     setAllData({});
     setLoadedCount(0);
-    setProgress(0);
     setTodayLoaded(false);
     todayLoadedRef.current = false; // Reset ref as well
 
@@ -204,12 +219,12 @@ export function useProgressivePanchangam(
       // Phase 1: Load today's data first
       if (todayDates.length > 0) {
         setLoadingPhase({ phase: 'today', description: 'Loading today\'s tithi...' });
-        const result = await fetchDatesData(todayDates, 'today');
+        const result = await fetchDatesData(todayDates, signal);
         totalSuccess += result.success;
         totalFailed += result.failed;
         isNetworkError = isNetworkError || result.isNetworkError;
 
-        if (abortControllerRef.current?.signal.aborted) return;
+        if (signal.aborted) return;
 
         // If today's fetch completely failed, show error immediately
         if (result.success === 0 && result.failed > 0) {
@@ -231,23 +246,23 @@ export function useProgressivePanchangam(
       // Phase 2: Load priority dates (±5 days)
       if (priorityDates.length > 0) {
         setLoadingPhase({ phase: 'priority', description: 'Loading nearby dates...' });
-        const result = await fetchDatesData(priorityDates, 'priority');
+        const result = await fetchDatesData(priorityDates, signal);
         totalSuccess += result.success;
         totalFailed += result.failed;
         isNetworkError = isNetworkError || result.isNetworkError;
 
-        if (abortControllerRef.current?.signal.aborted) return;
+        if (signal.aborted) return;
       }
 
       // Phase 3: Load remaining dates
       if (remainingDates.length > 0) {
         setLoadingPhase({ phase: 'remaining', description: 'Loading remaining dates...' });
-        const result = await fetchDatesData(remainingDates, 'remaining');
+        const result = await fetchDatesData(remainingDates, signal);
         totalSuccess += result.success;
         totalFailed += result.failed;
         isNetworkError = isNetworkError || result.isNetworkError;
 
-        if (abortControllerRef.current?.signal.aborted) return;
+        if (signal.aborted) return;
       }
 
       // Check if ALL requests failed
@@ -268,15 +283,11 @@ export function useProgressivePanchangam(
       }
 
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
+      if (signal.aborted || (err instanceof Error && err.name === 'AbortError')) {
         return;
       }
 
-      const detectedNetworkError = err instanceof Error && (
-        err.message.includes('Failed to fetch') ||
-        err.message.includes('Network') ||
-        err.message.includes('timeout')
-      );
+      const detectedNetworkError = err instanceof Error && isNetworkErrorReason(err);
 
       const errorMessage = detectedNetworkError
         ? 'Backend server is not available. Please ensure the Panchangam API server is running.'
@@ -289,40 +300,35 @@ export function useProgressivePanchangam(
         isNetworkError: detectedNetworkError
       });
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [getDatesForProgressiveLoading, fetchDatesData]);
-  
-  // Update progress based on loaded count
-  useEffect(() => {
-    if (totalDays > 0) {
-      setProgress((loadedCount / totalDays) * 100);
-    }
-  }, [loadedCount, totalDays]);
-  
+
   // Retry function
   const retry = useCallback(() => {
     loadProgressively();
   }, [loadProgressively]);
-  
+
   // Load data when dependencies change
   useEffect(() => {
     loadProgressively();
-    
+
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
   }, [loadProgressively]);
-  
+
   return {
     data: allData,
     loading,
-    isProgressiveLoading: loading && loadedCount > 0,
+    isProgressiveLoading: loading && visibleLoadedCount > 0,
     progress,
     todayLoaded,
-    loadedCount,
+    loadedCount: visibleLoadedCount,
     totalCount: totalDays,
     error,
     errorState,

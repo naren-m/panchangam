@@ -2,11 +2,11 @@
 
 Comprehensive Python pytest-based testing framework for the Panchangam API Gateway.
 
-## 🎯 Overview
+## Overview
 
 This testing framework provides a robust, multi-layered approach to validating the Panchangam API Gateway implementation. It complements the existing Go unit tests with comprehensive end-to-end, integration, and performance testing.
 
-## 📋 Test Categories
+## Test Categories
 
 ### Test Markers
 - `@pytest.mark.smoke` - Critical functionality tests (quick validation)
@@ -58,7 +58,7 @@ This testing framework provides a robust, multi-layered approach to validating t
   - Error handling performance
   - Information disclosure prevention
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.8+
@@ -114,7 +114,7 @@ python run_tests.py --markers "smoke and not performance"
 python run_tests.py --skip-server-start
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 - `PANCHANGAM_API_URL` - API base URL (default: `http://localhost:8080`)
@@ -126,7 +126,7 @@ python run_tests.py --skip-server-start
 - **Sample Data**: Multiple test locations (Bangalore, Mumbai, New York, London)
 - **Custom Markers**: Test categorization and filtering
 
-## 📊 Test Execution Flow
+## Test Execution Flow
 
 ### Automatic Server Management
 1. **Build Phase**: Compile Go servers (`grpc-server`, `gateway-server`)
@@ -147,7 +147,7 @@ export SKIP_SERVER_START=true
 python run_tests.py --skip-server-start
 ```
 
-## 📈 Performance Benchmarks
+## Performance Benchmarks
 
 ### Response Time Targets
 - **Health Check**: <100ms
@@ -160,7 +160,7 @@ python run_tests.py --skip-server-start
 - **Success Rate**: 100% success expected
 - **Performance Degradation**: Minimal impact under load
 
-## 🔒 Security Testing
+## Security Testing
 
 ### Security Validations
 - **CORS Configuration**: Proper origin validation
@@ -175,7 +175,7 @@ python run_tests.py --skip-server-start
 - Oversized requests
 - Invalid authorization attempts
 
-## 📋 Test Data
+## Test Data
 
 ### Sample Locations
 ```python
@@ -192,7 +192,7 @@ locations = {
 - **Range**: 7 consecutive days
 - **Validation**: Consistent data structure across dates
 
-## 📊 Reporting
+## Reporting
 
 ### HTML Reports
 ```bash
@@ -218,7 +218,7 @@ python run_tests.py --coverage --html-report
 - **Performance**: Response time measurements
 - **Errors**: Detailed failure information with request IDs
 
-## 🔧 Advanced Usage
+## Advanced Usage
 
 ### Custom Test Execution
 ```bash
@@ -248,7 +248,7 @@ python run_tests.py --type performance --verbose
 python run_tests.py --type all --coverage --html-report --skip-server-start
 ```
 
-## 🧪 Test Development
+## Test Development
 
 ### Adding New Tests
 1. **Choose Module**: Health, API, or Error handling
@@ -271,7 +271,7 @@ def test_new_feature(api_client: requests.Session, api_base_url: str):
     assert "expected_field" in data
 ```
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -311,7 +311,7 @@ export PYTEST_DEBUG=1
 python run_tests.py --verbose
 ```
 
-## 📝 Test Coverage
+## Test Coverage
 
 ### Current Coverage
 - **Health Endpoint**: 100% scenarios covered
@@ -326,7 +326,7 @@ python run_tests.py --verbose
 - **Performance Benchmarks**: All critical paths
 - **Security Testing**: OWASP Top 10 scenarios
 
-## 🎯 Integration with Go Tests
+## Integration with Go Tests
 
 This pytest framework complements the existing Go unit tests:
 
@@ -348,7 +348,7 @@ This pytest framework complements the existing Go unit tests:
 3. **Integration**: Both run in CI/CD pipeline
 4. **Reporting**: Combined coverage and performance metrics
 
-## 🚀 Next Steps
+## Next Steps
 
 ### Planned Enhancements
 1. **Load Testing**: Apache Bench integration

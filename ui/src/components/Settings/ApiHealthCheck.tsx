@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { panchangamApi, apiConfig } from '../../services/panchangamApi';
+import { apiConfig } from '../../services/api/client';
+import { panchangamApiClient } from '../../services/api/panchangamApiClient';
 
 interface ApiHealthCheckProps {
   onStatusChange?: (status: 'healthy' | 'unhealthy') => void;
@@ -11,10 +12,10 @@ export const ApiHealthCheck: React.FC<ApiHealthCheckProps> = ({ onStatusChange }
   const [message, setMessage] = useState('');
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
-  const checkApiHealth = async () => {
+  const checkApiHealth = useCallback(async () => {
     setStatus('checking');
     try {
-      const health = await panchangamApi.healthCheck();
+      const health = await panchangamApiClient.healthCheck();
       setStatus(health.status);
       setMessage(health.message);
       setLastChecked(new Date());
@@ -25,15 +26,15 @@ export const ApiHealthCheck: React.FC<ApiHealthCheckProps> = ({ onStatusChange }
       setLastChecked(new Date());
       onStatusChange?.('unhealthy');
     }
-  };
+  }, [onStatusChange]);
 
   useEffect(() => {
     checkApiHealth();
-    
+
     // Set up periodic health checks every 30 seconds
     const interval = setInterval(checkApiHealth, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [checkApiHealth]);
 
   const getStatusIcon = () => {
     switch (status) {
@@ -73,7 +74,7 @@ export const ApiHealthCheck: React.FC<ApiHealthCheckProps> = ({ onStatusChange }
           Refresh
         </button>
       </div>
-      
+
       <div className="space-y-2">
         <div className="flex items-center space-x-2">
           {getStatusIcon()}
@@ -81,7 +82,7 @@ export const ApiHealthCheck: React.FC<ApiHealthCheckProps> = ({ onStatusChange }
             {status === 'checking' ? 'Checking...' : status === 'healthy' ? 'Connected' : 'Disconnected'}
           </span>
         </div>
-        
+
         <div className="text-xs text-gray-600">
           <div>Endpoint: {apiConfig.endpoint}</div>
           {message && <div>Status: {message}</div>}
@@ -92,7 +93,7 @@ export const ApiHealthCheck: React.FC<ApiHealthCheckProps> = ({ onStatusChange }
 
         {status === 'unhealthy' && (
           <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-            <strong>Connection Failed:</strong> The app will use fallback data. 
+            <strong>Connection Failed:</strong> The app will use fallback data.
             Please ensure the API server is running on {apiConfig.baseUrl}.
           </div>
         )}
@@ -101,7 +102,7 @@ export const ApiHealthCheck: React.FC<ApiHealthCheckProps> = ({ onStatusChange }
           <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
             <strong>Development Mode:</strong> Make sure to start the gateway server:
             <br />
-            <code className="bg-blue-100 px-1 rounded">go run cmd/gateway/main.go</code>
+            <code className="bg-blue-100 px-1 rounded">go run ./cmd/gateway</code>
           </div>
         )}
       </div>

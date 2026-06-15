@@ -549,7 +549,7 @@ manager.RegisterPlugin("muhurta", &StandardMuhurtaPlugin{
 // Process data
 result, err := manager.ProcessPanchangamData(ctx, data)
 if err != nil {
-    log.Fatal(err)
+    return fmt.Errorf("process panchangam data: %w", err)
 }
 
 // Access modifications

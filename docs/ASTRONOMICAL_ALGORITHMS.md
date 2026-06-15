@@ -326,19 +326,19 @@ A retrograde period spans from station retrograde to station direct.
 ### Solar Coordinates
 
 The Sun's position is calculated using ephemeris data, providing:
-- Ecliptic longitude (λ☉)
-- Right ascension (α☉)
-- Declination (δ☉)
+- Ecliptic longitude (λ)
+- Right ascension (α)
+- Declination (δ)
 
 ### Hour Angle
 
 The hour angle (H) at sunrise/sunset when the Sun crosses the horizon:
 
 ```
-cos(H) = -tan(φ) * tan(δ☉)
+cos(H) = -tan(φ) * tan(δ)
 
 where φ = observer latitude
-      δ☉ = solar declination
+      δ= solar declination
 ```
 
 **Atmospheric Refraction Correction:** -0.833° (standard)
@@ -349,10 +349,10 @@ where φ = observer latitude
 ### Sunrise Time
 
 ```
-LST_sunrise = α☉ - H
+LST_sunrise = α- H
 
 where LST = Local Sidereal Time
-      α☉ = Sun's right ascension
+      α= Sun's right ascension
       H = hour angle
 ```
 

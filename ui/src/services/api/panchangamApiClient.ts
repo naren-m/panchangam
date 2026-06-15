@@ -1,7 +1,8 @@
 import { apiClient } from './client';
 import { PanchangamApiError } from './types';
 import { requestCache } from './requestCache';
-import type { PanchangamData, GetPanchangamRequest } from '../../types/panchangam';
+import { formatDateForApi, getCalendarDayDifference, parseApiDate } from '../../utils/dateHelpers';
+import type { PanchangamData, GetPanchangamRequest, Event as PanchangamEvent } from '../../types/panchangam';
 
 // API Response interface that matches the actual gRPC response
 interface ApiPanchangamEvent {
@@ -25,6 +26,26 @@ interface HealthCheckResponse {
   status: string;
   timestamp: string;
   version?: string;
+}
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const PLANETARY_RULERS = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
+const AUSPICIOUS_EVENT_TYPES = new Set(['ABHIJIT_MUHURTA', 'BRAHMA_MUHURTA', 'SUNRISE', 'FESTIVAL']);
+const INAUSPICIOUS_EVENT_TYPES = new Set(['RAHU_KALAM', 'YAMAGANDAM', 'GULIKA_KALAM']);
+
+function getVaraDetails(date: string): Pick<PanchangamData, 'vara' | 'planetary_ruler'> {
+  const dayOfWeek = parseApiDate(date).getDay();
+
+  return {
+    vara: WEEKDAYS[dayOfWeek],
+    planetary_ruler: PLANETARY_RULERS[dayOfWeek]
+  };
+}
+
+function getEventQuality(eventType: string): PanchangamEvent['quality'] {
+  if (AUSPICIOUS_EVENT_TYPES.has(eventType)) return 'auspicious';
+  if (INAUSPICIOUS_EVENT_TYPES.has(eventType)) return 'inauspicious';
+  return 'neutral';
 }
 
 /**
@@ -85,15 +106,16 @@ function validatePanchangamRequest(params: GetPanchangamRequest): void {
 /**
  * Validates panchangam response data
  */
-function validatePanchangamResponse(data: any): asserts data is ApiPanchangamData {
+function validatePanchangamResponse(data: unknown): asserts data is ApiPanchangamData {
   if (!data || typeof data !== 'object') {
     throw new PanchangamApiError('Invalid response format', 'INVALID_RESPONSE_FORMAT');
   }
 
+  const response = data as Record<string, unknown>;
   const requiredFields = ['date', 'tithi', 'nakshatra', 'yoga', 'karana', 'sunrise_time', 'sunset_time'];
-  
+
   for (const field of requiredFields) {
-    if (!(field in data) || typeof data[field] !== 'string') {
+    if (!(field in response) || typeof response[field] !== 'string') {
       throw new PanchangamApiError(
         `Missing or invalid field: ${field}`,
         'INVALID_RESPONSE_FIELD'
@@ -101,7 +123,7 @@ function validatePanchangamResponse(data: any): asserts data is ApiPanchangamDat
     }
   }
 
-  if (!Array.isArray(data.events)) {
+  if (!Array.isArray(response.events)) {
     throw new PanchangamApiError('Events must be an array', 'INVALID_EVENTS_FORMAT');
   }
 }
@@ -110,12 +132,7 @@ function validatePanchangamResponse(data: any): asserts data is ApiPanchangamDat
  * Transform API response to match UI types
  */
 function transformApiResponse(apiData: ApiPanchangamData, requestDate: string): PanchangamData {
-  // Extract day of week for vara calculation - parse date reliably
-  const [year, month, day] = requestDate.split('-').map(Number);
-  const dateObj = new Date(year, month - 1, day);
-  const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const rulers = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
-  const dayOfWeek = dateObj.getDay();
+  const varaDetails = getVaraDetails(requestDate);
 
   // Extract lunar timing from events
   const moonriseEvent = apiData.events.find(e => e.event_type === 'MOONRISE');
@@ -124,16 +141,6 @@ function transformApiResponse(apiData: ApiPanchangamData, requestDate: string): 
   // Extract tithi start time from events
   const tithiEvent = apiData.events.find(e => e.event_type === 'TITHI');
   const tithiStartTime = tithiEvent?.time;
-
-  // Determine event quality based on type
-  const getEventQuality = (eventType: string): 'auspicious' | 'inauspicious' | 'neutral' => {
-    const auspiciousEvents = ['ABHIJIT_MUHURTA', 'BRAHMA_MUHURTA', 'SUNRISE', 'FESTIVAL'];
-    const inauspiciousEvents = ['RAHU_KALAM', 'YAMAGANDAM', 'GULIKA_KALAM'];
-    
-    if (auspiciousEvents.includes(eventType)) return 'auspicious';
-    if (inauspiciousEvents.includes(eventType)) return 'inauspicious';
-    return 'neutral';
-  };
 
   return {
     date: apiData.date,
@@ -144,12 +151,11 @@ function transformApiResponse(apiData: ApiPanchangamData, requestDate: string): 
     karana: apiData.karana,
     sunrise_time: apiData.sunrise_time,
     sunset_time: apiData.sunset_time,
-    vara: weekdays[dayOfWeek],
-    planetary_ruler: rulers[dayOfWeek],
+    ...varaDetails,
     events: apiData.events.map(event => ({
       name: event.name,
       time: event.time,
-      event_type: event.event_type as any,
+      event_type: event.event_type as PanchangamEvent['event_type'],
       quality: getEventQuality(event.event_type)
     })),
     festivals: [], // Not provided by current API
@@ -162,12 +168,7 @@ function transformApiResponse(apiData: ApiPanchangamData, requestDate: string): 
  * Generate fallback data when API is unavailable
  */
 function generateFallbackData(date: string): PanchangamData {
-  // Parse date more reliably to avoid timezone issues
-  const [year, month, day] = date.split('-').map(Number);
-  const dateObj = new Date(year, month - 1, day);
-  const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const rulers = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
-  const dayOfWeek = dateObj.getDay();
+  const varaDetails = getVaraDetails(date);
 
   return {
     date,
@@ -177,8 +178,7 @@ function generateFallbackData(date: string): PanchangamData {
     karana: "No Data",
     sunrise_time: "06:30:00",
     sunset_time: "18:30:00",
-    vara: weekdays[dayOfWeek],
-    planetary_ruler: rulers[dayOfWeek],
+    ...varaDetails,
     events: [
       {
         name: "API Connection Error",
@@ -249,13 +249,10 @@ export class PanchangamApiClient {
       return transformedData;
 
     } catch (error) {
-      console.error('Panchangam API error:', error);
-
       // Handle specific error types
       if (error instanceof PanchangamApiError) {
         // For network errors, provide fallback data
         if (error.code === 'NETWORK_ERROR' || error.code === 'REQUEST_TIMEOUT') {
-          console.warn('API unavailable, using fallback data');
           return generateFallbackData(params.date);
         }
         // Re-throw other API errors (like validation errors)
@@ -271,19 +268,19 @@ export class PanchangamApiClient {
    * Get panchangam data for a date range
    */
   async getPanchangamRange(
-    startDate: string, 
-    endDate: string, 
+    startDate: string,
+    endDate: string,
     params: Omit<GetPanchangamRequest, 'date'>
   ): Promise<PanchangamData[]> {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
+    const start = parseApiDate(startDate);
+    const end = parseApiDate(endDate);
+
     // Validate date range
     if (start > end) {
       throw new PanchangamApiError('Start date must be before end date', 'INVALID_DATE_RANGE');
     }
 
-    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = getCalendarDayDifference(start, end);
     if (daysDiff > 365) {
       throw new PanchangamApiError('Date range cannot exceed 365 days', 'DATE_RANGE_TOO_LARGE');
     }
@@ -292,12 +289,12 @@ export class PanchangamApiClient {
     const results: PanchangamData[] = [];
     const batchSize = 5; // Process 5 requests at a time
     const dates: string[] = [];
-    
+
     // Collect all dates first
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      dates.push(d.toISOString().split('T')[0]);
+      dates.push(formatDateForApi(d));
     }
-    
+
     // Process in batches with delay between batches
     for (let i = 0; i < dates.length; i += batchSize) {
       const batch = dates.slice(i, i + batchSize);
@@ -314,24 +311,22 @@ export class PanchangamApiClient {
           }, index * 100); // 100ms delay between requests in batch
         });
       });
-      
+
       const batchResults = await Promise.allSettled(batchPromises);
-      
+
       // Extract successful results from this batch
-      batchResults.forEach((result, index) => {
+      batchResults.forEach((result) => {
         if (result.status === 'fulfilled') {
           results.push(result.value);
-        } else {
-          console.error(`Failed to fetch data for ${batch[index]}:`, result.reason);
         }
       });
-      
+
       // Delay between batches (except for last batch)
       if (i + batchSize < dates.length) {
         await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
-    
+
     return results;
   }
 

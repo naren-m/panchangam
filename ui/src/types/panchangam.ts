@@ -49,9 +49,9 @@ export interface GetPanchangamRequest {
   date: string;
   latitude: number;
   longitude: number;
-  timezone: string;
-  region: string;
-  calculation_method: string;
+  timezone?: string;
+  region?: string;
+  calculation_method?: Settings['calculation_method'];
   calendar_system?: string;
-  locale: string;
+  locale?: Settings['locale'];
 }

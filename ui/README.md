@@ -20,7 +20,7 @@ UI (React/TypeScript) → HTTP Gateway (Go) → gRPC Service (Go) → Astronomy 
 ## Prerequisites
 
 - Node.js 18+ and npm
-- Go 1.21+ (for backend services)
+- Go 1.23+ (for backend services)
 - The Panchangam gRPC service and HTTP gateway running
 
 ## Quick Start
@@ -30,13 +30,13 @@ UI (React/TypeScript) → HTTP Gateway (Go) → gRPC Service (Go) → Astronomy 
 First, start the gRPC service:
 ```bash
 # From project root
-go run main.go
+go run ./cmd/server
 ```
 
 Then start the HTTP gateway:
 ```bash
 # From project root
-go run cmd/gateway/main.go
+go run ./cmd/gateway
 ```
 
 The services will be available at:
@@ -109,15 +109,15 @@ GET /api/v1/panchangam?date=2024-01-15&lat=12.9716&lng=77.5946&tz=Asia/Kolkata
 
 ```
 src/
-├── components/          # React components
-│   ├── Calendar/       # Calendar grid and navigation
-│   ├── DayDetail/      # Day details modal and events
-│   ├── LocationPicker/ # Location selection
-│   └── Settings/       # Settings panel and API health check
-├── hooks/              # Custom React hooks
-├── services/           # API services and location handling
-├── types/              # TypeScript type definitions
-└── utils/              # Utility functions
+|-- components/          # React components
+|   |-- Calendar/        # Calendar grid and navigation
+|   |-- DayDetail/       # Day details modal and events
+|   |-- LocationPicker/  # Location selection
+|   `-- Settings/        # Settings panel and API health check
+|-- hooks/               # Custom React hooks
+|-- services/            # API services and location handling
+|-- types/               # TypeScript type definitions
+`-- utils/               # Utility functions
 ```
 
 ### Key Components
@@ -131,7 +131,7 @@ src/
 
 The app includes comprehensive error handling:
 
-1. **API Connection Issues**: Falls back to placeholder data
+1. **API Connection Issues**: Shows explicit API unavailable fallback data
 2. **Network Timeouts**: 30-second timeout with retry logic
 3. **Invalid Responses**: Graceful error messages
 4. **Location Errors**: Falls back to popular locations

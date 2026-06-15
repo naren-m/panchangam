@@ -13,9 +13,9 @@ type NaazhikaiConverter struct{}
 
 // TimeInNaazhikai represents time in Naazhikai units
 type TimeInNaazhikai struct {
-	Naazhikai int     // Whole naazhikai units (0-59)
-	Vinaazhikai int   // Sub-units (60 vinaazhikai = 1 naazhikai, each ~24 seconds)
-	Percentage float64 // Percentage of current naazhikai elapsed
+	Naazhikai   int     // Whole naazhikai units (0-59)
+	Vinaazhikai int     // Sub-units (60 vinaazhikai = 1 naazhikai, each ~24 seconds)
+	Percentage  float64 // Percentage of current naazhikai elapsed
 }
 
 // NewNaazhikaiConverter creates a new converter
@@ -40,7 +40,7 @@ func (n *NaazhikaiConverter) ToNaazhikai(currentTime, sunrise time.Time) TimeInN
 	vinaazhikai := int(fractionalPart * 60)
 
 	// Percentage of current naazhikai
-	percentage := (fractionalPart * 60 - float64(vinaazhikai)) * 100
+	percentage := (fractionalPart*60 - float64(vinaazhikai)) * 100
 
 	return TimeInNaazhikai{
 		Naazhikai:   naazhikai,
@@ -76,13 +76,13 @@ func (n *NaazhikaiConverter) GetNaazhikaiDetails(currentTime, sunrise, sunset ti
 	dayNaazhikai := dayLength.Minutes() / 24.0
 
 	return map[string]interface{}{
-		"naazhikai":          tn.Naazhikai,
-		"vinaazhikai":        tn.Vinaazhikai,
-		"percentage":         tn.Percentage,
+		"naazhikai":           tn.Naazhikai,
+		"vinaazhikai":         tn.Vinaazhikai,
+		"percentage":          tn.Percentage,
 		"total_day_naazhikai": dayNaazhikai,
-		"tamil_name":         "நாழிகை",
-		"description":        "Traditional Tamil time unit (1 Naazhikai = 24 minutes)",
-		"system":             "Tamil time measurement",
+		"tamil_name":          "நாழிகை",
+		"description":         "Traditional Tamil time unit (1 Naazhikai = 24 minutes)",
+		"system":              "Tamil time measurement",
 	}
 }
 
@@ -93,7 +93,7 @@ func (n *NaazhikaiConverter) ConvertDurationToNaazhikai(duration time.Duration) 
 	naazhikai := int(totalNaazhikai)
 	fractionalPart := totalNaazhikai - float64(naazhikai)
 	vinaazhikai := int(fractionalPart * 60)
-	percentage := (fractionalPart * 60 - float64(vinaazhikai)) * 100
+	percentage := (fractionalPart*60 - float64(vinaazhikai)) * 100
 
 	return TimeInNaazhikai{
 		Naazhikai:   naazhikai,
@@ -144,13 +144,13 @@ func (n *NaazhikaiConverter) CalculateMuhurtaInNaazhikai(sunrise, sunset time.Ti
 		quality := n.getMuhurtaQuality(startNaazhikai)
 
 		muhurtas = append(muhurtas, NaazhikaiMuhurta{
-			MuhurtaNumber:   i + 1,
-			StartNaazhikai:  startNaazhikai,
-			EndNaazhikai:    endNaazhikai,
-			StartTime:       startTime,
-			EndTime:         endTime,
-			Quality:         quality,
-			TamilName:       n.getNaazhikaiMuhurtaName(i + 1),
+			MuhurtaNumber:  i + 1,
+			StartNaazhikai: startNaazhikai,
+			EndNaazhikai:   endNaazhikai,
+			StartTime:      startTime,
+			EndTime:        endTime,
+			Quality:        quality,
+			TamilName:      n.getNaazhikaiMuhurtaName(i + 1),
 		})
 	}
 
@@ -258,12 +258,12 @@ func (n *NaazhikaiConverter) CompareWithModernTime(currentTime, sunrise time.Tim
 	tn := n.ToNaazhikai(currentTime, sunrise)
 
 	return map[string]interface{}{
-		"modern_time": currentTime.Format("15:04:05"),
-		"naazhikai_time": fmt.Sprintf("%d நாழிகை %d விநாழிகை", tn.Naazhikai, tn.Vinaazhikai),
-		"tamil_period": n.GetNaazhikaiPeriodName(tn.Naazhikai),
-		"naazhikai_value": tn.Naazhikai,
-		"vinaazhikai_value": tn.Vinaazhikai,
+		"modern_time":          currentTime.Format("15:04:05"),
+		"naazhikai_time":       fmt.Sprintf("%d நாழிகை %d விநாழிகை", tn.Naazhikai, tn.Vinaazhikai),
+		"tamil_period":         n.GetNaazhikaiPeriodName(tn.Naazhikai),
+		"naazhikai_value":      tn.Naazhikai,
+		"vinaazhikai_value":    tn.Vinaazhikai,
 		"minutes_from_sunrise": currentTime.Sub(sunrise).Minutes(),
-		"conversion_factor": "1 Naazhikai = 24 minutes",
+		"conversion_factor":    "1 Naazhikai = 24 minutes",
 	}
 }

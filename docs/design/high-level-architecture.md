@@ -1,10 +1,10 @@
 # Panchangam Project: High-Level Architecture
 
-## 📋 Executive Summary
+## Executive Summary
 
 The Panchangam project is a comprehensive **Hindu calendar system** that provides astronomical calculations, regional variations, and traditional calendar data through a modern microservices architecture. The system combines ancient astronomical knowledge with contemporary observability and scalability patterns.
 
-## 🎯 Project Scope Analysis
+## Project Scope Analysis
 
 Based on 40 GitHub issues and implementation plan analysis:
 
@@ -24,7 +24,7 @@ Based on 40 GitHub issues and implementation plan analysis:
 - **Extensibility**: Plugin-based regional variations
 - **Observability**: Comprehensive monitoring and tracing
 
-## 🏛️ System Architecture
+##  System Architecture
 
 ### **Architecture Pattern: Hexagonal + Microservices**
 
@@ -36,16 +36,16 @@ graph TB
         C[CLI Tools]
         D[Web Dashboard]
     end
-    
+
     subgraph "Core Services"
         E[Panchangam Service]
         F[Authentication & Authorization]
         G[Observability & Logging]
-        
+
         E --> F
         E --> G
     end
-    
+
     subgraph "Domain Layer"
         subgraph "Astronomical Calculations"
             H[Tithi Calculator]
@@ -54,14 +54,14 @@ graph TB
             K[Karana Calculator]
             L[Vara Calculator]
         end
-        
+
         subgraph "Regional Variations"
             M[Amanta/Purnimanta Systems]
             N[Drik/Vakya Methods]
             O[Regional Logic Engine]
             P[Language/Time Units]
         end
-        
+
         subgraph "Event Generation"
             Q[Rahu Kalam Calculator]
             R[Yamagandam Calculator]
@@ -69,48 +69,48 @@ graph TB
             T[Muhurta Calculator]
         end
     end
-    
+
     subgraph "Infrastructure Layer"
         subgraph "Ephemeris Integration"
             U[JPL DE440]
             V[Swiss Ephemeris]
             W[Interpolation Engine]
         end
-        
+
         subgraph "Data Storage"
             X[Configuration Store]
             Y[Cache Store]
             Z[Regional Data]
         end
-        
+
         subgraph "Observability Stack"
             AA[OpenTelemetry]
             BB[Jaeger Tracing]
             CC[Prometheus Metrics]
         end
     end
-    
+
     A --> E
     B --> E
     C --> E
     D --> E
-    
+
     E --> H
     E --> I
     E --> J
     E --> K
     E --> L
-    
+
     E --> M
     E --> N
     E --> O
     E --> P
-    
+
     E --> Q
     E --> R
     E --> S
     E --> T
-    
+
     H --> U
     H --> V
     I --> U
@@ -121,11 +121,11 @@ graph TB
     K --> V
     L --> U
     L --> V
-    
+
     E --> X
     E --> Y
     E --> Z
-    
+
     G --> AA
     G --> BB
     G --> CC
@@ -136,17 +136,17 @@ graph TB
 ```mermaid
 C4Context
     title System Context Diagram for Panchangam Service
-    
+
     Person(user, "User", "Requests panchangam calculations")
     Person(admin, "Administrator", "Manages system configuration")
-    
+
     System(panchangam, "Panchangam System", "Provides Hindu calendar calculations")
-    
+
     System_Ext(jpl, "JPL Ephemeris", "Astronomical data source")
     System_Ext(swiss, "Swiss Ephemeris", "Alternative astronomical data")
     System_Ext(jaeger, "Jaeger", "Distributed tracing")
     System_Ext(prometheus, "Prometheus", "Metrics collection")
-    
+
     Rel(user, panchangam, "Makes requests", "gRPC/REST")
     Rel(admin, panchangam, "Configures", "Admin API")
     Rel(panchangam, jpl, "Fetches ephemeris data", "File/API")
@@ -155,7 +155,7 @@ C4Context
     Rel(panchangam, prometheus, "Sends metrics", "HTTP")
 ```
 
-## 📦 Component Architecture
+## Component Architecture
 
 ### **1. Core Domain Components**
 
@@ -217,11 +217,11 @@ type StorageManager interface {
 }
 ```
 
-## 🔧 Service Architecture
+## Service Architecture
 
 ### **Panchangam Service (Current)**
 - **Purpose**: Main API endpoint for panchangam calculations
-- **Status**: ✅ Implemented with OpenTelemetry tracing
+- **Status**: PASS Implemented with OpenTelemetry tracing
 - **Features**: Authentication, authorization, comprehensive logging
 - **Dependencies**: Astronomy package, Observability package
 
@@ -270,7 +270,7 @@ Endpoints:
 Features: Accuracy metrics, comparison reports
 ```
 
-## 🌊 Data Flow Architecture
+## Data Flow Architecture
 
 ### **Request Processing Sequence**
 
@@ -285,38 +285,38 @@ sequenceDiagram
     participant Regional as Regional Manager
     participant Events as Event Generator
     participant Tracer as OpenTelemetry
-    
+
     Client->>Gateway: gRPC/REST Request
     Gateway->>Auth: Authenticate & Authorize
     Auth-->>Gateway: Auth Token Validated
     Gateway->>Service: Forward Request
-    
+
     Service->>Tracer: Start Span
     Service->>Service: Validate Request Parameters
     Service->>Regional: Load Regional Configuration
     Regional-->>Service: Regional Config
-    
+
     Service->>Calc: Calculate Panchangam Elements
     Calc->>Ephemeris: Get Sun/Moon Positions
     Ephemeris-->>Calc: Astronomical Data
-    
+
     Calc->>Calc: Calculate Tithi
     Calc->>Calc: Calculate Nakshatra
     Calc->>Calc: Calculate Yoga
     Calc->>Calc: Calculate Karana
     Calc->>Calc: Calculate Vara
-    
+
     Calc-->>Service: Calculation Results
-    
+
     Service->>Events: Generate Events
     Events->>Events: Calculate Rahu Kalam
     Events->>Events: Calculate Yamagandam
     Events->>Events: Calculate Festivals
     Events-->>Service: Event Results
-    
+
     Service->>Regional: Apply Regional Formatting
     Regional-->>Service: Formatted Response
-    
+
     Service->>Tracer: End Span
     Service-->>Gateway: Panchangam Response
     Gateway-->>Client: Final Response
@@ -330,7 +330,7 @@ flowchart LR
     B --> C[Regional Config Loading]
     C --> D[Ephemeris Data Fetch]
     D --> E[Astronomical Calculations]
-    
+
     subgraph "Core Calculations"
         E --> F[Tithi Calculation]
         E --> G[Nakshatra Calculation]
@@ -338,18 +338,18 @@ flowchart LR
         E --> I[Karana Calculation]
         E --> J[Vara Calculation]
     end
-    
+
     F --> K[Regional Variations]
     G --> K
     H --> K
     I --> K
     J --> K
-    
+
     K --> L[Event Generation]
     L --> M[Response Assembly]
     M --> N[Observability Tracing]
     N --> O[Response Delivery]
-    
+
     style A fill:#e1f5fe
     style O fill:#e8f5e8
     style E fill:#fff3e0
@@ -365,32 +365,32 @@ graph LR
         A[Location + Date + Region] --> B[Parameter Validation]
         B --> C[Regional Configuration]
     end
-    
+
     subgraph "Astronomical Processing"
         C --> D[Ephemeris Data]
         D --> E[Sun/Moon Positions]
         E --> F[Astronomical Calculations]
     end
-    
+
     subgraph "Cultural Processing"
         F --> G[Regional Variations]
         G --> H[Event Generation]
         H --> I[Cultural Formatting]
     end
-    
+
     subgraph "Output Processing"
         I --> J[Response Validation]
         J --> K[Observability Data]
         K --> L[Final Response]
     end
-    
+
     style A fill:#e3f2fd
     style L fill:#e8f5e8
     style F fill:#fff8e1
     style H fill:#fce4ec
 ```
 
-## 🔧 Component Interactions
+## Component Interactions
 
 ### **Service Component Diagram**
 
@@ -402,19 +402,19 @@ graph TD
         Jaeger[Jaeger Tracing]
         Prometheus[Prometheus Metrics]
     end
-    
+
     subgraph "Core Components"
         Gateway[API Gateway]
         Auth[Authentication Service]
         Main[Panchangam Service]
-        
+
         subgraph "Domain Services"
             Calc[Calculation Engine]
             Regional[Regional Manager]
             Events[Event Generator]
             Validation[Validation Service]
         end
-        
+
         subgraph "Infrastructure"
             Cache[Redis Cache]
             Config[Configuration Store]
@@ -422,27 +422,27 @@ graph TD
             Logger[Structured Logger]
         end
     end
-    
+
     Gateway --> Auth
     Gateway --> Main
     Main --> Calc
     Main --> Regional
     Main --> Events
     Main --> Validation
-    
+
     Calc --> JPL
     Calc --> Swiss
     Calc --> Cache
-    
+
     Regional --> Config
     Events --> Config
-    
+
     Main --> Tracer
     Main --> Logger
-    
+
     Tracer --> Jaeger
     Logger --> Prometheus
-    
+
     style Gateway fill:#e1f5fe
     style Main fill:#e8f5e8
     style Calc fill:#fff3e0
@@ -463,48 +463,48 @@ sequenceDiagram
     participant EventGen
     participant Cache
     participant Ephemeris
-    
+
     Note over Client,Ephemeris: Panchangam Calculation Request
-    
+
     Client->>Gateway: GetPanchangam(location, date, region)
     Gateway->>Auth: ValidateToken()
     Auth-->>Gateway: TokenValid
-    
+
     Gateway->>Service: ProcessRequest()
     Service->>Cache: CheckCache(key)
-    
+
     alt Cache Hit
         Cache-->>Service: CachedResult
     else Cache Miss
         Service->>RegionalMgr: GetRegionalConfig(region)
         RegionalMgr-->>Service: RegionalConfig
-        
+
         Service->>CalcEngine: CalculateElements(location, date, config)
         CalcEngine->>Ephemeris: GetEphemerisData(date)
         Ephemeris-->>CalcEngine: SunMoonPositions
-        
+
         CalcEngine->>CalcEngine: CalculateTithi()
         CalcEngine->>CalcEngine: CalculateNakshatra()
         CalcEngine->>CalcEngine: CalculateYoga()
         CalcEngine->>CalcEngine: CalculateKarana()
         CalcEngine->>CalcEngine: CalculateVara()
-        
+
         CalcEngine-->>Service: CalculationResults
-        
+
         Service->>EventGen: GenerateEvents(results, config)
         EventGen-->>Service: Events
-        
+
         Service->>Cache: StoreResult(key, result)
     end
-    
+
     Service->>RegionalMgr: FormatResponse(results, region)
     RegionalMgr-->>Service: FormattedResponse
-    
+
     Service-->>Gateway: PanchangamResponse
     Gateway-->>Client: Response
 ```
 
-## 🚀 Deployment Architecture
+## Deployment Architecture
 
 ### **Deployment Diagram**
 
@@ -514,69 +514,63 @@ graph TB
         subgraph "Load Balancer"
             LB[Load Balancer]
         end
-        
+
         subgraph "Application Tier"
             subgraph "Pod 1"
                 APP1[Panchangam Service]
                 AUTH1[Auth Service]
             end
-            
+
             subgraph "Pod 2"
                 APP2[Panchangam Service]
                 AUTH2[Auth Service]
             end
-            
+
             subgraph "Pod 3"
                 APP3[Panchangam Service]
                 AUTH3[Auth Service]
             end
         end
-        
+
         subgraph "Data Tier"
             REDIS[Redis Cache Cluster]
-            POSTGRES[PostgreSQL Config DB]
             EPHEMERIS[Ephemeris Data Storage]
         end
-        
+
         subgraph "Observability Tier"
             JAEGER[Jaeger Tracing]
             PROMETHEUS[Prometheus Metrics]
             GRAFANA[Grafana Dashboard]
         end
     end
-    
+
     LB --> APP1
     LB --> APP2
     LB --> APP3
-    
+
     APP1 --> REDIS
     APP2 --> REDIS
     APP3 --> REDIS
-    
-    APP1 --> POSTGRES
-    APP2 --> POSTGRES
-    APP3 --> POSTGRES
-    
+
     APP1 --> EPHEMERIS
     APP2 --> EPHEMERIS
     APP3 --> EPHEMERIS
-    
+
     APP1 --> JAEGER
     APP2 --> JAEGER
     APP3 --> JAEGER
-    
+
     APP1 --> PROMETHEUS
     APP2 --> PROMETHEUS
     APP3 --> PROMETHEUS
-    
+
     PROMETHEUS --> GRAFANA
-    
+
     style LB fill:#e1f5fe
     style APP1 fill:#e8f5e8
     style APP2 fill:#e8f5e8
     style APP3 fill:#e8f5e8
     style REDIS fill:#fff3e0
-    style POSTGRES fill:#f3e5f5
     style EPHEMERIS fill:#fce4ec
 ```
 
@@ -591,92 +585,86 @@ graph TB
                 PS2[Pod: panchangam-2]
                 PS3[Pod: panchangam-3]
             end
-            
+
             subgraph "Services"
                 SVC[Service: panchangam-svc]
                 INGRESS[Ingress: panchangam-ingress]
             end
-            
+
             subgraph "ConfigMaps & Secrets"
                 CM[ConfigMap: app-config]
                 SEC[Secret: app-secrets]
             end
         end
-        
+
         subgraph "Namespace: data"
             REDIS_POD[Redis StatefulSet]
-            POSTGRES_POD[PostgreSQL StatefulSet]
         end
-        
+
         subgraph "Namespace: observability"
             JAEGER_POD[Jaeger Deployment]
             PROMETHEUS_POD[Prometheus Deployment]
             GRAFANA_POD[Grafana Deployment]
         end
     end
-    
+
     INGRESS --> SVC
     SVC --> PS1
     SVC --> PS2
     SVC --> PS3
-    
+
     PS1 --> CM
     PS2 --> CM
     PS3 --> CM
-    
+
     PS1 --> SEC
     PS2 --> SEC
     PS3 --> SEC
-    
+
     PS1 --> REDIS_POD
     PS2 --> REDIS_POD
     PS3 --> REDIS_POD
-    
-    PS1 --> POSTGRES_POD
-    PS2 --> POSTGRES_POD
-    PS3 --> POSTGRES_POD
-    
+
     PS1 --> JAEGER_POD
     PS2 --> JAEGER_POD
     PS3 --> JAEGER_POD
-    
+
     PS1 --> PROMETHEUS_POD
     PS2 --> PROMETHEUS_POD
     PS3 --> PROMETHEUS_POD
-    
+
     style INGRESS fill:#e1f5fe
     style SVC fill:#e8f5e8
     style PS1 fill:#fff3e0
     style PS2 fill:#fff3e0
     style PS3 fill:#fff3e0
     style REDIS_POD fill:#f3e5f5
-    style POSTGRES_POD fill:#f3e5f5
 ```
 
-## 📊 Technology Stack
+## Technology Stack
 
 ### **Current Stack**
 - **Language**: Go 1.23
 - **API**: gRPC with Protocol Buffers
 - **Observability**: OpenTelemetry, Jaeger tracing
-- **Authentication**: Custom AAA interceptors
+- **Request safety**: Direct input validation and structured error responses
 - **Testing**: Comprehensive test suite (>95% coverage)
 
 ### **Planned Integrations**
 - **Ephemeris**: JPL DE440, Swiss Ephemeris
-- **Storage**: Redis (cache), PostgreSQL (configuration)
+- **Storage**: Redis for caching; runtime configuration comes from files, environment variables, ConfigMaps, and Secrets
 - **Monitoring**: Prometheus, Grafana
 - **Deployment**: Docker, Kubernetes
 
-## 🚀 Implementation Roadmap
+## Implementation Roadmap
 
 ### **Phase 1: Foundation (Months 1-3)**
 **Priority: Critical**
-- ✅ **Sunrise/Sunset Calculations** (Issue #5 - DONE)
-- ✅ **OpenTelemetry Tracing** (Issue #39 - DONE)
-- ✅ **Service Logging** (Issue #38 - DONE)
-- 🔄 **Ephemeris Integration** (Issue #24 - IN PROGRESS)
-- 🔄 **Moon/Sun Longitude** (Issue #1 - IN PROGRESS)
+- PASS **Sunrise/Sunset Calculations** (Issue #5 - DONE)
+- PASS **OpenTelemetry Tracing** (Issue #39 - DONE)
+- PASS **Service Logging** (Issue #38 - DONE)
+- In Progress **Ephemeris Integration** (Issue #24 - IN PROGRESS)
+- In Progress **Moon/Sun Longitude** (Issue #1 - IN PROGRESS)
 
 ### **Phase 2: Core Panchangam (Months 4-6)**
 **Priority: High**
@@ -700,7 +688,7 @@ graph TB
 - **Validation System** (Issue #33)
 - **Documentation** (Issue #36)
 
-## 🎯 Architecture Principles
+## Architecture Principles
 
 ### **Design Principles**
 1. **Hexagonal Architecture**: Clean separation of concerns
@@ -717,12 +705,12 @@ graph TB
 - **Extensibility**: Plugin architecture for regional variations
 
 ### **Integration Patterns**
-- **API Gateway**: Centralized request routing and authentication
+- **API Gateway**: Centralized request routing and input validation
 - **Event Sourcing**: Calculation history and audit trails
 - **CQRS**: Separate read/write models for complex calculations
 - **Circuit Breaker**: Fault tolerance for ephemeris providers
 
-## 🛡️ Security & Compliance
+##  Security & Compliance
 
 ### **Security Measures**
 - **Authentication**: JWT-based API authentication
@@ -736,7 +724,7 @@ graph TB
 - **Personal Data**: Minimal collection, GDPR compliance
 - **Calculation Results**: Cacheable but non-sensitive
 
-## 📈 Monitoring & Observability
+## Monitoring & Observability
 
 ### **Current Implementation**
 - **Distributed Tracing**: OpenTelemetry with Jaeger
@@ -750,7 +738,7 @@ graph TB
 - **Performance Profiling**: Continuous performance monitoring
 - **Accuracy Metrics**: Validation against traditional sources
 
-## 🏁 Summary
+## Summary
 
 This **Panchangam Project** represents a sophisticated blend of **ancient astronomical knowledge** and **modern software architecture**. The system is designed to:
 
@@ -765,8 +753,8 @@ This architecture positions the project to become a **comprehensive, accurate, a
 
 ---
 
-**Document Version**: 1.0  
-**Created**: 2025-07-18  
-**Last Updated**: 2025-07-18  
-**Status**: Current Architecture Design  
+**Document Version**: 1.0
+**Created**: 2025-07-18
+**Last Updated**: 2025-07-18
+**Status**: Current Architecture Design
 **Next Review**: After Phase 1 completion

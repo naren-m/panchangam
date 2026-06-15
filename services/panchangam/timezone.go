@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,32 +22,26 @@ func NewTimezoneParser() *TimezoneParser {
 // 2. UTC offset formats (e.g., "+05:30", "-08:00", "UTC+5:30")
 // 3. "UTC" or empty string (defaults to UTC)
 func (tp *TimezoneParser) ParseTimezone(tz string) (*time.Location, error) {
-	// Handle empty timezone - default to UTC
+	tz = strings.TrimSpace(tz)
+
 	if tz == "" {
 		return time.UTC, nil
 	}
 
-	// Handle explicit UTC
 	if tz == "UTC" || tz == "GMT" {
 		return time.UTC, nil
 	}
 
-	// Try to parse as IANA timezone first
 	loc, err := time.LoadLocation(tz)
 	if err == nil {
-		// Validate that the timezone is real by checking if it has transitions
-		if tp.isValidIANATimezone(loc) {
-			return loc, nil
-		}
+		return loc, nil
 	}
 
-	// Try to parse as UTC offset format
 	loc, err = tp.parseUTCOffset(tz)
 	if err == nil {
 		return loc, nil
 	}
 
-	// If all parsing attempts failed, return error with helpful message
 	return nil, fmt.Errorf("invalid timezone '%s': must be a valid IANA timezone identifier (e.g., 'Asia/Kolkata') or UTC offset (e.g., '+05:30', '-08:00')", tz)
 }
 
@@ -96,31 +91,6 @@ func (tp *TimezoneParser) parseUTCOffset(offset string) (*time.Location, error) 
 	return time.FixedZone(name, totalSeconds), nil
 }
 
-// isValidIANATimezone checks if a timezone is a valid IANA timezone
-// by verifying it's not just a fixed offset created by time.LoadLocation
-func (tp *TimezoneParser) isValidIANATimezone(loc *time.Location) bool {
-	if loc == nil {
-		return false
-	}
-
-	// Check if the timezone has a valid name
-	name := loc.String()
-	if name == "" {
-		return false
-	}
-
-	// UTC and GMT are always valid
-	if name == "UTC" || name == "GMT" {
-		return true
-	}
-
-	// For other timezones, check if the name contains a slash (IANA format)
-	// or if it's a well-known timezone abbreviation
-	// This is a simple heuristic - time.LoadLocation will already fail for
-	// invalid IANA identifiers, so if we got here, it's likely valid
-	return true
-}
-
 // GetTimezoneInfo returns information about a timezone including DST status
 func (tp *TimezoneParser) GetTimezoneInfo(loc *time.Location, t time.Time) TimezoneInfo {
 	name, offset := t.In(loc).Zone()
@@ -163,17 +133,17 @@ func formatTimezoneOffset(offsetSeconds int) string {
 	return fmt.Sprintf("%s%02d:%02d", sign, hours, minutes)
 }
 
-// ValidateTimezoneForLocation validates that a timezone is appropriate for a location
-// This is a helper function to warn users if their timezone doesn't match their coordinates
-func (tp *TimezoneParser) ValidateTimezoneForLocation(loc *time.Location, latitude, longitude float64) (bool, string) {
-	// This is a simple validation - a more sophisticated implementation would
-	// use a timezone database to check if the coordinates fall within the timezone's boundaries
+// ValidateTimezoneForLocation validates that a timezone offset is plausible for a location.
+// It uses the request date so DST-sensitive locations are checked consistently.
+func (tp *TimezoneParser) ValidateTimezoneForLocation(loc *time.Location, latitude, longitude float64, date time.Time) (bool, string) {
+	if date.IsZero() {
+		return false, "timezone validation date is required"
+	}
 
-	// For now, we'll do a basic check based on UTC offset vs longitude
 	// Longitude roughly corresponds to UTC offset: 15 degrees per hour
 	expectedOffset := int(longitude / 15.0 * 3600)
 
-	testTime := time.Now().In(loc)
+	testTime := date.In(loc)
 	_, actualOffset := testTime.Zone()
 
 	// Allow for some variance (±3 hours or ±45 degrees longitude)

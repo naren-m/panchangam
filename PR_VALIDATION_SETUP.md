@@ -1,12 +1,12 @@
 # PR Validation Pipeline Setup - Issue #81
 
-## ⚠️ Manual Setup Required
+## Manual Setup Required
 
 GitHub workflow files (`.github/workflows/*.yml`) cannot be automatically pushed via the API due to security restrictions. You need to manually add these files to enable the PR validation pipeline.
 
 ---
 
-## 📋 Files Created
+## Files Created
 
 The following workflow files have been created locally and need to be committed manually:
 
@@ -36,7 +36,7 @@ The following workflow files have been created locally and need to be committed 
 
 ---
 
-## 🚀 Quick Setup Steps
+## Quick Setup Steps
 
 ### Option 1: Commit Directly (Recommended)
 
@@ -83,7 +83,7 @@ If the push fails due to permissions:
 
 ---
 
-## 🔒 Setting Up Branch Protection
+## Setting Up Branch Protection
 
 Once the workflows are pushed, set up branch protection:
 
@@ -92,16 +92,16 @@ Once the workflows are pushed, set up branch protection:
 1. Go to **Repository Settings** → **Branches**
 2. Click **Add rule** for `main` branch
 3. Configure:
-   - ✅ Require status checks to pass before merging
-   - ✅ Require branches to be up to date before merging
+   - PASS Require status checks to pass before merging
+   - PASS Require branches to be up to date before merging
    - **Required status checks**:
-     - ✅ `All Tests Passed` (from pr-validation.yml)
-     - ✅ `Code Quality Analysis`
-     - ✅ `Security Analysis`
-   - ✅ Require pull request reviews before merging
+     - PASS `All Tests Passed` (from pr-validation.yml)
+     - PASS `Code Quality Analysis`
+     - PASS `Security Analysis`
+   - PASS Require pull request reviews before merging
      - Minimum: 1 approval
-   - ✅ Dismiss stale pull request approvals when new commits are pushed
-   - ✅ Require conversation resolution before merging
+   - PASS Dismiss stale pull request approvals when new commits are pushed
+   - PASS Require conversation resolution before merging
 4. Click **Create** or **Save changes**
 
 ### Via GitHub CLI:
@@ -117,7 +117,7 @@ gh api repos/naren-m/panchangam/branches/main/protection \
 
 ---
 
-## ✅ What Happens After Setup
+## What Happens After Setup
 
 ### On Every Pull Request:
 
@@ -143,41 +143,38 @@ gh api repos/naren-m/panchangam/branches/main/protection \
    ↓
    Post Results Comment on PR
    ↓
-   All Tests Passed ✓ (or ✗)
+   All Tests Passed (or Failed)
    ```
 
 2. **PR Gets Automated Comment**:
    ```markdown
-   🎉 PR Validation Results
+   PR Validation Results
 
    ### Validation Checks
-   ✅ PR Requirements: success
+   PASS PR Requirements: success
 
    ### Integration Tests (Issue #81)
-   ✅ Status: success
+   PASS Status: success
 
-   All tests passed! 🎉
+   All tests passed! PASS Data Validation (Known Astronomical Events)
+   PASS Performance Benchmarks (<500ms avg, 50 concurrent in <5s)
+   PASS Cache Integration & Consistency
+   PASS End-to-End Data Flow
+   PASS Error Handling & Recovery (<3s)
 
-   ✅ Data Validation (Known Astronomical Events)
-   ✅ Performance Benchmarks (<500ms avg, 50 concurrent in <5s)
-   ✅ Cache Integration & Consistency
-   ✅ End-to-End Data Flow
-   ✅ Error Handling & Recovery (<3s)
+   Test reports available in workflow artifacts.
 
-   📊 Test reports available in workflow artifacts.
-
-   This PR meets all Issue #81 requirements and is ready for review! ✨
-   ```
+   This PR meets all Issue #81 requirements and is ready for review! ```
 
 3. **Merge Requirements**:
-   - ✅ All Tests Passed status check must pass
-   - ✅ At least 1 approval required
-   - ✅ All conversations resolved
-   - ✅ Branch up to date with base
+   - PASS All Tests Passed status check must pass
+   - PASS At least 1 approval required
+   - PASS All conversations resolved
+   - PASS Branch up to date with base
 
 ---
 
-## 📊 Integration Tests Validated
+## Integration Tests Validated
 
 Every PR automatically validates:
 
@@ -193,7 +190,7 @@ Every PR automatically validates:
 
 ---
 
-## 🧪 Local Testing
+## Local Testing
 
 Before creating a PR, developers can run tests locally:
 
@@ -218,7 +215,7 @@ make test-load
 
 ---
 
-## 📖 Documentation
+## Documentation
 
 After setup, refer to:
 
@@ -229,7 +226,7 @@ After setup, refer to:
 
 ---
 
-## 🔍 Verifying Setup
+## Verifying Setup
 
 After pushing workflow files:
 
@@ -248,7 +245,7 @@ After pushing workflow files:
 
 ---
 
-## ❓ Troubleshooting
+## Troubleshooting
 
 ### Workflow Not Running
 
@@ -277,7 +274,7 @@ After pushing workflow files:
 
 ---
 
-## 📞 Support
+## Support
 
 For issues with the PR validation pipeline:
 
@@ -288,16 +285,16 @@ For issues with the PR validation pipeline:
 
 ---
 
-## 🎉 Summary
+## Summary
 
 Once this PR validation pipeline is set up:
 
-✅ **Every PR is automatically validated**
-✅ **All Issue #81 requirements are tested**
-✅ **Performance targets are enforced**
-✅ **90% coverage requirement is checked**
-✅ **Clear pass/fail status for merging**
-✅ **Detailed test reports in PR comments**
-✅ **No manual test execution needed**
+PASS **Every PR is automatically validated**
+PASS **All Issue #81 requirements are tested**
+PASS **Performance targets are enforced**
+PASS **90% coverage requirement is checked**
+PASS **Clear pass/fail status for merging**
+PASS **Detailed test reports in PR comments**
+PASS **No manual test execution needed**
 
-This ensures code quality and prevents regressions! 🚀
+This ensures code quality and prevents regressions!

@@ -1,21 +1,89 @@
 import React, { useState } from 'react';
 import { Download, FileText, FileSpreadsheet, Table as TableIcon } from 'lucide-react';
 
+type TableRow = Record<string, unknown>;
+
 interface TableColumn {
   key: string;
   label: string;
   sortable?: boolean;
-  render?: (value: any, row: any) => React.ReactNode;
+  render?: (value: unknown, row: TableRow) => React.ReactNode;
 }
 
 interface TabularViewProps {
   columns: TableColumn[];
-  data: any[];
+  data: TableRow[];
   title?: string;
   exportFormats?: ('csv' | 'json' | 'pdf')[];
   searchable?: boolean;
   sortable?: boolean;
   responsive?: boolean;
+}
+
+function renderCellValue(value: unknown): React.ReactNode {
+  if (React.isValidElement(value)) {
+    return value;
+  }
+  if (value == null) {
+    return '';
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  if (value instanceof Date) {
+    return value.toLocaleString();
+  }
+  return JSON.stringify(value);
+}
+
+function compareTableValues(a: unknown, b: unknown): number {
+  if (a === b) {
+    return 0;
+  }
+  if (typeof a === 'number' && typeof b === 'number') {
+    return a - b;
+  }
+  if (a instanceof Date && b instanceof Date) {
+    return a.getTime() - b.getTime();
+  }
+  return String(a ?? '').localeCompare(String(b ?? ''));
+}
+
+function exportCellText(value: unknown): string {
+  if (value == null) {
+    return '';
+  }
+  if (value instanceof Date) {
+    return value.toLocaleString();
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
+function csvCell(value: unknown): string {
+  const text = exportCellText(value);
+
+  if (!/[",\n\r]/.test(text)) {
+    return text;
+  }
+
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadTextFile(content: string, type: string, filename: string): void {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -54,7 +122,7 @@ export const TabularView: React.FC<TabularViewProps> = ({
 
         if (aVal === bVal) return 0;
 
-        const comparison = aVal < bVal ? -1 : 1;
+        const comparison = compareTableValues(aVal, bVal);
         return sortDirection === 'asc' ? comparison : -comparison;
       })
     : filteredData;
@@ -71,34 +139,21 @@ export const TabularView: React.FC<TabularViewProps> = ({
     }
   };
 
-  // Export functions
   const exportToCSV = () => {
-    const headers = columns.map((col) => col.label).join(',');
+    const headers = columns.map((col) => csvCell(col.label)).join(',');
     const rows = sortedData
       .map((row) =>
-        columns.map((col) => JSON.stringify(row[col.key] ?? '')).join(',')
+        columns.map((col) => csvCell(row[col.key])).join(',')
       )
       .join('\n');
 
     const csv = `${headers}\n${rows}`;
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${title || 'data'}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadTextFile(csv, 'text/csv', `${title || 'data'}.csv`);
   };
 
   const exportToJSON = () => {
     const json = JSON.stringify(sortedData, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${title || 'data'}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadTextFile(json, 'application/json', `${title || 'data'}.json`);
   };
 
   const exportToPDF = () => {
@@ -220,7 +275,7 @@ export const TabularView: React.FC<TabularViewProps> = ({
                     >
                       {column.render
                         ? column.render(row[column.key], row)
-                        : row[column.key]}
+                        : renderCellValue(row[column.key])}
                     </td>
                   ))}
                 </tr>
@@ -234,7 +289,7 @@ export const TabularView: React.FC<TabularViewProps> = ({
 };
 
 interface DataViewSwitcherProps {
-  data: any[];
+  data: TableRow[];
   columns: TableColumn[];
   title?: string;
   defaultView?: 'table' | 'cards' | 'list';
@@ -273,7 +328,9 @@ export const DataViewSwitcher: React.FC<DataViewSwitcherProps> = ({
             <div key={column.key} className="mb-2">
               <span className="font-semibold text-gray-700">{column.label}:</span>{' '}
               <span className="text-gray-600">
-                {column.render ? column.render(item[column.key], item) : item[column.key]}
+                {column.render
+                  ? column.render(item[column.key], item)
+                  : renderCellValue(item[column.key])}
               </span>
             </div>
           ))}
@@ -296,7 +353,9 @@ export const DataViewSwitcher: React.FC<DataViewSwitcherProps> = ({
                   {column.label}
                 </div>
                 <div className="text-sm text-gray-900 mt-1">
-                  {column.render ? column.render(item[column.key], item) : item[column.key]}
+                  {column.render
+                    ? column.render(item[column.key], item)
+                    : renderCellValue(item[column.key])}
                 </div>
               </div>
             ))}

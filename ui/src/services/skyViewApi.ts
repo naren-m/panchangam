@@ -2,6 +2,40 @@
 // Fetches real-time planetary positions from the backend
 
 import { CelestialObject } from '../types/skyVisualization';
+import { formatDateForApi } from '../utils/dateHelpers';
+
+interface BackendEclipticCoordinates {
+  longitude: number;
+  latitude: number;
+  distance?: number;
+}
+
+interface BackendEquatorialCoordinates {
+  right_ascension: number;
+  declination: number;
+  distance?: number;
+}
+
+interface BackendHorizontalCoordinates {
+  azimuth: number;
+  altitude: number;
+  distance?: number;
+}
+
+interface BackendCelestialBody {
+  id: string;
+  name: string;
+  type: CelestialObject['type'];
+  ecliptic_coords: BackendEclipticCoordinates;
+  equatorial_coords?: BackendEquatorialCoordinates;
+  horizontal_coords?: BackendHorizontalCoordinates;
+  magnitude: number;
+  color?: string;
+  sanskrit_name?: string;
+  hindi_name?: string;
+  is_visible?: boolean;
+  metadata?: Record<string, unknown>;
+}
 
 export interface SkyViewRequest {
   date?: Date;
@@ -20,7 +54,7 @@ export interface SkyViewResponse {
     altitude: number;
     timezone: string;
   };
-  bodies: CelestialBody[];
+  bodies: BackendCelestialBody[];
   visible_bodies: CelestialObject[];
   julian_day: number;
   local_sidereal_time: number;
@@ -54,7 +88,7 @@ export const fetchSkyView = async (request: SkyViewRequest): Promise<SkyViewResp
   });
 
   if (request.date) {
-    const dateStr = request.date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const dateStr = formatDateForApi(request.date);
     params.append('date', dateStr);
 
     if (request.time) {
@@ -78,27 +112,22 @@ export const fetchSkyView = async (request: SkyViewRequest): Promise<SkyViewResp
 
   const url = `${apiBaseUrl}/api/v1/sky-view?${params.toString()}`;
 
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
-      );
-    }
-
-    const data = await response.json();
-    return data as SkyViewResponse;
-  } catch (error) {
-    console.error('Failed to fetch sky view data:', error);
-    throw error;
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
+    );
   }
+
+  const data = await response.json();
+  return data as SkyViewResponse;
 };
 
 /**
@@ -106,7 +135,7 @@ export const fetchSkyView = async (request: SkyViewRequest): Promise<SkyViewResp
  * @param backendBody Backend celestial body
  * @returns Frontend celestial object
  */
-export const convertToFrontendFormat = (backendBody: any): CelestialObject => {
+export const convertToFrontendFormat = (backendBody: BackendCelestialBody): CelestialObject => {
   return {
     id: backendBody.id,
     name: backendBody.name,

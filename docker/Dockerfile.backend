@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
-    -o panchangam-grpc ./server
+    -o panchangam-grpc ./cmd/server
 
 # Final stage - minimal runtime image
 FROM scratch
@@ -51,7 +51,7 @@ EXPOSE 8080 50052
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD ["/panchangam-gateway", "--health-check"]
+    CMD ["/panchangam-gateway", "--health-check", "--http-port=8080"]
 
 # Default command (can be overridden)
 CMD ["/panchangam-gateway"]

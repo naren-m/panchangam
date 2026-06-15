@@ -112,6 +112,30 @@ func TestErrorRecorder_RecordEvent(t *testing.T) {
 	})
 }
 
+func TestErrorRecorder_RecordErrorWithNilContext(t *testing.T) {
+	recorder := NewErrorRecorder()
+
+	assert.NotPanics(t, func() {
+		enhancedErr := recorder.RecordError(nil, errors.New("nil context error"), ErrorContext{
+			Severity:  SeverityHigh,
+			Category:  CategoryInternal,
+			Operation: "nil_context",
+			Component: "test",
+		})
+		require.NotNil(t, enhancedErr)
+	})
+}
+
+func TestErrorRecorder_RecordEventWithNilContext(t *testing.T) {
+	recorder := NewErrorRecorder()
+
+	assert.NotPanics(t, func() {
+		recorder.RecordEvent(nil, "nil_context_event", map[string]interface{}{
+			"source": "test",
+		})
+	})
+}
+
 func TestErrorRecorder_RecordCalculationStart(t *testing.T) {
 	recorder := NewErrorRecorder()
 	ctx := context.Background()
@@ -171,6 +195,15 @@ func TestErrorRecorder_RecordRetryAttempt(t *testing.T) {
 	recorder.RecordRetryAttempt(ctx, operation, attempt, maxAttempts, lastError)
 }
 
+func TestErrorRecorder_RecordRetryAttemptWithNilLastError(t *testing.T) {
+	recorder := NewErrorRecorder()
+	ctx := context.Background()
+
+	assert.NotPanics(t, func() {
+		recorder.RecordRetryAttempt(ctx, "external_api_call", 2, 3, nil)
+	})
+}
+
 func TestEnhancedError_ErrorInterface(t *testing.T) {
 	originalErr := errors.New("original error message")
 	enhancedErr := &EnhancedError{
@@ -186,6 +219,15 @@ func TestEnhancedError_ErrorInterface(t *testing.T) {
 
 	// Test Unwrap() method
 	assert.Equal(t, originalErr, enhancedErr.Unwrap())
+}
+
+func TestEnhancedErrorWithNilOriginalErrorReportsFallback(t *testing.T) {
+	enhancedErr := &EnhancedError{}
+
+	assert.NotPanics(t, func() {
+		assert.Equal(t, "unknown error", enhancedErr.Error())
+	})
+	assert.Nil(t, enhancedErr.Unwrap())
 }
 
 func TestErrorSeverity_Values(t *testing.T) {
@@ -220,53 +262,6 @@ func TestErrorCategory_Values(t *testing.T) {
 	}
 }
 
-func TestGlobalFunctions(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("global RecordError", func(t *testing.T) {
-		err := errors.New("global test error")
-		errorCtx := ErrorContext{
-			Severity:  SeverityMedium,
-			Category:  CategoryValidation,
-			Operation: "global_test",
-		}
-
-		enhancedErr := RecordError(ctx, err, errorCtx)
-		require.NotNil(t, enhancedErr)
-		assert.Equal(t, err, enhancedErr.OriginalError)
-	})
-
-	t.Run("global RecordEvent", func(t *testing.T) {
-		attributes := map[string]interface{}{
-			"global": true,
-		}
-		RecordEvent(ctx, "global_event", attributes)
-	})
-
-	t.Run("global RecordCalculationStart", func(t *testing.T) {
-		inputs := map[string]interface{}{
-			"test": "input",
-		}
-		RecordCalculationStart(ctx, "global_calculation", inputs)
-	})
-
-	t.Run("global RecordCalculationEnd", func(t *testing.T) {
-		outputs := map[string]interface{}{
-			"test": "output",
-		}
-		RecordCalculationEnd(ctx, "global_calculation", true, time.Millisecond, outputs)
-	})
-
-	t.Run("global RecordValidationFailure", func(t *testing.T) {
-		RecordValidationFailure(ctx, "global_field", "invalid_value", "test validation failure")
-	})
-
-	t.Run("global RecordRetryAttempt", func(t *testing.T) {
-		lastErr := errors.New("retry test error")
-		RecordRetryAttempt(ctx, "global_retry_operation", 1, 3, lastErr)
-	})
-}
-
 func TestAttributeFromValue(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -292,25 +287,32 @@ func TestAttributeFromValue(t *testing.T) {
 
 func TestGenerateCorrelationID(t *testing.T) {
 	id1 := generateCorrelationID()
-	
-	// Sleep briefly to ensure different timestamp
-	time.Sleep(1 * time.Nanosecond)
 	id2 := generateCorrelationID()
 
 	assert.NotEmpty(t, id1)
 	assert.NotEmpty(t, id2)
+	assert.NotEqual(t, id1, id2)
 	assert.Contains(t, id1, "err_")
 	assert.Contains(t, id2, "err_")
-	
-	// Test that multiple IDs can be different (though not guaranteed due to timing)
+
 	ids := make(map[string]bool)
 	for i := 0; i < 10; i++ {
 		id := generateCorrelationID()
 		ids[id] = true
-		time.Sleep(1 * time.Nanosecond)
 	}
-	// Should have at least some unique IDs
-	assert.GreaterOrEqual(t, len(ids), 5, "Should generate some unique correlation IDs")
+	assert.Len(t, ids, 10, "correlation IDs should be unique")
+}
+
+func TestGenerateCorrelationIDUniqueInTightLoop(t *testing.T) {
+	ids := make(map[string]bool)
+
+	for i := 0; i < 1000; i++ {
+		id := generateCorrelationID()
+		if ids[id] {
+			t.Fatalf("duplicate correlation ID generated at iteration %d: %s", i, id)
+		}
+		ids[id] = true
+	}
 }
 
 func TestCaptureStackTrace(t *testing.T) {
@@ -325,11 +327,11 @@ func TestCaptureStackTrace(t *testing.T) {
 func TestRecordToSpanCoverage(t *testing.T) {
 	NewLocalObserver()
 	recorder := NewErrorRecorder()
-	
+
 	// Create a context with a span
 	ctx, span := Observer().CreateSpan(context.Background(), "test_span")
 	defer span.End()
-	
+
 	// Test with different severity levels to cover all branches
 	severities := []ErrorSeverity{
 		SeverityCritical,
@@ -337,7 +339,7 @@ func TestRecordToSpanCoverage(t *testing.T) {
 		SeverityMedium,
 		SeverityLow,
 	}
-	
+
 	for _, severity := range severities {
 		testErr := errors.New("test error for severity " + string(severity))
 		errorCtx := ErrorContext{
@@ -345,16 +347,16 @@ func TestRecordToSpanCoverage(t *testing.T) {
 			Category:    CategoryCalculation,
 			Operation:   "test_operation",
 			Component:   "test_component",
-			UserID:      "user123",        // Test user context coverage
-			RequestID:   "req456",         // Test request context coverage
-			SessionID:   "session789",     // Test session context coverage
+			UserID:      "user123",    // Test user context coverage
+			RequestID:   "req456",     // Test request context coverage
+			SessionID:   "session789", // Test session context coverage
 			Retryable:   true,
 			ExpectedErr: false,
 			Additional: map[string]interface{}{
 				"extra_key": "extra_value",
 			},
 		}
-		
+
 		recorder.RecordError(ctx, testErr, errorCtx)
 	}
 }
@@ -362,7 +364,7 @@ func TestRecordToSpanCoverage(t *testing.T) {
 // Test logStructuredError function coverage with different branches
 func TestLogStructuredErrorCoverage(t *testing.T) {
 	recorder := NewErrorRecorder()
-	
+
 	// Test with all severity levels to cover switch branches
 	severities := []ErrorSeverity{
 		SeverityCritical,
@@ -371,7 +373,7 @@ func TestLogStructuredErrorCoverage(t *testing.T) {
 		SeverityLow,
 		"unknown", // Test default case
 	}
-	
+
 	for _, severity := range severities {
 		testErr := errors.New("test error for logging")
 		errorCtx := ErrorContext{
@@ -384,7 +386,7 @@ func TestLogStructuredErrorCoverage(t *testing.T) {
 				},
 			},
 		}
-		
+
 		// This will test the logStructuredError function
 		recorder.RecordError(context.Background(), testErr, errorCtx)
 	}
@@ -395,7 +397,7 @@ func TestCaptureStackTraceEdgeCases(t *testing.T) {
 	// Test with high skip value
 	stackTrace := captureStackTrace(100)
 	assert.NotEmpty(t, stackTrace)
-	
+
 	// Test with zero skip
 	stackTrace2 := captureStackTrace(0)
 	assert.NotEmpty(t, stackTrace2)

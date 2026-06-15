@@ -14,7 +14,7 @@ Complete guide for deploying the Panchangam application with gRPC service, HTTP 
 ## Prerequisites
 
 ### Required Software
-- **Go 1.21+**: For backend services
+- **Go 1.23+**: For backend services
 - **Node.js 18+** and **npm/yarn**: For frontend UI
 - **Protocol Buffers** compiler (optional): For proto regeneration
 
@@ -97,17 +97,17 @@ Access the application:
 #### Build Services
 ```bash
 # Build gRPC server
-go build -o bin/panchangam-server cmd/server/main.go
+go build -o bin/panchangam-grpc ./cmd/server
 
 # Build HTTP gateway
-go build -o bin/panchangam-gateway cmd/gateway/main.go
+go build -o bin/panchangam-gateway ./cmd/gateway
 ```
 
 #### Run Services Manually
 
 **Terminal 1 - gRPC Server:**
 ```bash
-./bin/panchangam-server \
+./bin/panchangam-grpc \
   --grpc-port=50051 \
   --log-level=info
 ```
@@ -172,7 +172,7 @@ After=network.target
 Type=simple
 User=panchangam
 WorkingDirectory=/opt/panchangam
-ExecStart=/opt/panchangam/bin/panchangam-server --grpc-port=50051
+ExecStart=/opt/panchangam/bin/panchangam-grpc --grpc-port=50051
 Restart=always
 RestartSec=5
 
@@ -216,80 +216,33 @@ sudo systemctl status panchangam-gateway
 
 ### Option 2: Docker Deployment
 
-#### 1. Build Docker Images
+#### 1. Check Docker Configuration
 
-**Dockerfile (gRPC Server):**
-```dockerfile
-FROM golang:1.21-alpine AS builder
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN go build -o panchangam-server cmd/server/main.go
+The tracked production container files are:
+- Backend image: `docker/Dockerfile.backend`
+- Frontend image: `ui/Dockerfile`
+- Compose file: `docker-compose.prod.yml`
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-COPY --from=builder /app/panchangam-server /usr/local/bin/
-EXPOSE 50051
-CMD ["panchangam-server", "--grpc-port=50051"]
-```
-
-**docker-compose.yml:**
-```yaml
-version: '3.8'
-
-services:
-  grpc-server:
-    build:
-      context: .
-      dockerfile: Dockerfile.grpc
-    ports:
-      - "50051:50051"
-    environment:
-      - LOG_LEVEL=info
-    restart: unless-stopped
-
-  http-gateway:
-    build:
-      context: .
-      dockerfile: Dockerfile.gateway
-    ports:
-      - "8080:8080"
-    environment:
-      - GRPC_ENDPOINT=grpc-server:50051
-      - LOG_LEVEL=info
-    depends_on:
-      - grpc-server
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./ui
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8080
-    depends_on:
-      - http-gateway
-    restart: unless-stopped
+Validate the compose file before deploying:
+```bash
+docker-compose -f docker-compose.prod.yml config
 ```
 
 #### 2. Deploy with Docker Compose
 ```bash
-docker-compose up -d
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
 ### Option 3: Kubernetes Deployment
 
-See `k8s/` directory for complete Kubernetes manifests.
+Kubernetes manifests live under `deployments/k8s/`.
 
 **Quick deploy:**
 ```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/grpc-service.yaml
-kubectl apply -f k8s/http-gateway.yaml
-kubectl apply -f k8s/frontend.yaml
+kustomize build deployments/k8s/overlays/production | kubectl apply -f -
+kubectl rollout status deployment/panchangam-grpc -n panchangam
+kubectl rollout status deployment/panchangam-gateway -n panchangam
+kubectl rollout status deployment/panchangam-frontend -n panchangam
 ```
 
 ## Testing
@@ -432,7 +385,7 @@ docker stats  # if using Docker
 Enable debug logging:
 ```bash
 # Backend
-./bin/panchangam-server --log-level=debug
+./bin/panchangam-grpc --log-level=debug
 ./bin/panchangam-gateway --log-level=debug
 
 # Frontend

@@ -129,8 +129,7 @@ New Moon (T=1)                    Full Moon (T=15)
      Δ = 0°                           Δ = 180°
         │                                │
         ▼                                ▼
-    ☀️───🌑                          ☀️───────────🌕
-    Sun  Moon                        Sun          Moon
+    Sun + Moon                     Sun -------- Moon
     (conjunction)                    (opposition)
 
                 The Tithi Cycle
@@ -138,8 +137,7 @@ New Moon (T=1)                    Full Moon (T=15)
     T=1 ─────── T=8 ─────── T=15 ─────── T=22 ─────── T=30 ─── T=1
      │           │           │            │            │        │
      ▼           ▼           ▼            ▼            ▼        ▼
-    🌑          🌓          🌕           🌗           🌑       🌑
-   New      Quarter       Full        Quarter       New      New
+    New      Quarter       Full        Quarter       New      New
    Moon      Moon         Moon         Moon        Moon     Moon
 
     └──── Shukla Paksha ────┴──── Krishna Paksha ────┘
@@ -315,13 +313,13 @@ Pattern: K=2 to K=57 cycles through the 7 rotating karanas:
 Vara = (Julian Day Number + 1) mod 7
 
 Mapping:
-  0 → Ravivara    (Sunday)    ☀️
-  1 → Somavara    (Monday)    ☽
-  2 → Mangalavara (Tuesday)   ♂
-  3 → Budhavara   (Wednesday) ☿
-  4 → Guruvara    (Thursday)  ♃
-  5 → Shukravara  (Friday)    ♀
-  6 → Shanivara   (Saturday)  ♄
+  0 -> Ravivara    (Sunday)
+  1 -> Somavara    (Monday)
+  2 -> Mangalavara (Tuesday)
+  3 -> Budhavara   (Wednesday)
+  4 -> Guruvara    (Thursday)
+  5 -> Shukravara  (Friday)
+  6 -> Shanivara   (Saturday)
 ```
 
 The names derive from the seven classical planets visible to the naked eye.
@@ -373,12 +371,12 @@ Example:
 ┌─────────────┐    ┌──────────────────┐    ┌────────────────────┐
 │   INPUT     │    │   EPHEMERIS      │    │   PANCHANGAM       │
 │             │    │   ENGINE         │    │   CALCULATOR       │
-│ • Date      │───▶│                  │───▶│                    │
-│ • Time      │    │ • Swiss Ephemeris│    │ • Tithi Formula    │
-│ • Location  │    │ • JPL Data       │    │ • Nakshatra Formula│
-│             │    │ • Ayanamsa       │    │ • Yoga Formula     │
-└─────────────┘    └──────────────────┘    │ • Karana Formula   │
-                           │                │ • Vara Calculation │
+│ - Date      │───▶│                  │───▶│                    │
+│ - Time      │    │ - Swiss Ephemeris│    │ - Tithi Formula    │
+│ - Location  │    │ - JPL Data       │    │ - Nakshatra Formula│
+│             │    │ - Ayanamsa       │    │ - Yoga Formula     │
+└─────────────┘    └──────────────────┘    │ - Karana Formula   │
+                           │                │ - Vara Calculation │
                            ▼                └────────────────────┘
                    ┌──────────────────┐              │
                    │  λₛ (Sun)        │              │
@@ -496,11 +494,11 @@ The Panchangam UI renders these calculations as a geocentric chart:
               │   ┌───────────────────────┐   │
               │   │    RASHI RING (12)    │   │
     270° ─────│   │   ┌───────────────┐   │   │───── 90°
-              │   │   │     ☀️ Sun     │   │   │
+              │   │   │      Sun      │   │   │
               │   │   │       │       │   │   │
-              │   │   │   🌍 EARTH    │   │   │
+              │   │   │     EARTH     │   │   │
               │   │   │       │       │   │   │
-              │   │   │     🌙 Moon   │   │   │
+              │   │   │     Moon      │   │   │
               │   │   └───────────────┘   │   │
               │   └───────────────────────┘   │
               │                               │

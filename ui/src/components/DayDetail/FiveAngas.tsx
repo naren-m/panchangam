@@ -7,10 +7,12 @@ interface FiveAngasProps {
   settings: Settings;
 }
 
-export const FiveAngas: React.FC<FiveAngasProps> = ({ data, settings }) => {
-  // Extract Vara from events
+export const FiveAngas: React.FC<FiveAngasProps> = ({ data }) => {
+  // Prefer direct API fields, then fall back to event data.
   const varaEvent = data.events?.find(event => event.event_type === 'VARA');
-  const varaName = varaEvent?.name?.replace('Vara: ', '') || 'Not available';
+  const varaName = data.vara && data.planetary_ruler
+    ? `${data.vara} (${data.planetary_ruler})`
+    : data.vara || varaEvent?.name?.replace('Vara: ', '') || 'Not available';
 
   const angas = [
     {
@@ -75,15 +77,14 @@ export const FiveAngas: React.FC<FiveAngasProps> = ({ data, settings }) => {
   return (
     <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200">
       <h3 className="text-lg font-semibold text-orange-800 mb-4 flex items-center">
-        <span className="mr-2">🕉️</span>
         The Five Angas (पञ्चाङ्ग)
       </h3>
       <div className="space-y-3">
-        {angas.map((anga, index) => {
+        {angas.map((anga) => {
           const Icon = anga.icon;
           return (
             <div
-              key={index}
+              key={anga.name}
               className={`p-3 rounded-lg border ${getColorClasses(anga.color)} transition-all hover:shadow-md`}
             >
               <div className="flex items-center justify-between">

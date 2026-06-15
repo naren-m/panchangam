@@ -18,15 +18,15 @@ import type {
 } from './types';
 import { createDefaultDimensions } from './types';
 import { CelestialChartSVG } from './CelestialChartSVG';
-import { calculatePanchangamElements } from '../EclipticBeltVisualization/utils/panchangamCalculator';
+import { calculateChartPanchangamForDate } from './utils/chartCalculations';
 
 // Throttle helper for hover events
-const throttle = <T extends (...args: any[]) => any>(
-  func: T,
+const throttle = <Args extends unknown[]>(
+  func: (...args: Args) => void,
   limit: number
-): ((...args: Parameters<T>) => void) => {
+): ((...args: Args) => void) => {
   let inThrottle = false;
-  return (...args: Parameters<T>) => {
+  return (...args: Args) => {
     if (!inThrottle) {
       func(...args);
       inThrottle = true;
@@ -37,10 +37,6 @@ const throttle = <T extends (...args: any[]) => any>(
 
 export const CelestialChart: React.FC<CelestialChartProps> = ({
   date,
-  latitude,
-  longitude,
-  timezone = 'America/Los_Angeles',
-  panchangamData,
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,31 +70,9 @@ export const CelestialChart: React.FC<CelestialChartProps> = ({
     [containerSize]
   );
 
-  // Calculate panchangam elements
-  // In a real implementation, this would use the panchangamCalculator
-  // For now, we'll create mock data based on date
+  // Calculate chart-ready panchangam elements from the selected date
   const panchangam = useMemo(() => {
-    // Calculate approximate Sun and Moon positions based on date
-    // This is a simplified calculation - real implementation would use
-    // astronomical algorithms from panchangamCalculator.ts
-
-    const dayOfYear = Math.floor(
-      (date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) /
-      (1000 * 60 * 60 * 24)
-    );
-
-    // Sun moves ~1° per day, starting from ~280° on Jan 1
-    const sunLongitude = (280 + dayOfYear) % 360;
-
-    // Moon moves ~13° per day
-    // Add some variation based on month for more realistic positions
-    const moonLongitude = (
-      (dayOfYear * 13.2) +
-      (date.getHours() * 0.55) +
-      (date.getMonth() * 28)
-    ) % 360;
-
-    return calculatePanchangamElements(sunLongitude, moonLongitude);
+    return calculateChartPanchangamForDate(date);
   }, [date]);
 
   // Throttled hover handler for performance
@@ -178,8 +152,15 @@ export const CelestialChart: React.FC<CelestialChartProps> = ({
             {(() => {
               const { type, data } = interactionState.selectedElement;
               switch (type) {
-                case 'rashi':
-                  const rashi = data as any;
+                case 'rashi': {
+                  const rashi = data as {
+                    name: string;
+                    westernName: string;
+                    element: string;
+                    ruler: string;
+                    startDegree: number;
+                    endDegree: number;
+                  };
                   return (
                     <div className="grid grid-cols-2 gap-2">
                       <div><span className="font-medium">Name:</span> {rashi.name}</div>
@@ -189,8 +170,15 @@ export const CelestialChart: React.FC<CelestialChartProps> = ({
                       <div><span className="font-medium">Degrees:</span> {rashi.startDegree}° - {rashi.endDegree}°</div>
                     </div>
                   );
-                case 'nakshatra':
-                  const nakshatra = data as any;
+                }
+                case 'nakshatra': {
+                  const nakshatra = data as {
+                    name: string;
+                    deity: string;
+                    symbol: string;
+                    startDegree: number;
+                    endDegree: number;
+                  };
                   return (
                     <div className="grid grid-cols-2 gap-2">
                       <div><span className="font-medium">Name:</span> {nakshatra.name}</div>
@@ -199,8 +187,16 @@ export const CelestialChart: React.FC<CelestialChartProps> = ({
                       <div><span className="font-medium">Degrees:</span> {nakshatra.startDegree.toFixed(2)}° - {nakshatra.endDegree.toFixed(2)}°</div>
                     </div>
                   );
-                case 'pada':
-                  const pada = data as any;
+                }
+                case 'pada': {
+                  const pada = data as {
+                    number: number;
+                    padaInNakshatra: number;
+                    nakshatra: { name: string };
+                    navamsha: string;
+                    startDegree: number;
+                    endDegree: number;
+                  };
                   return (
                     <div className="grid grid-cols-2 gap-2">
                       <div><span className="font-medium">Pada:</span> {pada.number} ({pada.nakshatra.name} Pada {pada.padaInNakshatra})</div>
@@ -208,8 +204,15 @@ export const CelestialChart: React.FC<CelestialChartProps> = ({
                       <div><span className="font-medium">Degrees:</span> {pada.startDegree.toFixed(2)}° - {pada.endDegree.toFixed(2)}°</div>
                     </div>
                   );
-                case 'tithi':
-                  const tithi = data as any;
+                }
+                case 'tithi': {
+                  const tithi = data as {
+                    name: string;
+                    paksha: string;
+                    number: number;
+                    deity: string;
+                    angle: number;
+                  };
                   return (
                     <div className="grid grid-cols-2 gap-2">
                       <div><span className="font-medium">Tithi:</span> {tithi.name}</div>
@@ -219,9 +222,13 @@ export const CelestialChart: React.FC<CelestialChartProps> = ({
                       <div><span className="font-medium">Angle:</span> {tithi.angle.toFixed(1)}°</div>
                     </div>
                   );
+                }
                 case 'sun':
-                case 'moon':
-                  const body = data as any;
+                case 'moon': {
+                  const body = data as {
+                    longitude: number;
+                    label: string;
+                  };
                   return (
                     <div className="grid grid-cols-2 gap-2">
                       <div><span className="font-medium">Body:</span> {type.charAt(0).toUpperCase() + type.slice(1)}</div>
@@ -229,6 +236,7 @@ export const CelestialChart: React.FC<CelestialChartProps> = ({
                       <div className="col-span-2"><span className="font-medium">Position:</span> {body.label}</div>
                     </div>
                   );
+                }
                 default:
                   return null;
               }

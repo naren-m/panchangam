@@ -10,6 +10,7 @@ REGISTRY="ghcr.io"
 NAMESPACE="panchangam"
 FORCE_DEPLOY="false"
 DRY_RUN="false"
+MANIFEST_DIR=""
 
 # Colors for output
 RED='\033[0;31m'
@@ -46,18 +47,38 @@ EOF
 while [[ $# -gt 0 ]]; do
     case $1 in
         -e|--environment)
+            if [ "$#" -lt 2 ] || [[ "$2" == -* ]]; then
+                echo -e "${RED}Error: --environment requires a value${NC}"
+                usage
+                exit 1
+            fi
             ENVIRONMENT="$2"
             shift 2
             ;;
         -v|--version)
+            if [ "$#" -lt 2 ] || [[ "$2" == -* ]]; then
+                echo -e "${RED}Error: --version requires a value${NC}"
+                usage
+                exit 1
+            fi
             VERSION="$2"
             shift 2
             ;;
         -r|--registry)
+            if [ "$#" -lt 2 ] || [[ "$2" == -* ]]; then
+                echo -e "${RED}Error: --registry requires a value${NC}"
+                usage
+                exit 1
+            fi
             REGISTRY="$2"
             shift 2
             ;;
         -n|--namespace)
+            if [ "$#" -lt 2 ] || [[ "$2" == -* ]]; then
+                echo -e "${RED}Error: --namespace requires a value${NC}"
+                usage
+                exit 1
+            fi
             NAMESPACE="$2"
             shift 2
             ;;
@@ -88,6 +109,24 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
+if [[ ! "$VERSION" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+    echo -e "${RED}Error: Version may only contain letters, numbers, dots, dashes, and underscores${NC}"
+    usage
+    exit 1
+fi
+
+if [ -z "$REGISTRY" ] || [[ "$REGISTRY" =~ [[:space:]] ]]; then
+    echo -e "${RED}Error: Registry must not be empty or contain whitespace${NC}"
+    usage
+    exit 1
+fi
+
+if [[ ! "$NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] || [ "${#NAMESPACE}" -gt 63 ]; then
+    echo -e "${RED}Error: Namespace must be a lowercase Kubernetes DNS label${NC}"
+    usage
+    exit 1
+fi
+
 if [[ ! "$ENVIRONMENT" =~ ^(staging|production)$ ]]; then
     echo -e "${RED}Error: Environment must be 'staging' or 'production'${NC}"
     exit 1
@@ -113,62 +152,67 @@ log_error() {
 # Check prerequisites
 check_prerequisites() {
     log_info "Checking prerequisites..."
-    
+
     local missing_tools=()
-    
-    if ! command -v docker &> /dev/null; then
+
+    if [ "$DRY_RUN" = "false" ] && ! command -v docker &> /dev/null; then
         missing_tools+=("docker")
     fi
-    
+
     if ! command -v kubectl &> /dev/null; then
         missing_tools+=("kubectl")
     fi
-    
-    if ! command -v helm &> /dev/null; then
-        missing_tools+=("helm")
-    fi
-    
-    if [ ${#missing_tools[@]} -ne 0 ]; then
+
+    if [ "${#missing_tools[@]}" -ne 0 ]; then
         log_error "Missing required tools: ${missing_tools[*]}"
         exit 1
     fi
-    
+
     log_success "All prerequisites satisfied"
 }
 
 # Validate images exist
 validate_images() {
     log_info "Validating container images..."
-    
+
     local backend_image="${REGISTRY}/panchangam-backend:${VERSION}"
     local frontend_image="${REGISTRY}/panchangam-frontend:${VERSION}"
-    
-    if [ "$DRY_RUN" = "false" ]; then
-        if ! docker manifest inspect "$backend_image" &> /dev/null; then
-            log_error "Backend image not found: $backend_image"
-            exit 1
-        fi
-        
-        if ! docker manifest inspect "$frontend_image" &> /dev/null; then
-            log_error "Frontend image not found: $frontend_image"
-            exit 1
-        fi
+
+    if [ "$DRY_RUN" = "true" ]; then
+        log_info "DRY RUN: Would validate container images"
+        return
     fi
-    
+
+    if ! docker manifest inspect "$backend_image" &> /dev/null; then
+        log_error "Backend image not found: $backend_image"
+        exit 1
+    fi
+
+    if ! docker manifest inspect "$frontend_image" &> /dev/null; then
+        log_error "Frontend image not found: $frontend_image"
+        exit 1
+    fi
+
     log_success "Container images validated"
 }
 
 # Generate Kubernetes manifests
 generate_manifests() {
-    log_info "Generating Kubernetes manifests..."
-    
+    log_info "Generating Kubernetes manifests..." >&2
+
     local backend_image="${REGISTRY}/panchangam-backend:${VERSION}"
     local frontend_image="${REGISTRY}/panchangam-frontend:${VERSION}"
-    
-    # Create temporary directory for manifests
-    local manifest_dir="/tmp/panchangam-deploy-${VERSION}"
-    mkdir -p "$manifest_dir"
-    
+    local replicas="2"
+    local log_level="info"
+
+    if [ "$ENVIRONMENT" = "production" ]; then
+        replicas="3"
+        log_level="warn"
+    fi
+
+    local manifest_dir
+    manifest_dir=$(mktemp -d "${TMPDIR:-/tmp}/panchangam-deploy-${VERSION}.XXXXXX")
+
     # Generate backend deployment
     cat > "$manifest_dir/backend-deployment.yaml" << EOF
 apiVersion: apps/v1
@@ -181,7 +225,7 @@ metadata:
     version: ${VERSION}
     environment: ${ENVIRONMENT}
 spec:
-  replicas: $( [ "$ENVIRONMENT" = "production" ] && echo "3" || echo "2" )
+  replicas: ${replicas}
   selector:
     matchLabels:
       app: panchangam-backend
@@ -195,16 +239,13 @@ spec:
       - name: gateway
         image: ${backend_image}
         command: ["/panchangam-gateway"]
+        args: ["--grpc-endpoint=localhost:50052", "--http-port=8080"]
         ports:
         - containerPort: 8080
           name: http
         env:
-        - name: HTTP_PORT
-          value: "8080"
-        - name: GRPC_ENDPOINT
-          value: "localhost:50052"
         - name: LOG_LEVEL
-          value: "$( [ "$ENVIRONMENT" = "production" ] && echo "warn" || echo "info" )"
+          value: "${log_level}"
         livenessProbe:
           httpGet:
             path: /api/v1/health
@@ -227,22 +268,23 @@ spec:
       - name: grpc-server
         image: ${backend_image}
         command: ["/panchangam-grpc"]
+        args: ["--grpc-port=50052"]
         ports:
         - containerPort: 50052
           name: grpc
         env:
-        - name: PORT
-          value: "50052"
         - name: LOG_LEVEL
-          value: "$( [ "$ENVIRONMENT" = "production" ] && echo "warn" || echo "info" )"
+          value: "${log_level}"
         livenessProbe:
-          exec:
-            command: ["/panchangam-grpc", "--health-check"]
+          grpc:
+            port: 50052
+            service: panchangam.Panchangam
           initialDelaySeconds: 10
           periodSeconds: 30
         readinessProbe:
-          exec:
-            command: ["/panchangam-grpc", "--health-check"]
+          grpc:
+            port: 50052
+            service: panchangam.Panchangam
           initialDelaySeconds: 5
           periodSeconds: 10
         resources:
@@ -284,7 +326,7 @@ metadata:
     version: ${VERSION}
     environment: ${ENVIRONMENT}
 spec:
-  replicas: $( [ "$ENVIRONMENT" = "production" ] && echo "3" || echo "2" )
+  replicas: ${replicas}
   selector:
     matchLabels:
       app: panchangam-frontend
@@ -357,11 +399,11 @@ metadata:
 spec:
   tls:
   - hosts:
-    - panchangam.example.com
-    - api.panchangam.example.com
+    - panchangam.app
+    - api.panchangam.app
     secretName: panchangam-tls
   rules:
-  - host: panchangam.example.com
+  - host: panchangam.app
     http:
       paths:
       - path: /
@@ -371,7 +413,7 @@ spec:
             name: panchangam-frontend
             port:
               number: 80
-  - host: api.panchangam.example.com
+  - host: api.panchangam.app
     http:
       paths:
       - path: /
@@ -383,73 +425,80 @@ spec:
               number: 80
 EOF
     fi
-    
+
     echo "$manifest_dir"
 }
 
 # Deploy to Kubernetes
 deploy_to_kubernetes() {
     local manifest_dir="$1"
-    
+
     log_info "Deploying to Kubernetes..."
-    
-    # Create namespace if it doesn't exist
-    kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
-    
+
     if [ "$DRY_RUN" = "true" ]; then
         log_info "DRY RUN: Would apply the following manifests:"
         kubectl apply -f "$manifest_dir" --dry-run=client
-    else
-        kubectl apply -f "$manifest_dir"
-        
-        # Wait for deployments to be ready
-        log_info "Waiting for deployments to be ready..."
-        kubectl wait --for=condition=available --timeout=300s deployment/panchangam-backend -n "$NAMESPACE"
-        kubectl wait --for=condition=available --timeout=300s deployment/panchangam-frontend -n "$NAMESPACE"
+        return
     fi
+
+    # Create namespace if it doesn't exist
+    kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
+    kubectl apply -f "$manifest_dir"
+
+    # Wait for deployments to be ready
+    log_info "Waiting for deployments to be ready..."
+    kubectl wait --for=condition=available --timeout=300s deployment/panchangam-backend -n "$NAMESPACE"
+    kubectl wait --for=condition=available --timeout=300s deployment/panchangam-frontend -n "$NAMESPACE"
 }
 
 # Run smoke tests
 run_smoke_tests() {
     log_info "Running smoke tests..."
-    
+
     if [ "$DRY_RUN" = "true" ]; then
         log_info "DRY RUN: Would run smoke tests"
         return
     fi
-    
+
     # Get service URL
     local service_url
     if [ "$ENVIRONMENT" = "production" ]; then
-        service_url="https://api.panchangam.example.com"
+        service_url="https://api.panchangam.app"
     else
-        service_url="http://$(kubectl get svc panchangam-backend -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo 'localhost:8080')"
+        local service_ip
+        service_ip=$(kubectl get svc panchangam-backend -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+        if [ -n "$service_ip" ]; then
+            service_url="http://$service_ip"
+        else
+            service_url="http://localhost:8080"
+        fi
     fi
-    
+
     # Test health endpoint
     local max_attempts=30
     local attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
+
+    while [ "$attempt" -le "$max_attempts" ]; do
         if curl -f -s "$service_url/api/v1/health" > /dev/null; then
             log_success "Health check passed"
             break
         fi
-        
+
         log_info "Health check attempt $attempt/$max_attempts failed, retrying..."
         sleep 10
-        ((attempt++))
+        attempt=$((attempt + 1))
     done
-    
-    if [ $attempt -gt $max_attempts ]; then
+
+    if [ "$attempt" -gt "$max_attempts" ]; then
         log_error "Health check failed after $max_attempts attempts"
         return 1
     fi
-    
+
     # Test API endpoint
     local api_response
     api_response=$(curl -s "$service_url/api/v1/panchangam?date=2024-01-15&lat=12.9716&lng=77.5946" || echo "")
-    
+
     if echo "$api_response" | grep -q "tithi"; then
         log_success "API smoke test passed"
     else
@@ -464,36 +513,38 @@ main() {
     log_info "Version: $VERSION"
     log_info "Registry: $REGISTRY"
     log_info "Namespace: $NAMESPACE"
-    
+
     if [ "$DRY_RUN" = "true" ]; then
         log_warning "DRY RUN MODE - No changes will be made"
     fi
-    
+
     # Confirmation for production
     if [ "$ENVIRONMENT" = "production" ] && [ "$FORCE_DEPLOY" = "false" ] && [ "$DRY_RUN" = "false" ]; then
         echo -n "Are you sure you want to deploy to production? (yes/no): "
-        read -r confirmation
+        if ! read -r confirmation; then
+            log_error "Production confirmation requires input"
+            exit 1
+        fi
         if [ "$confirmation" != "yes" ]; then
             log_info "Deployment cancelled"
             exit 0
         fi
     fi
-    
+
     check_prerequisites
     validate_images
-    
+
     local manifest_dir
     manifest_dir=$(generate_manifests)
-    
+    MANIFEST_DIR="$manifest_dir"
+    trap 'rm -rf -- "$MANIFEST_DIR"' EXIT
+
     deploy_to_kubernetes "$manifest_dir"
-    
+
     if [ "$DRY_RUN" = "false" ]; then
         run_smoke_tests
         log_success "Deployment completed successfully!"
-        
-        # Cleanup
-        rm -rf "$manifest_dir"
-        
+
         # Display service information
         log_info "Service information:"
         kubectl get pods -n "$NAMESPACE" -l app=panchangam-backend

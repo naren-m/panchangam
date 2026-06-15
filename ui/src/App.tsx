@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useRef, Suspense, lazy } from 'react';
+import { useState, useMemo, Suspense, lazy } from 'react';
 import { CalendarDisplayManager } from './components/Calendar/CalendarDisplayManager';
 import { MonthNavigation } from './components/Calendar/MonthNavigation';
-import { ViewSwitcher, ViewMode } from './components/ViewSwitcher';
-import { ErrorBoundary } from './components/common/Error';
+import { ViewSwitcher, ViewMode } from './components/ViewSwitcher/ViewSwitcher';
+import { ErrorBoundary } from './components/common/Error/ErrorBoundary';
 import { useProgressivePanchangam } from './hooks/useProgressivePanchangam';
 import { useDayDetail } from './hooks/useDayDetail';
-import { Settings, PanchangamData } from './types/panchangam';
+import { Settings, Location } from './types/panchangam';
 import { getCurrentMonthDates } from './utils/dateHelpers';
 import { exportToCSV, exportToJSON } from './utils/exportHelpers';
 
@@ -13,9 +13,9 @@ import { exportToCSV, exportToJSON } from './utils/exportHelpers';
 const DayDetailModal = lazy(() => import('./components/DayDetail/DayDetailModal').then(module => ({ default: module.DayDetailModal })));
 const LocationSelector = lazy(() => import('./components/LocationPicker/LocationSelector').then(module => ({ default: module.LocationSelector })));
 const SettingsPanel = lazy(() => import('./components/Settings/SettingsPanel').then(module => ({ default: module.SettingsPanel })));
-const SkyVisualizationContainer = lazy(() => import('./components/SkyVisualization').then(module => ({ default: module.SkyVisualizationContainer })));
-const TableView = lazy(() => import('./components/TableView').then(module => ({ default: module.TableView })));
-const GraphView = lazy(() => import('./components/GraphView').then(module => ({ default: module.GraphView })));
+const SkyVisualizationContainer = lazy(() => import('./components/SkyVisualization/SkyVisualizationContainer').then(module => ({ default: module.SkyVisualizationContainer })));
+const TableView = lazy(() => import('./components/TableView/TableView').then(module => ({ default: module.TableView })));
+const GraphView = lazy(() => import('./components/GraphView/GraphView').then(module => ({ default: module.GraphView })));
 
 function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -24,7 +24,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showSkyVisualization, setShowSkyVisualization] = useState(false);
   const [currentView, setCurrentView] = useState<ViewMode>('calendar');
-  const [settingsState, setSettingsState] = useState({
+  const [settingsState, setSettingsState] = useState<Settings>({
     calculation_method: 'Drik',
     locale: 'en',
     region: 'California',
@@ -38,43 +38,7 @@ function App() {
     }
   });
 
-  // Use ref to break infinite loop completely
-  const settingsRef = useRef(null);
-  
-  // Update ref when settings change
-  const settings = useMemo(() => {
-    const newSettings = {
-      calculation_method: settingsState.calculation_method,
-      locale: settingsState.locale,
-      region: settingsState.region,
-      time_format: settingsState.time_format,
-      location: {
-        name: settingsState.location.name,
-        latitude: settingsState.location.latitude,
-        longitude: settingsState.location.longitude,
-        timezone: settingsState.location.timezone,
-        region: settingsState.location.region
-      }
-    };
-    
-    // Only update if actually different
-    if (!settingsRef.current || JSON.stringify(settingsRef.current) !== JSON.stringify(newSettings)) {
-      console.log('📝 Settings actually changed, updating...');
-      settingsRef.current = newSettings;
-    }
-    
-    return settingsRef.current;
-  }, [
-    settingsState.calculation_method,
-    settingsState.locale,
-    settingsState.region,
-    settingsState.time_format,
-    settingsState.location.name,
-    settingsState.location.latitude,
-    settingsState.location.longitude,
-    settingsState.location.timezone,
-    settingsState.location.region
-  ]);
+  const settings = settingsState;
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -90,18 +54,18 @@ function App() {
   }, [year, month]);
 
   // Fetch panchangam data progressively for the visible month
-  const { 
-    data: panchangamData, 
-    loading, 
+  const {
+    data: panchangamData,
+    loading,
     isProgressiveLoading,
     progress,
     todayLoaded,
     loadedCount,
     totalCount,
     loadingPhase,
-    error, 
-    errorState, 
-    retry 
+    error,
+    errorState,
+    retry
   } = useProgressivePanchangam(startDate, endDate, settings);
 
   // Note: Removed automatic location initialization to prevent infinite re-renders
@@ -123,7 +87,7 @@ function App() {
     setSelectedDate(date);
   };
 
-  const handleLocationSelect = (location: any) => {
+  const handleLocationSelect = (location: Location) => {
     setSettingsState(prev => ({
       ...prev,
       location,
@@ -156,7 +120,7 @@ function App() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-orange-800 mb-2">
-            🕉️ Panchangam
+            Panchangam
           </h1>
           <p className="text-orange-600 text-lg">
             Hindu Calendar & Astronomical Almanac
@@ -249,9 +213,7 @@ function App() {
           <p className="text-sm">
             Calculated using {settings.calculation_method} method for {settings.location.name}
           </p>
-          <p className="text-xs mt-2">
-            May the divine blessings guide you through auspicious times 🙏
-          </p>
+          <p className="text-xs mt-2">May each day guide you through auspicious times.</p>
         </div>
       </div>
 

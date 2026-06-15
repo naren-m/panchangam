@@ -6,7 +6,7 @@ This documentation provides comprehensive coverage of the Panchangam project's a
 
 ## Documentation Structure
 
-### 📊 Algorithms Documentation
+### Algorithms Documentation
 **Location**: `docs/algorithms/`
 
 #### [Tithi Calculation Algorithm](algorithms/TITHI_CALCULATION.md)
@@ -23,7 +23,7 @@ This documentation provides comprehensive coverage of the Panchangam project's a
 - Swiss Ephemeris integration
 - OpenTelemetry observability
 
-### 🔌 API Documentation
+### API Documentation
 **Location**: `docs/api/`
 
 #### [Ephemeris Integration API](api/EPHEMERIS_API.md)
@@ -39,7 +39,7 @@ This documentation provides comprehensive coverage of the Panchangam project's a
 - Cross-provider validation and error handling
 - Real-time health monitoring and observability integration
 
-### 🌍 Regional Documentation
+### Regional Documentation
 **Location**: `docs/regional/`
 
 #### [Regional Calculations and Cultural Adaptations](regional/REGIONAL_CALCULATIONS.md)
@@ -55,7 +55,7 @@ This documentation provides comprehensive coverage of the Panchangam project's a
 - **Bengal**: Dual system support, Durga Puja calculations
 - **Gujarat/Maharashtra**: Vikrama Samvat, business muhurtas
 
-### ✅ Validation Documentation
+### Validation Documentation
 **Location**: `docs/validation/`
 
 #### [Validation Framework](validation/VALIDATION_FRAMEWORK.md)
@@ -71,7 +71,7 @@ This documentation provides comprehensive coverage of the Panchangam project's a
 - Edge case and boundary condition testing
 - Continuous integration and quality gates
 
-### 📐 Design Documentation
+### Design Documentation
 **Location**: `docs/design/`
 
 #### [High-Level Architecture](design/high-level-architecture.md)
@@ -85,7 +85,7 @@ This documentation provides comprehensive coverage of the Panchangam project's a
 
 ## Quick Reference Guides
 
-### 🚀 Getting Started
+### Getting Started
 
 #### For Developers
 1. **Setup**: Clone repository and install dependencies
@@ -105,7 +105,7 @@ This documentation provides comprehensive coverage of the Panchangam project's a
 3. **Regional Support**: Configure regional plugins for target markets
 4. **Monitoring**: Implement observability and health checking
 
-### 📊 Key Metrics and Standards
+### Key Metrics and Standards
 
 #### Accuracy Benchmarks
 - **Tithi Calculations**: ±1 minute precision
@@ -128,7 +128,7 @@ This documentation provides comprehensive coverage of the Panchangam project's a
 ## Technology Stack
 
 ### Core Technologies
-- **Language**: Go 1.21+
+- **Language**: Go 1.23+
 - **Astronomical Engine**: Swiss Ephemeris, JPL integration
 - **Observability**: OpenTelemetry tracing and metrics
 - **Testing**: Go testing framework with validation suites

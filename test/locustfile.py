@@ -283,17 +283,17 @@ def on_test_stop(environment, **kwargs):
 
     # Requirement 1: Average response time <500ms
     if avg_response_time < 500:
-        logger.info(f"✓ Average response time ({avg_response_time:.2f}ms) meets <500ms target")
+        logger.info(f"Average response time ({avg_response_time:.2f}ms) meets <500ms target")
     else:
-        logger.warning(f"✗ Average response time ({avg_response_time:.2f}ms) exceeds 500ms target")
+        logger.warning(f"Average response time ({avg_response_time:.2f}ms) exceeds 500ms target")
 
     # Requirement 2: Success rate should be high
     if success_rate >= 99:
-        logger.info(f"✓ Success rate ({success_rate:.2f}%) is excellent")
+        logger.info(f"Success rate ({success_rate:.2f}%) is excellent")
     elif success_rate >= 95:
-        logger.info(f"⚠ Success rate ({success_rate:.2f}%) is acceptable but could be better")
+        logger.info(f"WARN Success rate ({success_rate:.2f}%) is acceptable but could be better")
     else:
-        logger.warning(f"✗ Success rate ({success_rate:.2f}%) is below acceptable threshold")
+        logger.warning(f"Success rate ({success_rate:.2f}%) is below acceptable threshold")
 
     logger.info("=" * 80)
 

@@ -220,8 +220,8 @@ func TestPanchangamServer_TimezoneValidation(t *testing.T) {
 	// Test timezone that doesn't match location (should warn but still work)
 	req := &ppb.GetPanchangamRequest{
 		Date:      "2024-01-15",
-		Latitude:  40.7128,  // New York coordinates
-		Longitude: -74.0060, // New York coordinates
+		Latitude:  40.7128,        // New York coordinates
+		Longitude: -74.0060,       // New York coordinates
 		Timezone:  "Asia/Kolkata", // But using India timezone
 	}
 

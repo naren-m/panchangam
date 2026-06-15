@@ -2,6 +2,7 @@ package examples
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/naren-m/panchangam/api"
@@ -30,8 +31,6 @@ func (t *TamilNaduExtension) GetInfo() api.PluginInfo {
 		Author:      "Panchangam Team",
 		Capabilities: []string{
 			string(api.CapabilityRegional),
-			string(api.CapabilityEvent),
-			string(api.CapabilityMuhurta),
 		},
 		Dependencies: []string{},
 		Metadata: map[string]interface{}{
@@ -72,6 +71,10 @@ func (t *TamilNaduExtension) GetCalendarSystem() api.CalendarSystem {
 
 // ApplyRegionalRules applies Tamil Nadu specific rules to Panchangam data
 func (t *TamilNaduExtension) ApplyRegionalRules(ctx context.Context, data *api.PanchangamData) error {
+	if !t.enabled {
+		return fmt.Errorf("tamil nadu extension is not enabled")
+	}
+
 	// Apply Tamil calendar adjustments
 	if data.CalendarSystem == api.CalendarAmanta {
 		// Adjust tithi calculations for Tamil traditions
@@ -89,6 +92,10 @@ func (t *TamilNaduExtension) ApplyRegionalRules(ctx context.Context, data *api.P
 
 // GetRegionalEvents returns Tamil Nadu specific events
 func (t *TamilNaduExtension) GetRegionalEvents(ctx context.Context, date time.Time, location api.Location) ([]api.Event, error) {
+	if !t.enabled {
+		return nil, fmt.Errorf("tamil nadu extension is not enabled")
+	}
+
 	var events []api.Event
 
 	// Tamil New Year (Puthandu) - April 13/14
@@ -151,6 +158,10 @@ func (t *TamilNaduExtension) GetRegionalEvents(ctx context.Context, date time.Ti
 
 // GetRegionalMuhurtas returns Tamil Nadu specific muhurtas
 func (t *TamilNaduExtension) GetRegionalMuhurtas(ctx context.Context, date time.Time, location api.Location) ([]api.Muhurta, error) {
+	if !t.enabled {
+		return nil, fmt.Errorf("tamil nadu extension is not enabled")
+	}
+
 	var muhurtas []api.Muhurta
 
 	// Abhijit Muhurta (noon time - highly auspicious in Tamil tradition)

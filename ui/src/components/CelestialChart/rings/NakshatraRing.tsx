@@ -28,7 +28,6 @@ export const NakshatraRing: React.FC<ExtendedNakshatraRingProps> = ({
   selectedId,
   onHover,
   onSelect,
-  currentNakshatra,
   panchangam,
 }) => {
   const nakshatras = useMemo(() => getAllNakshatras(), []);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Search, Navigation, X, Clock, Heart, Star } from 'lucide-react';
-import { Location } from '../../types/panchangam';
+import type { Location } from '../../types/panchangam';
 import { locationService } from '../../services/locationService';
 
 interface LocationSelectorProps {
@@ -56,7 +56,7 @@ const LocationItem: React.FC<LocationItemProps> = ({
               <span>{location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}</span>
               {showRegion && location.region && (
                 <>
-                  <span>•</span>
+                  <span>-</span>
                   <span className="truncate">{location.region}</span>
                 </>
               )}
@@ -130,8 +130,8 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
       try {
         const results = await locationService.searchLocations(searchQuery);
         setSearchResults(results);
-      } catch (error) {
-        console.error('Search error:', error);
+      } catch {
+        setSearchResults([]);
       } finally {
         setLoading(false);
       }
@@ -147,16 +147,12 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
       const location = await locationService.getCurrentLocation();
       onLocationSelect(location);
       onClose();
-    } catch (error) {
-      console.error('GPS error:', error);
+    } catch {
       alert('Unable to get your location. Please select manually.');
     } finally {
       setGpsLoading(false);
     }
   };
-
-  const displayLocations = searchQuery.trim() ? searchResults : 
-    [...locationsByCategory.favorites, ...locationsByCategory.usUk, ...locationsByCategory.popular];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -249,7 +245,7 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
                 
                 {/* US/UK Locations */}
                 <div className="mb-6">
-                  <div className="text-xs text-blue-600 font-medium mb-2">🇺🇸🇬🇧 US & UK Cities</div>
+                  <div className="text-xs text-blue-600 font-medium mb-2">US and UK Cities</div>
                   <div className="space-y-2">
                     {locationsByCategory.usUk.map((location, index) => (
                       <LocationItem 
@@ -269,7 +265,7 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
                 {/* Popular (mainly Indian) Locations */}
                 {locationsByCategory.popular.length > 0 && (
                   <div>
-                    <div className="text-xs text-blue-600 font-medium mb-2">🇮🇳 Other Popular Cities</div>
+                    <div className="text-xs text-blue-600 font-medium mb-2">Other Popular Cities</div>
                     <div className="space-y-2">
                       {locationsByCategory.popular.slice(0, 15).map((location, index) => (
                         <LocationItem 

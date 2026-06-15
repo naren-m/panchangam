@@ -6,7 +6,9 @@ import requests
 import subprocess
 import time
 import os
+from pathlib import Path
 from typing import Generator
+from urllib.parse import urlparse
 
 
 @pytest.fixture(scope="session")
@@ -16,42 +18,53 @@ def api_base_url() -> str:
 
 
 @pytest.fixture(scope="session")
-def start_servers() -> Generator[None, None, None]:
+def start_servers(api_base_url: str) -> Generator[None, None, None]:
     """Start the gRPC and Gateway servers for testing"""
     if os.getenv("SKIP_SERVER_START", "false").lower() == "true":
         yield
         return
-    
-    # Build servers (from parent directory)
-    subprocess.run(["go", "build", "-o", "grpc-server", "../server/server.go"], check=True, cwd="../")
-    subprocess.run(["go", "build", "-o", "gateway-server", "../cmd/gateway/main.go"], check=True, cwd="../")
-    
+
+    grpc_port = os.getenv("PANCHANGAM_GRPC_PORT", "50051")
+    api_url = urlparse(api_base_url)
+    http_port = str(api_url.port or (443 if api_url.scheme == "https" else 80))
+
+    project_root = Path(__file__).resolve().parent.parent
+    test_bin_dir = project_root / "tmp" / "test-bin"
+    test_bin_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build servers from maintained command packages.
+    subprocess.run(["go", "build", "-o", str(test_bin_dir / "grpc-server"), "./cmd/server"], check=True, cwd=project_root)
+    subprocess.run(["go", "build", "-o", str(test_bin_dir / "gateway-server"), "./cmd/gateway"], check=True, cwd=project_root)
+
     # Start gRPC server
-    grpc_proc = subprocess.Popen(["../grpc-server"], cwd="../")
+    grpc_proc = subprocess.Popen([
+        str(test_bin_dir / "grpc-server"),
+        f"--grpc-port={grpc_port}",
+    ], cwd=project_root)
     time.sleep(2)
-    
+
     # Start Gateway server
     gateway_proc = subprocess.Popen([
-        "../gateway-server",
-        "--grpc-endpoint=localhost:50052",
-        "--http-port=8080"
-    ], cwd="../")
+        str(test_bin_dir / "gateway-server"),
+        f"--grpc-endpoint=localhost:{grpc_port}",
+        f"--http-port={http_port}",
+    ], cwd=project_root)
     time.sleep(3)
-    
+
     # Verify servers are running
     max_retries = 10
     for i in range(max_retries):
         try:
-            response = requests.get("http://localhost:8080/api/v1/health")
+            response = requests.get(f"{api_base_url}/api/v1/health")
             if response.status_code == 200:
                 break
         except requests.exceptions.ConnectionError:
             if i == max_retries - 1:
                 raise
             time.sleep(1)
-    
+
     yield
-    
+
     # Cleanup
     gateway_proc.terminate()
     grpc_proc.terminate()

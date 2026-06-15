@@ -115,13 +115,13 @@ describe('ErrorMessage', () => {
   it('renders appropriate icons for different types', () => {
     const message = 'Test message';
     const { rerender } = render(<ErrorMessage message={message} type="error" />);
-    
-    expect(screen.getByText('❌')).toBeInTheDocument();
-    
+
+    expect(screen.getByTestId('error-status-icon')).toBeInTheDocument();
+
     rerender(<ErrorMessage message={message} type="warning" />);
-    expect(screen.getByText('⚠️')).toBeInTheDocument();
-    
+    expect(screen.getByTestId('warning-status-icon')).toBeInTheDocument();
+
     rerender(<ErrorMessage message={message} type="info" />);
-    expect(screen.getByText('ℹ️')).toBeInTheDocument();
+    expect(screen.getByTestId('info-status-icon')).toBeInTheDocument();
   });
 });

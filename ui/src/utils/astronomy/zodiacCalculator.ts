@@ -62,8 +62,8 @@ export function getWesternZodiacName(zodiacNumber: number): string {
 export function getZodiacSymbol(zodiacNumber: number): string {
   const symbols = [
     '', // 0 - not used
-    '♈', '♉', '♊', '♋', '♌', '♍',
-    '♎', '♏', '♐', '♑', '♒', '♓'
+    '', '', '', '', '', '',
+    '', '', '', '', '', ''
   ];
   
   if (zodiacNumber >= 1 && zodiacNumber <= 12) {

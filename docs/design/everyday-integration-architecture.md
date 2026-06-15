@@ -1,12 +1,12 @@
 # Panchangam Everyday Integration Architecture
 
-**Document Version**: 1.0  
-**Created**: 2025-07-19  
-**Author**: Architecture Design Team  
-**Status**: Design Proposal  
+**Document Version**: 1.0
+**Created**: 2025-07-19
+**Author**: Architecture Design Team
+**Status**: Design Proposal
 **Review Required**: Yes
 
-## 🎯 Executive Summary
+## Executive Summary
 
 This document outlines a comprehensive architecture for transforming the sophisticated panchangam calculation engine into a seamless everyday companion that naturally integrates into people's daily routines through multiple touchpoints - from quick glances on Apple Watch to deep exploration on interactive web platforms.
 
@@ -14,7 +14,7 @@ This document outlines a comprehensive architecture for transforming the sophist
 
 Transform the sophisticated panchangam calculation engine into a **seamless everyday companion** that naturally integrates into people's daily routines through multiple touchpoints, from quick glances on Apple Watch to deep exploration on interactive web platforms.
 
-## 📋 Table of Contents
+## Table of Contents
 
 1. [Current Foundation Analysis](#current-foundation-analysis)
 2. [Multi-Platform Integration Architecture](#multi-platform-integration-architecture)
@@ -24,14 +24,14 @@ Transform the sophisticated panchangam calculation engine into a **seamless ever
 6. [Implementation Roadmap](#implementation-roadmap)
 7. [Success Metrics & Goals](#success-metrics--goals)
 
-## 🏗️ Current Foundation Analysis
+##  Current Foundation Analysis
 
 ### Existing Capabilities
 Based on analysis of the current panchangam project structure:
 
 **Core Features Available**:
 - **5 Panchangam Elements**: Tithi, Vara, Nakshatra, Yoga, Karana calculations
-- **Astronomical Engine**: Sun/Moon positions, sunrise/sunset calculations  
+- **Astronomical Engine**: Sun/Moon positions, sunrise/sunset calculations
 - **Regional Support**: Multiple Indian regions with Amanta/Purnimanta systems
 - **Multiple Methods**: Drik Ganita and Vakya calculation approaches
 - **Modern Architecture**: gRPC/REST APIs with OpenTelemetry observability
@@ -44,7 +44,7 @@ Based on analysis of the current panchangam project structure:
 - **Architecture**: Hexagonal + microservices pattern
 - **Astronomical**: Swiss Ephemeris integration planned
 
-## 🚀 Multi-Platform Integration Architecture
+## Multi-Platform Integration Architecture
 
 ### Core API Gateway Layer
 
@@ -58,13 +58,13 @@ graph TB
         GCAL[Google Calendar]
         API_EXT[Third-party APIs]
     end
-    
+
     subgraph "API Gateway & Edge Services"
         CDN[CDN Edge Servers]
         LB[Load Balancer]
         GATEWAY[API Gateway]
         CACHE[Redis Cache Layer]
-        
+
         subgraph "Microservices"
             PANCHANGAM[Panchangam Core Service]
             NOTIFICATION[Notification Service]
@@ -73,31 +73,31 @@ graph TB
             ANALYTICS[Analytics Service]
         end
     end
-    
+
     subgraph "Data & Infrastructure"
         ASTRO[Astronomical Engine]
-        DB[Configuration DB]
+        CONFIG[Runtime Configuration]
         TIME_CACHE[Time-based Cache]
         EPHEMERIS[Ephemeris Data]
     end
-    
+
     AW --> CDN
     iOS --> CDN
     ANDROID --> CDN
     WEB --> CDN
     GCAL --> GATEWAY
     API_EXT --> GATEWAY
-    
+
     CDN --> LB
     LB --> GATEWAY
     GATEWAY --> CACHE
-    
+
     GATEWAY --> PANCHANGAM
     GATEWAY --> NOTIFICATION
     GATEWAY --> CALENDAR
     GATEWAY --> USER
     GATEWAY --> ANALYTICS
-    
+
     PANCHANGAM --> ASTRO
     PANCHANGAM --> DB
     PANCHANGAM --> TIME_CACHE
@@ -115,7 +115,7 @@ Building on the existing gRPC/REST foundation to support diverse client needs:
 - **User Preferences Service**: Personalization and cultural adaptation
 - **Analytics Service**: Usage patterns and performance optimization
 
-## 📱 Platform-Specific Designs
+## Platform-Specific Designs
 
 ### 1. Apple Watch Complication Architecture
 
@@ -135,7 +135,7 @@ Data Strategy:
   push_frequency: "Every 3 hours + on-demand"
   cache_duration: "24 hours with smart refresh"
   offline_capability: "3 days pre-cached data"
-  
+
 Technical Implementation:
   watchos_widgets: "iOS 17+ WidgetKit integration"
   background_refresh: "Smart scheduling based on user interaction"
@@ -146,7 +146,7 @@ Technical Implementation:
 ```swift
 struct WatchPanchangamData {
     let tithiInfo: TithiCompact
-    let nakshatraInfo: NakshatraCompact  
+    let nakshatraInfo: NakshatraCompact
     let currentMuhurta: MuhurtaStatus
     let nextSignificantEvent: EventCompact
     let rahuKalam: TimeRange?
@@ -166,15 +166,15 @@ struct TithiCompact {
 ```yaml
 Update Triggers:
   tithi_transition: "15 minutes before/after tithi change"
-  nakshatra_transition: "30 minutes before/after nakshatra change"  
+  nakshatra_transition: "30 minutes before/after nakshatra change"
   significant_events: "Rahu kalam start/end, festival days"
   user_interaction: "When user taps complication"
-  
+
 Battery Optimization:
   background_refresh: "Limited to 8 updates per day maximum"
   intelligent_scheduling: "More updates during waking hours"
   context_awareness: "Reduce updates during sleep/focus modes"
-  
+
 Data Efficiency:
   compressed_payload: "Minimal JSON with only essential data"
   diff_updates: "Only send changed fields"
@@ -193,7 +193,7 @@ sequenceDiagram
     participant Integration as Calendar Service
     participant Core as Panchangam Core
     participant AI as ML Suggestions
-    
+
     User->>CalApp: Views calendar
     CalApp->>Integration: Request panchangam overlay
     Integration->>Core: Get panchangam for date range
@@ -210,12 +210,12 @@ Auto-Enhancement:
   festival_marking: "Automatic festival detection and decoration"
   muhurta_suggestions: "AI-powered meeting time optimization"
   event_warnings: "Gentle alerts for important timings"
-  
+
 Smart Suggestions:
   meeting_scheduling: "Suggest favorable muhurtas for important meetings"
   travel_planning: "Highlight auspicious departure times"
   life_events: "Recommend timing for ceremonies, housewarmings"
-  
+
 Privacy-First:
   local_processing: "User pattern analysis stays on device where possible"
   opt_in_features: "All AI suggestions require explicit consent"
@@ -227,14 +227,14 @@ Privacy-First:
 // Google Calendar Add-on Architecture
 class PanchangamCalendarAddon {
   constructor(private panchangamAPI: PanchangamAPI) {}
-  
+
   // Calendar event enhancement
   async enhanceEvent(event: CalendarEvent): Promise<EnhancedEvent> {
     const panchangamData = await this.panchangamAPI.getPanchangamForDate(
       event.date,
       event.location || this.getUserLocation()
     )
-    
+
     return {
       ...event,
       panchangamContext: this.generateContextualInfo(event, panchangamData),
@@ -242,7 +242,7 @@ class PanchangamCalendarAddon {
       alternatives: await this.suggestAlternativeTimes(event, panchangamData)
     }
   }
-  
+
   // Smart scheduling suggestions
   async suggestMeetingTimes(
     participants: Participant[],
@@ -271,7 +271,7 @@ graph TB
         SYNC[Data Synchronization]
         ML[ML Pattern Recognition]
     end
-    
+
     subgraph "iOS Implementation"
         SWIFT[SwiftUI + UIKit]
         WIDGETS[iOS Widgets]
@@ -279,15 +279,15 @@ graph TB
         HEALTH[HealthKit Integration]
         FOCUS[Focus Mode Integration]
     end
-    
-    subgraph "Android Implementation"  
+
+    subgraph "Android Implementation"
         COMPOSE[Jetpack Compose]
         ANDROID_WIDGETS[Android Widgets]
         ASSISTANT[Google Assistant]
         DIGITAL_WELLBEING[Digital Wellbeing]
         TASKER[Tasker Integration]
     end
-    
+
     SWIFT --> CORE
     COMPOSE --> CORE
     CORE --> CACHE
@@ -302,19 +302,19 @@ App Onboarding Flow:
   location_setup: "GPS location with privacy-first approach"
   interest_profiling: "Casual/Interested/Practitioner classification"
   notification_preferences: "Granular control over alerts"
-  
+
 Feature Progressive Disclosure:
-  level_1_casual: 
+  level_1_casual:
     - "Today's essentials card"
     - "Simple festival notifications"
     - "Basic muhurta finder"
-    
+
   level_2_interested:
     - "7-day planning view"
     - "Detailed event descriptions"
     - "Muhurta planning tools"
     - "Regional customization"
-    
+
   level_3_practitioner:
     - "Full astronomical calculations"
     - "Historical data analysis"
@@ -350,11 +350,11 @@ class PanchangamStore: ObservableObject {
     @Published var currentPanchangam: PanchangamData?
     @Published var userPreferences: UserPreferences
     @Published var favoriteLocations: [Location]
-    
+
     private let apiService: PanchangamAPIService
     private let cacheManager: LocalCacheManager
     private let notificationManager: NotificationManager
-    
+
     func loadTodaysPanchangam() async {
         // Smart loading with cache-first strategy
         // Intelligent background refresh
@@ -377,14 +377,14 @@ graph TB
             TIMELINE[Interactive Timeline]
             CELESTIAL[Celestial Sphere]
         end
-        
+
         subgraph "Educational Modules"
             LEARN[Learning Paths]
             QUIZ[Interactive Quizzes]
             SIM[Calculation Simulator]
             COMPARE[Regional Comparisons]
         end
-        
+
         subgraph "User Experience"
             RESPONSIVE[Responsive Design]
             PWA[Progressive Web App]
@@ -392,14 +392,14 @@ graph TB
             SHARE[Social Sharing]
         end
     end
-    
+
     subgraph "Backend Services"
         CONTENT[Content Management]
         SIMULATION[Simulation Engine]
         ANALYTICS[Learning Analytics]
         COMMUNITY[Community Features]
     end
-    
+
     WEBGL --> SIMULATION
     TIMELINE --> CONTENT
     LEARN --> ANALYTICS
@@ -416,14 +416,14 @@ Learning Pathways:
     - "How Calculations Work (Step-by-step)"
     - "Regional Variations (Interactive map)"
     - "Modern Relevance (Case studies)"
-    
+
   intermediate_path:
     - "Astronomical Foundations (3D visualization)"
     - "Mathematical Principles (Interactive formulas)"
     - "Historical Development (Timeline)"
     - "Cultural Significance (Rich media)"
     - "Practical Applications (Simulation)"
-    
+
   advanced_path:
     - "Precision and Accuracy (Comparison tools)"
     - "Software Implementation (Code examples)"
@@ -443,7 +443,7 @@ Gamification Elements:
   challenges: "Daily/weekly calculation challenges"
 ```
 
-## 🎨 Design System & User Experience
+## Design System & User Experience
 
 ### Unified Visual Language
 ```yaml
@@ -455,7 +455,7 @@ Design Principles:
 
 Color Palette:
   primary: "#FF6B35" # Saffron
-  secondary: "#4A90E2" # Sky Blue  
+  secondary: "#4A90E2" # Sky Blue
   success: "#7ED321" # Auspicious Green
   warning: "#F5A623" # Caution Amber
   neutral: "#9B9B9B" # Balanced Gray
@@ -473,7 +473,7 @@ Component Library:
   timing_display: "Unified time representation"
   quality_indicator: "Visual auspiciousness scale"
   event_badge: "Standardized event marking"
-  
+
 Responsive Breakpoints:
   watch: "42mm/44mm Apple Watch optimization"
   mobile: "375px-414px primary targets"
@@ -481,7 +481,7 @@ Responsive Breakpoints:
   desktop: "1280px+ with max-width constraints"
 ```
 
-## 🔧 Data Layer & Intelligent Caching Strategy
+## Data Layer & Intelligent Caching Strategy
 
 ### Multi-Tier Caching Architecture
 ```mermaid
@@ -492,59 +492,54 @@ graph TB
         WEB[Web Platform]
         CALENDAR[Calendar Integration]
     end
-    
+
     subgraph "Edge Layer"
         CDN[CDN Edge Servers]
         EDGE_CACHE[Edge Computing Cache]
         GEO_ROUTING[Geographic Routing]
     end
-    
+
     subgraph "API Gateway Layer"
         RATE_LIMIT[Rate Limiting]
         AUTH[Authentication]
         LOAD_BALANCER[Load Balancer]
         API_CACHE[API Response Cache]
     end
-    
+
     subgraph "Application Layer"
         PANCHANGAM_SERVICE[Panchangam Core Service]
         REDIS[Redis Cluster]
         BACKGROUND_JOBS[Background Processing]
         PRECOMPUTE[Pre-computation Engine]
     end
-    
-    subgraph "Data Layer"
-        POSTGRES[PostgreSQL - Config]
+
+    subgraph "Reference Data Layer"
         EPHEMERIS[Ephemeris Data Store]
         TIME_SERIES[Time Series DB]
-        BACKUP[Backup Strategy]
     end
-    
+
     WATCH --> CDN
     MOBILE --> CDN
     WEB --> CDN
     CALENDAR --> CDN
-    
+
     CDN --> EDGE_CACHE
     EDGE_CACHE --> GEO_ROUTING
     GEO_ROUTING --> RATE_LIMIT
-    
+
     RATE_LIMIT --> AUTH
     AUTH --> LOAD_BALANCER
     LOAD_BALANCER --> API_CACHE
-    
+
     API_CACHE --> PANCHANGAM_SERVICE
     PANCHANGAM_SERVICE --> REDIS
     PANCHANGAM_SERVICE --> BACKGROUND_JOBS
     BACKGROUND_JOBS --> PRECOMPUTE
-    
-    PANCHANGAM_SERVICE --> POSTGRES
+
     PANCHANGAM_SERVICE --> EPHEMERIS
     PANCHANGAM_SERVICE --> TIME_SERIES
-    
-    POSTGRES --> BACKUP
-    EPHEMERIS --> BACKUP
-    TIME_SERIES --> BACKUP
+    PANCHANGAM_SERVICE --> CONFIG
+
 ```
 
 ### Intelligent Caching Strategy
@@ -572,65 +567,29 @@ Level 4 - Application Cache (1-24 hours):
   redis_warm: "Next 7 days for top 1000 cities (6 hour TTL)"
   redis_cold: "Historical data and rare locations (24 hour TTL)"
 
-Level 5 - Database Layer:
-  postgres: "Configuration, user preferences, regional settings"
+Level 5 - Reference Data:
+  configuration: "Files, environment variables, ConfigMaps, and Secrets"
   ephemeris: "Raw astronomical data with infinite TTL"
   time_series: "Historical panchangam calculations"
 ```
 
-### Database Architecture
-```sql
--- Optimized database schema for panchangam data
-CREATE TABLE locations (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
-    timezone VARCHAR(50) NOT NULL,
-    region VARCHAR(50) NOT NULL,
-    usage_count INTEGER DEFAULT 0,
-    last_accessed TIMESTAMP DEFAULT NOW(),
-    
-    INDEX idx_coordinates (latitude, longitude),
-    INDEX idx_region (region),
-    INDEX idx_usage (usage_count DESC, last_accessed DESC)
-);
+### Runtime Storage
+```yaml
+configuration:
+  source: "Files, environment variables, ConfigMaps, and Secrets"
+  examples: "region defaults, service endpoints, feature flags"
 
-CREATE TABLE panchangam_cache (
-    id SERIAL PRIMARY KEY,
-    location_id INTEGER REFERENCES locations(id),
-    date DATE NOT NULL,
-    calculation_method VARCHAR(20) NOT NULL,
-    
-    -- Compressed JSON data for fast retrieval
-    panchangam_data JSONB NOT NULL,
-    
-    created_at TIMESTAMP DEFAULT NOW(),
-    expires_at TIMESTAMP NOT NULL,
-    access_count INTEGER DEFAULT 0,
-    
-    UNIQUE INDEX idx_cache_lookup (location_id, date, calculation_method),
-    INDEX idx_expiry (expires_at),
-    INDEX idx_date_range (date, location_id)
-);
+cache:
+  source: "Redis"
+  examples: "popular locations, repeated date calculations, rate limit state"
 
--- Partitioned table for historical data
-CREATE TABLE panchangam_historical (
-    date DATE NOT NULL,
-    location_id INTEGER NOT NULL,
-    panchangam_data JSONB NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-) PARTITION BY RANGE (date);
+reference_data:
+  source: "Packaged files or external astronomical providers"
+  examples: "ephemeris inputs, regional calculation rules"
 ```
 
 ### Performance Optimization Strategy
 ```yaml
-Database Optimization:
-  connection_pooling: "pgbouncer with 100 max connections"
-  read_replicas: "3 read replicas across different regions"
-  connection_distribution: "Read queries distributed, writes to primary"
-  query_optimization: "EXPLAIN ANALYZE on all queries, sub-100ms target"
-
 Cache Optimization:
   redis_cluster: "6-node cluster with auto-failover"
   memory_management: "LRU eviction with intelligent retention"
@@ -650,7 +609,7 @@ Monitoring & Analytics:
   predictive_scaling: "Auto-scaling based on historical patterns"
 ```
 
-## 📈 Implementation Roadmap
+## Implementation Roadmap
 
 ### Phase-Based Rollout Strategy
 
@@ -714,7 +673,7 @@ Success Metrics:
   - Educational content accuracy verified by traditional scholars
 ```
 
-## 🎯 Success Metrics & Goals
+## Success Metrics & Goals
 
 ### Cultural Impact & Accessibility Goals
 
@@ -748,17 +707,17 @@ Future Enhancements:
   - Blockchain-based cultural heritage preservation
 ```
 
-## 🏛️ Architectural Principles Summary
+##  Architectural Principles Summary
 
 The designed architecture achieves:
 
-1. **🔄 Seamless Integration**: Natural integration into daily workflows through multiple touchpoints
-2. **⚡ Performance Excellence**: Sub-100ms responses with intelligent multi-tier caching
-3. **🌍 Cultural Sensitivity**: Respectful representation of traditions with modern accessibility  
-4. **📱 Platform Native**: Native performance and UX patterns on each platform
-5. **🎓 Progressive Learning**: From casual glances to deep astronomical education
-6. **🔐 Privacy-First**: User data protection with transparent privacy controls
-7. **🚀 Scalable Foundation**: Architecture supports millions of users with graceful scaling
+1. **In Progress Seamless Integration**: Natural integration into daily workflows through multiple touchpoints
+2. **Performance Excellence**: Sub-100ms responses with intelligent multi-tier caching
+3. **Cultural Sensitivity**: Respectful representation of traditions with modern accessibility
+4. **Platform Native**: Native performance and UX patterns on each platform
+5. **Progressive Learning**: From casual glances to deep astronomical education
+6. **Privacy-First**: User data protection with transparent privacy controls
+7. **Scalable Foundation**: Architecture supports millions of users with graceful scaling
 
 ### Design Philosophy
 
@@ -768,7 +727,7 @@ The architecture is designed for **long-term sustainability**, **cultural authen
 
 ---
 
-## 📝 Next Steps
+## Next Steps
 
 1. **Review this architecture document** and provide feedback
 2. **Prioritize platform development** based on target audience
@@ -778,7 +737,7 @@ The architecture is designed for **long-term sustainability**, **cultural authen
 
 ---
 
-**Document Status**: Ready for Review  
-**Stakeholder Review Required**: Yes  
-**Technical Review Required**: Yes  
+**Document Status**: Ready for Review
+**Stakeholder Review Required**: Yes
+**Technical Review Required**: Yes
 **Cultural Expert Review Required**: Yes

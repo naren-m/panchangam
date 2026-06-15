@@ -33,17 +33,17 @@ async function checkCalendar() {
   const foundTithi = tithiNames.find(t => bodyText?.includes(t));
 
   if (foundTithi) {
-    console.log(`✅ SUCCESS: Calendar data is showing! Found tithi: ${foundTithi}`);
+    console.log(`PASS: Calendar data is showing. Found tithi: ${foundTithi}`);
   } else if (bodyText?.includes('Loading')) {
-    console.log('⚠️ Still showing loading state');
+    console.log('WARN: Still showing loading state');
   } else if (bodyText?.includes('Backend server')) {
-    console.log('❌ Error: Backend server unavailable message showing');
+    console.log('FAIL: Backend server unavailable message showing');
   } else {
-    console.log('❓ Unknown state - checking for date numbers...');
+    console.log('Unknown state. Checking for date numbers...');
     // Look for date numbers 1-31
     const hasNumbers = /\b([1-9]|[12][0-9]|3[01])\b/.test(bodyText || '');
     if (hasNumbers) {
-      console.log('✅ Calendar appears to have date numbers');
+      console.log('PASS: Calendar appears to have date numbers');
     }
   }
 

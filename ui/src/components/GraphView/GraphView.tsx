@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { PanchangamData, Settings } from '../../types/panchangam';
 import { Calendar, Download, TrendingUp, Moon, Sun, Star, BarChart3 } from 'lucide-react';
+import { formatDateForApi, parseApiDate } from '../../utils/dateHelpers';
 
 interface GraphViewProps {
   year: number;
@@ -11,10 +12,22 @@ interface GraphViewProps {
   onExport?: (format: 'csv' | 'json') => void;
 }
 
+const SUN_TIME_CHART_WIDTH = 800;
+const SUN_TIME_CHART_HEIGHT = 200;
+const SUN_TIME_CHART_VIEWBOX = `0 0 ${SUN_TIME_CHART_WIDTH} ${SUN_TIME_CHART_HEIGHT}`;
+
 // Helper function to parse time string to minutes
 const parseTimeToMinutes = (time: string): number => {
   const [hours, minutes] = time.split(':').map(Number);
   return hours * 60 + minutes;
+};
+
+const sunTimeChartX = (index: number, totalPoints: number): number => {
+  if (totalPoints <= 1) {
+    return SUN_TIME_CHART_WIDTH / 2;
+  }
+
+  return (index / (totalPoints - 1)) * SUN_TIME_CHART_WIDTH;
 };
 
 export const GraphView: React.FC<GraphViewProps> = ({
@@ -83,17 +96,6 @@ export const GraphView: React.FC<GraphViewProps> = ({
     };
   }, [panchangamData]);
 
-  const formatMinutesToTime = (minutes: number): string => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (settings.time_format === '12') {
-      const period = hours >= 12 ? 'PM' : 'AM';
-      const displayHours = hours % 12 || 12;
-      return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
-    }
-    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
-  };
-
   if (chartData.totalDays === 0) {
     return (
       <div className="bg-white rounded-lg shadow-lg p-8 text-center">
@@ -106,6 +108,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
   const maxTithiCount = Math.max(...chartData.tithiCount.map(([, count]) => count));
   const maxNakshatraCount = Math.max(...chartData.nakshatraCount.map(([, count]) => count));
   const maxAuspicious = Math.max(...chartData.dailyAuspicious.map(d => d.count));
+  const todayKey = formatDateForApi(new Date());
 
   return (
     <div className="space-y-6">
@@ -213,9 +216,9 @@ export const GraphView: React.FC<GraphViewProps> = ({
         </h3>
         <div className="h-64 flex items-end gap-1 overflow-x-auto pb-2">
           {chartData.dailyAuspicious.map(({ date, count }) => {
-            const dateObj = new Date(date);
+            const dateObj = parseApiDate(date);
             const day = dateObj.getDate();
-            const isToday = date === new Date().toISOString().split('T')[0];
+            const isToday = date === todayKey;
             const height = maxAuspicious > 0 ? (count / maxAuspicious) * 100 : 0;
 
             return (
@@ -223,8 +226,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
                 key={date}
                 className="flex-1 min-w-[30px] flex flex-col items-center gap-1 cursor-pointer group"
                 onClick={() => {
-                  const [y, m, d] = date.split('-').map(Number);
-                  onDateClick(new Date(y, m - 1, d));
+                  onDateClick(parseApiDate(date));
                 }}
               >
                 <div className="relative flex-1 w-full flex items-end justify-center">
@@ -264,15 +266,15 @@ export const GraphView: React.FC<GraphViewProps> = ({
             Sunrise & Sunset Times
           </h3>
           <div className="h-64 relative">
-            <svg className="w-full h-full" viewBox="0 0 800 200" preserveAspectRatio="none">
+            <svg className="w-full h-full" viewBox={SUN_TIME_CHART_VIEWBOX} preserveAspectRatio="none">
               {/* Grid lines */}
               {[0, 25, 50, 75, 100].map(percent => (
                 <line
                   key={percent}
                   x1="0"
-                  y1={200 - (percent * 2)}
-                  x2="800"
-                  y2={200 - (percent * 2)}
+                  y1={SUN_TIME_CHART_HEIGHT - (percent * 2)}
+                  x2={SUN_TIME_CHART_WIDTH}
+                  y2={SUN_TIME_CHART_HEIGHT - (percent * 2)}
                   stroke="#e5e7eb"
                   strokeWidth="1"
                 />
@@ -281,8 +283,8 @@ export const GraphView: React.FC<GraphViewProps> = ({
               {/* Sunrise line */}
               <polyline
                 points={chartData.sunTimes.map((d, i) => {
-                  const x = (i / (chartData.sunTimes.length - 1)) * 800;
-                  const y = 200 - ((d.sunrise - 240) / 480) * 200; // 4am to 12pm range
+                  const x = sunTimeChartX(i, chartData.sunTimes.length);
+                  const y = SUN_TIME_CHART_HEIGHT - ((d.sunrise - 240) / 480) * SUN_TIME_CHART_HEIGHT; // 4am to 12pm range
                   return `${x},${y}`;
                 }).join(' ')}
                 fill="none"
@@ -295,8 +297,8 @@ export const GraphView: React.FC<GraphViewProps> = ({
               {/* Sunset line */}
               <polyline
                 points={chartData.sunTimes.map((d, i) => {
-                  const x = (i / (chartData.sunTimes.length - 1)) * 800;
-                  const y = 200 - ((d.sunset - 960) / 480) * 200; // 4pm to 12am range
+                  const x = sunTimeChartX(i, chartData.sunTimes.length);
+                  const y = SUN_TIME_CHART_HEIGHT - ((d.sunset - 960) / 480) * SUN_TIME_CHART_HEIGHT; // 4pm to 12am range
                   return `${x},${y}`;
                 }).join(' ')}
                 fill="none"
@@ -331,15 +333,14 @@ export const GraphView: React.FC<GraphViewProps> = ({
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {chartData.festivalDays.map(({ date, festivals }) => {
-              const dateObj = new Date(date);
-              const isToday = date === new Date().toISOString().split('T')[0];
+              const dateObj = parseApiDate(date);
+              const isToday = date === todayKey;
 
               return (
                 <div
                   key={date}
                   onClick={() => {
-                    const [y, m, d] = date.split('-').map(Number);
-                    onDateClick(new Date(y, m - 1, d));
+                    onDateClick(parseApiDate(date));
                   }}
                   className={`
                     p-4 rounded-lg border-2 cursor-pointer transition-all
@@ -364,7 +365,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
                   <div className="space-y-1">
                     {festivals.map((festival, i) => (
                       <div key={i} className="text-sm text-gray-700 font-medium">
-                        • {festival}
+                        {festival}
                       </div>
                     ))}
                   </div>
@@ -381,21 +382,21 @@ export const GraphView: React.FC<GraphViewProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center p-4 bg-orange-50 rounded-lg">
             <div className="text-3xl font-bold text-orange-600">{chartData.totalDays}</div>
-            <div className="text-sm text-gray-600 mt-1">Total Days</div>
+            <span className="text-sm text-gray-600 mt-1 block">Total Days</span>
           </div>
           <div className="text-center p-4 bg-purple-50 rounded-lg">
             <div className="text-3xl font-bold text-purple-600">{chartData.festivalDays.length}</div>
-            <div className="text-sm text-gray-600 mt-1">Festivals</div>
+            <span className="text-sm text-gray-600 mt-1 block">Festivals</span>
           </div>
           <div className="text-center p-4 bg-blue-50 rounded-lg">
             <div className="text-3xl font-bold text-blue-600">{chartData.tithiCount.length}</div>
-            <div className="text-sm text-gray-600 mt-1">Unique Tithis</div>
+            <span className="text-sm text-gray-600 mt-1 block">Unique Tithis</span>
           </div>
           <div className="text-center p-4 bg-green-50 rounded-lg">
             <div className="text-3xl font-bold text-green-600">
               {chartData.dailyAuspicious.reduce((sum, d) => sum + d.count, 0)}
             </div>
-            <div className="text-sm text-gray-600 mt-1">Auspicious Events</div>
+            <span className="text-sm text-gray-600 mt-1 block">Auspicious Events</span>
           </div>
         </div>
       </div>

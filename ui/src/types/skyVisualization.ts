@@ -56,7 +56,7 @@ export interface CelestialObject {
   magnitude?: number;
   color?: string;
   size?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Nakshatra specific

@@ -13,8 +13,8 @@ interface CacheOptions {
  * Request cache to prevent duplicate API calls and implement request throttling
  */
 export class RequestCache {
-  private cache = new Map<string, CacheEntry<any>>();
-  private pendingRequests = new Map<string, Promise<any>>();
+  private cache = new Map<string, CacheEntry<unknown>>();
+  private pendingRequests = new Map<string, Promise<unknown>>();
   private options: Required<CacheOptions>;
 
   constructor(options: CacheOptions = {}) {
@@ -27,13 +27,10 @@ export class RequestCache {
   /**
    * Generate cache key from request parameters
    */
-  private generateKey(endpoint: string, params: Record<string, any>): string {
-    const sortedParams = Object.keys(params)
-      .sort()
-      .reduce((result, key) => {
-        result[key] = params[key];
-        return result;
-      }, {} as Record<string, any>);
+  private generateKey(endpoint: string, params: Record<string, unknown>): string {
+    const sortedParams = Object.fromEntries(
+      Object.entries(params).sort(([left], [right]) => left.localeCompare(right))
+    );
 
     return `${endpoint}:${JSON.stringify(sortedParams)}`;
   }
@@ -41,7 +38,7 @@ export class RequestCache {
   /**
    * Get cached data if available and not expired
    */
-  get<T>(endpoint: string, params: Record<string, any>): T | null {
+  get<T>(endpoint: string, params: Record<string, unknown>): T | null {
     const key = this.generateKey(endpoint, params);
     const entry = this.cache.get(key);
 
@@ -54,21 +51,23 @@ export class RequestCache {
       return null;
     }
 
-    return entry.data;
+    return entry.data as T;
   }
 
   /**
    * Store data in cache
    */
-  set<T>(endpoint: string, params: Record<string, any>, data: T, customTtl?: number): void {
+  set<T>(endpoint: string, params: Record<string, unknown>, data: T, customTtl?: number): void {
     const key = this.generateKey(endpoint, params);
     const ttl = customTtl ?? this.options.ttl;
     const now = Date.now();
 
-    // Implement LRU eviction if cache is full
+    // Remove the oldest entry if cache is full.
     if (this.cache.size >= this.options.maxSize) {
       const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
     }
 
     this.cache.set(key, {
@@ -81,23 +80,24 @@ export class RequestCache {
   /**
    * Get pending request promise or create new one
    */
-  getPendingRequest<T>(endpoint: string, params: Record<string, any>): Promise<T> | null {
+  getPendingRequest<T>(endpoint: string, params: Record<string, unknown>): Promise<T> | null {
     const key = this.generateKey(endpoint, params);
-    return this.pendingRequests.get(key) || null;
+    return (this.pendingRequests.get(key) as Promise<T> | undefined) || null;
   }
 
   /**
    * Store pending request promise
    */
-  setPendingRequest<T>(endpoint: string, params: Record<string, any>, promise: Promise<T>): void {
+  setPendingRequest<T>(endpoint: string, params: Record<string, unknown>, promise: Promise<T>): void {
     const key = this.generateKey(endpoint, params);
-    
-    // Clean up when promise resolves or rejects
-    const cleanupPromise = promise.finally(() => {
-      this.pendingRequests.delete(key);
-    });
 
-    this.pendingRequests.set(key, cleanupPromise);
+    // Clean up when promise resolves or rejects
+    promise.then(
+      () => this.pendingRequests.delete(key),
+      () => this.pendingRequests.delete(key)
+    );
+
+    this.pendingRequests.set(key, promise);
   }
 
   /**

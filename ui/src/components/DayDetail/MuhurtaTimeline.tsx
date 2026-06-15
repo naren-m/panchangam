@@ -1,4 +1,5 @@
 import React from 'react';
+import { Clock } from 'lucide-react';
 import { Event, Settings } from '../../types/panchangam';
 import { formatTimeRange } from '../../utils/dateHelpers';
 
@@ -39,7 +40,7 @@ export const MuhurtaTimeline: React.FC<MuhurtaTimelineProps> = ({ events, settin
   return (
     <div className="bg-white rounded-lg p-4 border border-gray-200">
       <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-        <span className="mr-2">⏰</span>
+        <Clock className="mr-2 h-5 w-5" aria-hidden="true" />
         Muhurta Timeline
       </h3>
       <div className="space-y-3">

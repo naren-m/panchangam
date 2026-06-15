@@ -195,12 +195,7 @@ function getLocalSiderealTime(longitude: number, time: Date): number {
   gmst0 = gmst0 % 360;
   if (gmst0 < 0) gmst0 += 360;
   
-  // Add hour angle
-  const ut = time.getUTCHours() + 
-    time.getUTCMinutes() / 60 + 
-    time.getUTCSeconds() / 3600;
-  
-  let lst = gmst0 + ut * 15 + longitude;
+  let lst = gmst0 + longitude;
   
   // Normalize to 0-360
   lst = lst % 360;
@@ -222,9 +217,9 @@ export function dateToJulianDay(date: Date): number {
   const minute = date.getUTCMinutes();
   const second = date.getUTCSeconds();
   
-  let a = Math.floor((14 - month) / 12);
-  let y = year + 4800 - a;
-  let m = month + 12 * a - 3;
+  const a = Math.floor((14 - month) / 12);
+  const y = year + 4800 - a;
+  const m = month + 12 * a - 3;
   
   let jdn = day + Math.floor((153 * m + 2) / 5) + 
     365 * y + Math.floor(y / 4) - 
